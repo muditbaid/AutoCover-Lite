@@ -64,7 +64,8 @@ class Telemetry:
                         otel_span.set_attribute(f"autocover.{key}", value)
                 otel_span.set_attribute("autocover.status", status)
                 otel_cm.__exit__(None, None, None)
-            self.event(stage, name, duration_ms=duration_ms, status=status, **extra)
+            # Span bookkeeping wins over caller attributes with the same name.
+            self.event(stage, name, **{**extra, "duration_ms": duration_ms, "status": status})
 
 
 def _make_tracer(endpoint: str):
