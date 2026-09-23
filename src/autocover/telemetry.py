@@ -29,7 +29,9 @@ class Telemetry:
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._tracer = _make_tracer(otlp_endpoint) if otlp_endpoint else None
+        self._provider, self._tracer = (
+            _make_tracer(otlp_endpoint) if otlp_endpoint else (None, None)
+        )
         self.events: list[dict[str, Any]] = []  # in-memory copy for run summaries
 
     def event(self, stage: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -41,6 +43,12 @@ class Telemetry:
                 with self.path.open("a", encoding="utf-8") as fh:
                     fh.write(json.dumps(record, default=str) + "\n")
         return record
+
+    def close(self) -> None:
+        """Flush buffered OpenTelemetry spans (call once at the end of a run)."""
+        if self._provider is not None:
+            self._provider.shutdown()
+            self._provider = self._tracer = None
 
     @contextmanager
     def span(self, stage: str, name: str, **attrs: Any) -> Iterator[dict[str, Any]]:
@@ -70,16 +78,14 @@ class Telemetry:
 
 def _make_tracer(endpoint: str):
     try:
-        from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
     except ImportError:  # optional dependency
-        return None
+        return None, None
     provider = TracerProvider(resource=Resource.create({"service.name": "autocover-lite"}))
     provider.add_span_processor(
         BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint.rstrip("/") + "/v1/traces"))
     )
-    trace.set_tracer_provider(provider)
-    return trace.get_tracer("autocover")
+    return provider, provider.get_tracer("autocover")

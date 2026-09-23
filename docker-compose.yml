@@ -1,0 +1,13 @@
+# Local observability stack.
+#   docker compose up -d jaeger
+#   set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 (or telemetry.otlp_endpoint)
+#   open http://localhost:16686 and pick the "autocover-lite" service.
+# Test sandboxes are not defined here: the tool starts one container per test run itself.
+services:
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    restart: unless-stopped
