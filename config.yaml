@@ -1,0 +1,47 @@
+# AutoCover-Lite configuration.
+# Model ids are LiteLLM strings ("<provider>/<model>"). Free-tier model names change;
+# confirm them in each provider console and with bench/model_bakeoff.py.
+
+llm:
+  # Fallback chain per agent role: first healthy model wins.
+  roles:
+    generator: [mistral/devstral-medium-latest, gemini/gemini-flash-latest, openrouter/openrouter/free]
+    fixer: [gemini/gemini-flash-latest, mistral/devstral-medium-latest, openrouter/openrouter/free]
+    preparer: [gemini/gemini-flash-latest, groq/openai/gpt-oss-120b]
+    judge: [cerebras/gpt-oss-120b, groq/openai/gpt-oss-20b]
+  # Client-side limits per provider, set a little under the free-tier quotas.
+  providers:
+    gemini: { rpm: 10, max_concurrency: 2 }
+    mistral: { rpm: 50, max_concurrency: 1 }
+    groq: { rpm: 25, max_concurrency: 2 }
+    cerebras: { rpm: 25, max_concurrency: 2 }
+    openrouter: { rpm: 15, max_concurrency: 1 }
+  temperature: 0.2
+  timeout_s: 120
+  retries: 3
+  backoff_base_s: 1.0
+  backoff_max_s: 30.0
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_s: 120
+  cache:
+    enabled: true
+    path: .autocover/llm_cache.sqlite
+
+sandbox:
+  backend: docker        # docker | local (local = subprocess, for development only)
+  python_version: "3.12"
+  timeout_s: 120
+  memory: 1g
+  cpus: 1.0
+  pids_limit: 256
+  max_parallel: 4
+  workdir: null          # scratch dir for workspaces; null = system temp dir
+
+mutation:
+  max_mutants_per_function: 8
+  seed: 0
+
+telemetry:
+  jsonl_path: .autocover/telemetry.jsonl
+  otlp_endpoint: null    # or set OTEL_EXPORTER_OTLP_ENDPOINT, e.g. http://localhost:4318

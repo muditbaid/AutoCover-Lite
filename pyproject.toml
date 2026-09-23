@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autocover-lite"
+version = "0.1.0"
+description = "Multi-agent Python test generator with coverage, scenario and mutation quality gates"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "litellm>=1.50",
+    "pydantic>=2.6",
+    "pyyaml>=6",
+    "typer>=0.12",
+    "docker>=7.1",
+    "libcst>=1.4",
+    "coverage>=7.5",
+    "pytest>=8",
+    "langgraph>=0.2",
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.5"]
+
+[project.scripts]
+autocover = "autocover.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autocover"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["docker: needs a running Docker engine (skipped automatically when unavailable)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
