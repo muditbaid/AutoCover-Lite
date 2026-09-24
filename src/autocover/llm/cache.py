@@ -52,3 +52,51 @@ class ResponseCache:
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+
+class UsageLedger:
+    """Requests sent per (UTC day, model), persisted so daily caps survive restarts.
+
+    Every HTTP attempt counts (including failed ones), because providers count them too.
+    """
+
+    def __init__(self, path: str | Path = ":memory:"):
+        path = Path(path)
+        if str(path) != ":memory:":
+            path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(path), check_same_thread=False)
+        self._lock = threading.Lock()
+        with self._lock:
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS usage ("
+                " day TEXT, model TEXT, requests INTEGER, tokens INTEGER,"
+                " PRIMARY KEY (day, model))"
+            )
+            self._conn.commit()
+
+    def record(self, day: str, model: str, requests: int = 1, tokens: int = 0) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO usage VALUES (?, ?, ?, ?) ON CONFLICT(day, model) DO UPDATE SET"
+                " requests = requests + excluded.requests, tokens = tokens + excluded.tokens",
+                (day, model, requests, tokens),
+            )
+            self._conn.commit()
+
+    def requests(self, day: str, model: str) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT requests FROM usage WHERE day = ? AND model = ?", (day, model)
+            ).fetchone()
+        return row[0] if row else 0
+
+    def day_summary(self, day: str) -> dict[str, tuple[int, int]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT model, requests, tokens FROM usage WHERE day = ? ORDER BY model", (day,)
+            ).fetchall()
+        return {model: (req, tok) for model, req, tok in rows}
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()

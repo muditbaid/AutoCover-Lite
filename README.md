@@ -34,17 +34,22 @@ tests for a module. A test is kept only if:
 | Splicer | `src/autocover/tools/splicer.py` | libcst merges tests without disturbing existing formatting. Imports are deduplicated, and name clashes are renamed deterministically (references included). |
 | Sandbox | `src/autocover/tools/sandbox.py` | One Docker image per target repo. Each run gets its own container with `--network none`, memory/CPU/pid limits and a hard timeout, and reports per-test outcomes plus line/branch coverage. |
 
-Models are chosen per role (see `config.yaml`):
+Models are chosen per role, pinned to exact versions (see `config.yaml`):
 
 | Role | #1 | #2 | #3 |
 |---|---|---|---|
-| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral (Mistral) | Gemini Flash |
-| Fixer | Gemini Flash | Nemotron 3 Super | Codestral |
-| Preparer | Gemini Flash | Nemotron 3 Ultra (NIM) | GPT-OSS 120B (Groq) |
-| Validator judge | GPT-OSS 20B (Groq) | GPT-OSS 120B (Groq) | Gemini Flash-Lite |
+| Generator | Nemotron 3 Super (NVIDIA NIM) | `codestral-2508` (Mistral) | `gemini-3.5-flash` |
+| Fixer | `gemini-3.5-flash` | Nemotron 3 Super | `codestral-2508` |
+| Preparer | `gemini-3.5-flash` | Nemotron 3 Ultra (NIM) | GPT-OSS 120B (Groq) |
+| Validator judge | GPT-OSS 20B (Groq) | `ministral-14b-2512` (Mistral) | `gemini-3.5-flash-lite` |
 
-All of these answered on free tiers as of 2026-09-23 (`autocover llm-ping --model <id>`).
-Devstral isn't on Mistral's free plan, and Cerebras required billing on the test account.
+Free-tier quotas are metered **per model version**, so `config.yaml` pins versions (no
+`-latest` aliases) and sets per-model `rpm` / `tpm` / `rpd` limits taken from each
+provider's rate-limit headers. The router skips a model when:
+- its daily cap is used up (tracked in `.autocover/usage.sqlite`), or
+- its limits would make a call wait longer than `max_queue_wait_s`.
+
+`autocover usage` shows today's usage against each cap.
 
 ## Quickstart
 

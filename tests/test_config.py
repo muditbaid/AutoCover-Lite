@@ -15,5 +15,11 @@ def test_repo_config_parses_roles_and_limits():
     cfg = load_config(ROOT / "config.yaml")
     assert set(cfg.llm.roles) == {"generator", "fixer", "preparer", "judge"}
     assert all(cfg.llm.roles.values())
-    assert cfg.llm.limits_for("gemini").rpm > 0
+    # Versions are pinned: no floating "-latest" aliases in any chain.
+    assert not any("latest" in m for chain in cfg.llm.roles.values() for m in chain)
+    # Groq's measured free-tier limits are per model; NIM's RPM is account-wide.
+    groq = cfg.llm.model_limits("groq/openai/gpt-oss-20b")
+    assert groq.tpm and groq.tpm < 8000 and groq.rpd and groq.rpd < 1000
+    assert cfg.llm.limits_for("nvidia_nim").rpm < 40
+    assert cfg.llm.model_limits("unknown/model").rpm is None
     assert cfg.llm.limits_for("unknown-provider").max_concurrency == 1

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from autocover.config import Config
-from autocover.llm.cache import ResponseCache
+from autocover.llm.cache import ResponseCache, UsageLedger
 from autocover.llm.router import LLMRouter
 from autocover.telemetry import Telemetry
 
@@ -18,10 +18,12 @@ class Runtime:
     telemetry: Telemetry
     router: LLMRouter
     cache: ResponseCache | None
+    usage: UsageLedger
 
     def close(self) -> None:
         if self.cache:
             self.cache.close()
+        self.usage.close()
         self.telemetry.close()
 
 
@@ -45,5 +47,6 @@ def build_runtime(config: Config, *, run_id: str | None = None) -> Runtime:
     telemetry = Telemetry(run_id=run_id, jsonl_path=config.telemetry.jsonl_path,
                           otlp_endpoint=endpoint)
     cache = ResponseCache(config.llm.cache.path) if config.llm.cache.enabled else None
-    router = LLMRouter(config.llm, cache=cache, telemetry=telemetry)
-    return Runtime(config=config, telemetry=telemetry, router=router, cache=cache)
+    usage = UsageLedger(config.llm.usage_path)
+    router = LLMRouter(config.llm, cache=cache, usage=usage, telemetry=telemetry)
+    return Runtime(config=config, telemetry=telemetry, router=router, cache=cache, usage=usage)

@@ -81,6 +81,30 @@ def llm_ping(
     typer.echo(resp.text.strip())
 
 
+@app.command()
+def usage(config: Path = ConfigOpt) -> None:
+    """Show today's (UTC) requests and tokens per model against configured caps."""
+    from datetime import UTC, datetime
+
+    from autocover.llm.cache import UsageLedger
+
+    cfg = load_config(config)
+    day = datetime.now(UTC).date().isoformat()
+    ledger = UsageLedger(cfg.llm.usage_path)
+    summary = ledger.day_summary(day)
+    ledger.close()
+    models = sorted({m for chain in cfg.llm.roles.values() for m in chain} | set(summary))
+    typer.echo(f"usage for {day} (UTC)\n")
+    typer.echo(f"{'model':<48} {'requests':>9} {'rpd cap':>8} {'tokens':>9}  rpm/tpm")
+    for model in models:
+        req, tok = summary.get(model, (0, 0))
+        lim = cfg.llm.model_limits(model)
+        cap = str(lim.rpd) if lim.rpd else "-"
+        flag = "  CAP REACHED" if lim.rpd and req >= lim.rpd else ""
+        rate = "/".join(f"{v:g}" if v else "-" for v in (lim.rpm, lim.tpm))
+        typer.echo(f"{model:<48} {req:>9} {cap:>8} {tok:>9}  {rate}{flag}")
+
+
 @app.command("sandbox-run")
 def sandbox_run(
     repo: Path = typer.Argument(..., help="Repository root"),

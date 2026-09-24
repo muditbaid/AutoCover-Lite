@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from autocover.config import CircuitBreakerConfig, LLMConfig, ProviderLimits
-from autocover.llm.cache import ResponseCache
+from autocover.config import CircuitBreakerConfig, LLMConfig, ModelLimits, ProviderLimits
+from autocover.llm.cache import ResponseCache, UsageLedger
 from autocover.llm.router import AllModelsFailed, LLMRouter, TokenBucket, is_retryable
 from autocover.telemetry import Telemetry
 
@@ -143,7 +143,7 @@ def test_unknown_role_raises():
 
 def test_token_bucket_spaces_requests():
     clock = FakeClock()
-    bucket = TokenBucket(rpm=60, capacity=1, clock=clock, sleep=clock.sleep)
+    bucket = TokenBucket(per_minute=60, capacity=1, clock=clock, sleep=clock.sleep)
 
     async def take(n):
         for _ in range(n):
@@ -158,3 +158,70 @@ def test_is_retryable():
     assert is_retryable(TimeoutError())
     assert not is_retryable(ProviderError(400))
     assert not is_retryable(ValueError("bad"))
+
+
+# -- per-model limits -------------------------------------------------------------
+
+def make_limited_router(models, *, usage=None, max_wait=15, day="2026-09-23"):
+    clock = FakeClock()
+    cfg = LLMConfig(
+        roles={"gen": ["a/one", "b/two"]},
+        providers={"a": ProviderLimits(rpm=None, max_concurrency=4),
+                   "b": ProviderLimits(rpm=None, max_concurrency=4)},
+        models=models, max_queue_wait_s=max_wait, retries=0,
+    )
+    fake = FakeCompletion({"a/one": ["a"] * 20, "b/two": ["b"] * 20})
+    router = LLMRouter(cfg, usage=usage, completion_fn=fake, require_keys=False,
+                       clock=clock, sleep=clock.sleep, today=lambda: day)
+    return router, fake, clock
+
+
+def test_daily_cap_skips_model_and_persists(tmp_path):
+    ledger = UsageLedger(tmp_path / "u.sqlite")
+    router, fake, _ = make_limited_router({"a/one": ModelLimits(rpd=2)}, usage=ledger)
+    models = [run(router.complete("gen", MESSAGES, use_cache=False)).model for _ in range(3)]
+    assert models == ["a/one", "a/one", "b/two"]
+    # A new router (new process) sharing the ledger still sees today's usage...
+    router2, _, _ = make_limited_router({"a/one": ModelLimits(rpd=2)},
+                                        usage=UsageLedger(tmp_path / "u.sqlite"))
+    assert run(router2.complete("gen", MESSAGES)).model == "b/two"
+    # ...but a new UTC day resets the cap.
+    router3, _, _ = make_limited_router({"a/one": ModelLimits(rpd=2)},
+                                        usage=UsageLedger(tmp_path / "u.sqlite"),
+                                        day="2026-09-24")
+    assert run(router3.complete("gen", MESSAGES)).model == "a/one"
+
+
+def test_tpm_throttle_skips_to_next_model_instead_of_waiting():
+    # 1,200 tokens/min; each call estimates ~1,024+ tokens, so the 2nd call would wait ~50s.
+    router, fake, clock = make_limited_router({"a/one": ModelLimits(tpm=1200)})
+    assert run(router.complete("gen", MESSAGES)).model == "a/one"
+    assert run(router.complete("gen", MESSAGES, use_cache=False)).model == "b/two"
+    assert clock.now == 0  # skipped, never slept
+    assert router.expected_wait("a/one", 1024) > 15
+
+
+def test_last_model_in_chain_waits_rather_than_failing():
+    router, fake, clock = make_limited_router(
+        {"a/one": ModelLimits(rpm=1), "b/two": ModelLimits(rpm=1)}, max_wait=5)
+    for _ in range(3):
+        run(router.complete("gen", MESSAGES, use_cache=False))
+    assert fake.calls == ["a/one", "b/two", "b/two"]  # a/one skipped once; b/two waited
+    assert clock.now == pytest.approx(60, rel=0.01)
+
+
+def test_usage_ledger_records_requests_and_tokens():
+    ledger = UsageLedger()
+    router, _, _ = make_limited_router({}, usage=ledger)
+    run(router.complete("gen", MESSAGES))
+    assert ledger.day_summary("2026-09-23") == {"a/one": (1, 8)}
+
+
+def test_token_bucket_amounts_and_wait_time():
+    clock = FakeClock()
+    bucket = TokenBucket(per_minute=600, capacity=600, clock=clock, sleep=clock.sleep)
+    assert bucket.wait_time(600) == 0
+    run(bucket.acquire(600))
+    assert bucket.wait_time(300) == pytest.approx(30)  # 10 tokens/s
+    run(bucket.acquire(5000))  # oversized: capped at capacity, waits for a full bucket
+    assert clock.now == pytest.approx(60)

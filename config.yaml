@@ -1,35 +1,55 @@
 # AutoCover-Lite configuration.
 # Model ids are LiteLLM strings ("<provider>/<model>"). Free-tier model names change;
-# confirm them in each provider console and with bench/model_bakeoff.py.
+# confirm them with `autocover llm-ping --model <id>` and bench/model_bakeoff.py.
 
 llm:
-  # Fallback chain per agent role: first healthy model wins.
+  # Fallback chain per agent role: first healthy model wins. Versions are pinned (no
+  # "-latest" aliases): aliases move without notice, and free-tier quotas are metered per
+  # model version, so a silent alias change would also change the limits.
   roles:
     generator:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
-      - mistral/codestral-latest
-      - gemini/gemini-flash-latest
+      - mistral/codestral-2508
+      - gemini/gemini-3.5-flash
     fixer:
-      - gemini/gemini-flash-latest
+      - gemini/gemini-3.5-flash
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
-      - mistral/codestral-latest
+      - mistral/codestral-2508
     preparer:
-      - gemini/gemini-flash-latest
+      - gemini/gemini-3.5-flash
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       - groq/openai/gpt-oss-120b
     judge:
       - groq/openai/gpt-oss-20b
-      - groq/openai/gpt-oss-120b
-      - gemini/gemini-flash-lite-latest
-  # Client-side limits per provider, set a little under the free-tier quotas.
-  # Verified 2026-09-23: Devstral is not on Mistral's free plan (use Codestral);
-  # Cerebras models return "payment required" on this account, so it is not used.
+      - mistral/ministral-14b-2512
+      - gemini/gemini-3.5-flash-lite
+
+  # Per-model quotas, set ~10% under what each provider reported for this account on
+  # 2026-09-23 (rate-limit response headers). `autocover usage` shows today's counts.
+  models:
+    groq/openai/gpt-oss-20b: { rpm: 25, tpm: 7200, rpd: 950 }     # reported: 1000/day, 8K TPM
+    groq/openai/gpt-oss-120b: { rpm: 25, tpm: 7200, rpd: 950 }    # reported: 1000/day, 8K TPM
+    mistral/codestral-2508: { rpm: 110, tpm: 560000 }             # reported: 125 RPM, 625K TPM
+    mistral/ministral-14b-2512: { rpm: 27, tpm: 840000 }          # reported: 30 RPM, 937K TPM
+    # Gemini sends no rate-limit headers; these are conservative placeholders. Check the
+    # real free-tier numbers at https://aistudio.google.com/rate-limit and update.
+    gemini/gemini-3.5-flash: { rpm: 8, rpd: 200 }
+    gemini/gemini-3.5-flash-lite: { rpm: 12, rpd: 800 }
+    # NVIDIA NIM meters the whole account (see providers.nvidia_nim), not each model.
+
+  # Provider-wide limits (shared by all of a provider's models) and concurrency.
   providers:
-    gemini: { rpm: 10, max_concurrency: 2 }
-    mistral: { rpm: 50, max_concurrency: 1 }
-    groq: { rpm: 25, max_concurrency: 2 }
-    nvidia_nim: { rpm: 35, max_concurrency: 3 }  # ~40 RPM shared across all NIM models
+    nvidia_nim: { rpm: 35, max_concurrency: 3 }  # ~40 RPM for the whole account
+    gemini: { rpm: null, max_concurrency: 2 }
+    mistral: { rpm: null, max_concurrency: 2 }
+    groq: { rpm: null, max_concurrency: 2 }
     openrouter: { rpm: 15, max_concurrency: 1 }
+
+  # Checked 2026-09-23 and NOT usable on the free plans of this account:
+  #   Mistral: devstral-*, mistral-small/medium/large, magistral-* (0 RPM quota or tier-locked)
+  #   Cerebras: gpt-oss-120b, qwen-3.8-27b ("payment required"); older models archived
+  #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"
+  max_queue_wait_s: 15   # longer expected wait -> try the next model instead
   temperature: 0.2
   timeout_s: 120
   retries: 3
@@ -41,6 +61,7 @@ llm:
   cache:
     enabled: true
     path: .autocover/llm_cache.sqlite
+  usage_path: .autocover/usage.sqlite
 
 sandbox:
   backend: docker        # docker | local (local = subprocess, for development only)

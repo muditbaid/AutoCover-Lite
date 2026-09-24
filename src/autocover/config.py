@@ -10,8 +10,18 @@ from pydantic import BaseModel, Field
 
 
 class ProviderLimits(BaseModel):
-    rpm: float = 10
+    """Limits shared by every model of a provider (e.g. NVIDIA NIM's account-wide RPM)."""
+
+    rpm: float | None = 10
     max_concurrency: int = 1
+
+
+class ModelLimits(BaseModel):
+    """Per-model free-tier quotas. Free tiers meter most limits per model version."""
+
+    rpm: float | None = None  # requests per minute
+    tpm: float | None = None  # tokens per minute (prompt + completion)
+    rpd: int | None = None    # requests per day (UTC day)
 
 
 class CircuitBreakerConfig(BaseModel):
@@ -27,6 +37,10 @@ class CacheConfig(BaseModel):
 class LLMConfig(BaseModel):
     roles: dict[str, list[str]] = Field(default_factory=dict)
     providers: dict[str, ProviderLimits] = Field(default_factory=dict)
+    models: dict[str, ModelLimits] = Field(default_factory=dict)
+    # If a model's limits would make a call wait longer than this, try the next model in
+    # the chain instead (the last model in a chain always waits).
+    max_queue_wait_s: float = 15
     temperature: float = 0.2
     timeout_s: float = 120
     retries: int = 3
@@ -34,9 +48,13 @@ class LLMConfig(BaseModel):
     backoff_max_s: float = 30.0
     circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
+    usage_path: str = ".autocover/usage.sqlite"  # per-day request counts for RPD caps
 
     def limits_for(self, provider: str) -> ProviderLimits:
         return self.providers.get(provider, ProviderLimits())
+
+    def model_limits(self, model: str) -> ModelLimits:
+        return self.models.get(model, ModelLimits())
 
 
 class SandboxConfig(BaseModel):
