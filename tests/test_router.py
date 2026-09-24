@@ -286,3 +286,14 @@ def test_provider_api_base_and_key_env_are_passed_through(monkeypatch):
     assert seen["api_base"] == "https://ollama.com" and seen["api_key"] == "secret"
     monkeypatch.delenv("MY_OLLAMA_KEY")
     assert not router.available("ollama_chat/gpt-oss:120b")
+
+
+def test_cloudflare_neuron_allocation_counts_as_daily_quota():
+    from autocover.llm.router import is_daily_quota_error
+
+    class CloudflareError(Exception):
+        status_code = 429
+
+    exc = CloudflareError("4006: you have used up your daily free allocation of 10,000 "
+                          "neurons, please upgrade to Cloudflare's Workers Paid plan")
+    assert is_daily_quota_error(exc)

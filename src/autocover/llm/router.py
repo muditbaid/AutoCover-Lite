@@ -72,14 +72,17 @@ def provider_of(model: str) -> str:
     return model.split("/", 1)[0]
 
 
-_DAILY_QUOTA = re.compile(r"per[ _-]?day|PerDay|daily (quota|limit)|requests per day", re.I)
+_DAILY_QUOTA = re.compile(
+    r"per[ _-]?day|PerDay|daily (quota|limit|free allocation)|requests per day", re.I
+)
 
 
 def is_daily_quota_error(exc: BaseException) -> bool:
     """A 429 caused by an exhausted *daily* quota: retrying today is pointless."""
     status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
     text = str(exc)
-    looks_429 = status == 429 or "RESOURCE_EXHAUSTED" in text or "RateLimit" in type(exc).__name__
+    looks_429 = (status == 429 or "RESOURCE_EXHAUSTED" in text
+                 or "RateLimit" in type(exc).__name__ or "free allocation" in text)
     return looks_429 and bool(_DAILY_QUOTA.search(text))
 
 

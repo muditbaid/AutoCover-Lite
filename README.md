@@ -39,13 +39,13 @@ in `config.yaml`):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
-| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral 2508 -> Nemotron 3 Super (Ollama Cloud) -> GLM-4.7-Flash (Z.ai) -> Gemini 3.5 / 2.5 Flash -> OpenRouter |
-| Fixer | Nemotron 3 Super (NIM) | Codestral 2508 -> GPT-OSS 120B (Ollama) -> GLM-4.7-Flash -> Gemini 3.5 / 2.5 Flash |
+| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral 2508 -> Nemotron 3 Super (Ollama Cloud) -> Nemotron 3 Super (Cloudflare) -> GLM-4.7-Flash (Z.ai) -> Gemini 3.5 / 2.5 Flash -> OpenRouter |
+| Fixer | Nemotron 3 Super (NIM) | Codestral 2508 -> GPT-OSS 120B (Ollama) -> Nemotron 3 Super (Cloudflare) -> GLM-4.7-Flash -> Gemini 3.5 / 2.5 Flash |
 | Preparer | Nemotron 3 Ultra (NIM) | Nemotron 3 Ultra (Ollama) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
-| Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
+| Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
 
-The same model on two providers (NVIDIA NIM and Ollama Cloud) gives two independent
-quotas at one quality level. Gemini Flash sits late in every chain because the free tier
+The same model on several providers (Nemotron 3 Super on NVIDIA NIM, Ollama Cloud and
+Cloudflare) gives independent quotas at one quality level. Gemini Flash sits late in every chain because the free tier
 allows only **20 requests per day per Flash version**. NVIDIA NIM has no daily cap (~40 RPM
 for the account).
 
