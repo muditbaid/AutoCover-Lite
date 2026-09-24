@@ -26,7 +26,7 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
     base = cst.parse_module(existing or "")
     cand = cst.parse_module(candidate)
 
-    existing_imports = {_code(s) for s in base.body if _is_import(s)}
+    bound = set().union(*(_bindings(s) for s in base.body if _is_import(s)))
     existing_stmts = {_code(s) for s in base.body}
     taken = _defined_names(base)
 
@@ -42,9 +42,10 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
     for stmt in cand.body:
         code = _code(stmt)
         if _is_import(stmt):
-            if code not in existing_imports:
+            names = _bindings(stmt)
+            if not names <= bound:  # skip imports whose every name is already bound
                 new_imports.append(stmt)
-                existing_imports.add(code)
+                bound |= names
         elif code in existing_stmts:
             skipped += 1
         else:
@@ -116,6 +117,25 @@ def _is_import(stmt: cst.CSTNode) -> bool:
     return isinstance(stmt, cst.SimpleStatementLine) and all(
         isinstance(s, (cst.Import, cst.ImportFrom)) for s in stmt.body
     )
+
+
+def _bindings(stmt: cst.SimpleStatementLine) -> set[tuple]:
+    """What an import statement binds, e.g. ("from", "m", "f", None) for `from m import f`."""
+    out: set[tuple] = set()
+    for small in stmt.body:
+        if isinstance(small, cst.Import):
+            for alias in small.names:
+                asname = _code(alias.asname.name) if alias.asname else None
+                out.add(("import", _code(alias.name), asname))
+        elif isinstance(small, cst.ImportFrom):
+            module = "." * len(small.relative) + (_code(small.module) if small.module else "")
+            if isinstance(small.names, cst.ImportStar):
+                out.add(("from", module, "*", None))
+                continue
+            for alias in small.names:
+                asname = _code(alias.asname.name) if alias.asname else None
+                out.add(("from", module, _code(alias.name), asname))
+    return out
 
 
 def _def_name(stmt: cst.CSTNode) -> str | None:

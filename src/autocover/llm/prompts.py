@@ -24,6 +24,8 @@ TEST_RULES = """\
   function under test, and do not mock it. Mock only true external dependencies.
 - Every expected value must follow from the code's actual logic - trace it carefully,
   especially at boundaries. A wrong expectation makes the test fail and it is discarded.
+- Write expected values as literals (e.g. `== 45.0`). Never compute them by calling the
+  code under test or its helpers: such a test still passes when that code is broken.
 - Keep each test short and focused; no print statements, no commented-out code."""
 
 PLANNER_SYSTEM = f"""\

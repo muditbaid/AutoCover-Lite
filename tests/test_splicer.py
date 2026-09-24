@@ -58,3 +58,17 @@ def test_splice_into_empty_file():
 def test_remove_tests():
     src = splice_tests(EXISTING, "def test_adult():\n    assert True\n").source
     assert list_tests(remove_tests(src, {"test_child"})) == ["test_adult"]
+
+
+def test_imports_already_bound_by_a_broader_import_are_skipped():
+    existing = "from ticket_price import group_total, ticket_price\n\ndef test_a():\n    pass\n"
+    candidate = (
+        "from ticket_price import ticket_price\n"
+        "import pytest\n"
+        "from ticket_price import ticket_price as tp\n\n"
+        "def test_b():\n    pass\n"
+    )
+    src = splice_tests(existing, candidate).source
+    assert src.count("from ticket_price import ticket_price\n") == 0
+    assert "import pytest" in src
+    assert "from ticket_price import ticket_price as tp" in src  # new binding: kept
