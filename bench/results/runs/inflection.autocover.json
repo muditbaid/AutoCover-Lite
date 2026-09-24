@@ -1,0 +1,138 @@
+{
+  "target": "inflection/__init__.py",
+  "test_path": "tests/test___init___autocover.py",
+  "rounds": 2,
+  "baseline": {
+    "line_pct": 48.1,
+    "branch_pct": 9.1,
+    "lines_covered": 39,
+    "lines_total": 81,
+    "branches_covered": 2,
+    "branches_total": 22
+  },
+  "final": {
+    "line_pct": 90.9,
+    "branch_pct": 95.5,
+    "lines_covered": 80,
+    "lines_total": 88,
+    "branches_covered": 21,
+    "branches_total": 22
+  },
+  "mutation": {
+    "killed": 71,
+    "total": 79,
+    "score_pct": 89.9,
+    "reused_kills": 62,
+    "survivors": [
+      "line 46 (None): '\\\\1ix' -> ''",
+      "line 59 (None): '\\\\1ovie' -> ''",
+      "line 61 (None): '\\\\1y' -> ''",
+      "line 134 (_irregular): 0 -> 1",
+      "line 100 (_irregular): '[' -> ''",
+      "line 135 (_irregular): 1 -> 2",
+      "line 140 (_irregular): 0 -> 1",
+      "line 306 (pluralize): return value -> None"
+    ]
+  },
+  "tests_in_suite": 68,
+  "candidates": 89,
+  "accepted": 68,
+  "accepted_by": {
+    "scenario": 51,
+    "coverage": 11,
+    "mutants": 6
+  },
+  "accepted_after_fix": 1,
+  "sent_to_fixer": 4,
+  "rejected_no_signal": 12,
+  "frozen": 0,
+  "superseded": 0,
+  "weak_kept": 0,
+  "failed": 9,
+  "rule_violations": {},
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 77,
+    "tokens": 84929,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 72,
+  "scenarios_covered": 68,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 2,
+      "tokens": 10492,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 16,
+      "tokens": 32024,
+      "roles": [
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 55,
+      "tokens": 33751,
+      "roles": [
+        "judge"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 4,
+      "tokens": 8662,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import pytest\nfrom inflection import (\n    camelize,\n    dasherize,\n    humanize,\n    ordinal,\n    ordinalize,\n    parameterize,\n    pluralize,\n    singularize,\n    tableize,\n    titleize,\n    transliterate,\n    underscore,\n)\n\n\ndef test_titleize__hyphenated_title():\n    # Hyphenated word and colon\n    assert titleize(\"x-men: the last stand\") == \"X Men: The Last Stand\"\n\n\ndef test_parameterize__only_special_chars():\n    # Only non\u2011alphanumeric characters become separators, then are trimmed away\n    result = parameterize(\"!@#\")\n    assert result == \"\"\n\n\n# Edge: large numbers retain full value and receive the correct suffix\n@pytest.mark.parametrize(\n    \"num,expected\",\n    [\n        (1002, \"1002nd\"),\n        (1003, \"1003rd\"),\n        (1011, \"1011th\"),\n        (1110, \"1110th\"),\n        (12345, \"12345th\"),\n    ],\n)\ndef test_ordinalize__large_numbers(num, expected):\n    assert ordinalize(num) == expected\n\n\ndef test_tableize__camelcase_to_plural_snake():\n    # RawScaledScorer -> raw_scaled_scorers\n    result = tableize(\"RawScaledScorer\")\n    assert result == \"raw_scaled_scorers\"\n\n\ndef test_singularize__regular_singular():\n    # Regular plural ending with 's' should be singularized.\n    assert singularize(\"posts\") == \"post\"\n\n\ndef test_camelize__uppercase_first_letter_false():\n    # Happy path: underscores with lowercase first letter\n    assert camelize(\"device_type\", False) == \"deviceType\"\n\n\ndef test_dasherize__basic_replacement():\n    \"\"\"Happy path: underscores are replaced by dashes.\"\"\"\n    assert dasherize(\"puni_puni\") == \"puni-puni\"\n\n\ndef test_pluralize__uncountable_word():\n    # Uncountable nouns are returned unchanged.\n    assert pluralize(\"sheep\") == \"sheep\"\n\n\ndef test_singularize__uncountable_word():\n    # Uncountable nouns are returned unchanged.\n    assert singularize(\"sheep\") == \"sheep\"\n\n\ndef test_singularize__already_singular():\n    # A word that is already singular should be unchanged.\n    assert singularize(\"word\") == \"word\"\n\n\ndef test_humanize__strip_trailing_id():\n    # happy path: trailing \"_id\" stripped before other processing\n    assert humanize(\"author_id\") == \"Author\"\n\n\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (1, \"st\"),\n        (2, \"nd\"),\n        (3, \"rd\"),\n    ],\n)\ndef test_ordinal__first_second_third(number, expected):\n    \"\"\"Happy path for the first three ordinal suffixes.\"\"\"\n    assert ordinal(number) == expected\n\n\ndef test_underscore__hyphens_to_underscores():\n    # happy: hyphens are replaced with underscores before lowercasing\n    assert underscore(\"device-type\") == \"device_type\"\n\n\ndef test_underscore__all_caps_acronym():\n    # edge: consecutive capitals followed by a capital+lowercase trigger the first regex\n    assert underscore(\"IOError\") == \"io_error\"\n\n\ndef test_transliterate__diacritics_to_ascii():\n    # \u00e4 = \\u00e4, \u00f6 = \\u00f6\n    input_str = \"\\u00e4l\\u00e4m\\u00f6l\\u00f6\"\n    expected = \"alamolo\"\n    assert transliterate(input_str) == expected\n\n\ndef test_parameterize__empty_separator():\n    # Empty separator removes disallowed characters entirely, no collapsing/trimming\n    result = parameterize(\"hello world\", separator=\"\")\n    assert result == \"helloworld\"\n\n\ndef test_parameterize__basic_ascii():\n    # Simple ASCII with spaces and punctuation\n    result = parameterize(\"Donald E. Knuth\")\n    assert result == \"donald-e-knuth\"\n\n\ndef test_parameterize__empty_string():\n    # Empty input should stay empty\n    result = parameterize(\"\")\n    assert result == \"\"\n\n\ndef test_parameterize__custom_separator():\n    # Custom separator should replace spaces and be used for collapsing/trimming\n    result = parameterize(\"hello world\", separator=\"_\")\n    assert result == \"hello_world\"\n\n\ndef test_parameterize__preserves_underscores_and_dashes():\n    # Underscores and dashes are allowed characters and stay unchanged\n    result = parameterize(\"hello_world-foo\")\n    assert result == \"hello_world-foo\"\n\n\ndef test_singularize__irregular_singular():\n    # Irregular plural \"octopi\" should become \"octopus\".\n    assert singularize(\"octopi\") == \"octopus\"\n\n\ndef test_singularize__empty_string():\n    # Empty input should be returned unchanged.\n    assert singularize(\"\") == \"\"\n\n\ndef test_singularize__mixed_case_preserved():\n    # Mixed\u2011case input should keep the original case for the unchanged part.\n    assert singularize(\"CamelOctopi\") == \"CamelOctopus\"\n\n\ndef test_pluralize__regular_plural():\n    # Regular word should get a simple \"s\" added.\n    assert pluralize(\"post\") == \"posts\"\n\n\ndef test_pluralize__irregular_plural():\n    # Irregular plural forms are handled by specific rules.\n    assert pluralize(\"octopus\") == \"octopi\"\n\n\ndef test_pluralize__empty_string():\n    # Empty input should be returned unchanged.\n    assert pluralize(\"\") == \"\"\n\n\ndef test_pluralize__already_plural():\n    # Words that are already plural should remain unchanged.\n    assert pluralize(\"posts\") == \"posts\"\n\n\ndef test_pluralize__mixed_case_preserved():\n    # Mixed\u2011case words preserve their case in the result.\n    assert pluralize(\"CamelOctopus\") == \"CamelOctopi\"\n\n\ndef test_humanize__basic_underscores():\n    # happy path: underscores become spaces, first word capitalized, rest lowercased\n    assert humanize(\"employee_salary\") == \"Employee salary\"\n\n\ndef test_humanize__empty_string():\n    # edge case: empty input should return empty output\n    assert humanize(\"\") == \"\"\n\n\ndef test_humanize__only_id_suffix():\n    # edge case: string exactly \"_id\" becomes empty after stripping\n    assert humanize(\"_id\") == \"\"\n\n\ndef test_humanize__multiple_underscores_and_id():\n    # edge case: multiple underscores with trailing \"_id\"\n    assert humanize(\"user_account_id\") == \"User account\"\n\n\ndef test_humanize__already_capitalized():\n    # edge case: input already has capital letters; result lowercases except first letter\n    assert humanize(\"Employee_Salary\") == \"Employee salary\"\n\n\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (11, \"th\"),\n        (12, \"th\"),\n        (13, \"th\"),\n        (111, \"th\"),\n        (112, \"th\"),\n        (113, \"th\"),\n        (211, \"th\"),\n        (212, \"th\"),\n        (213, \"th\"),\n    ],\n)\ndef test_ordinal__teens_exception(number, expected):\n    \"\"\"Numbers whose last two digits are 11, 12, or 13 should always get 'th'.\"\"\"\n    assert ordinal(number) == expected\n\n\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (0, \"th\"),\n        (4, \"th\"),\n        (5, \"th\"),\n        (6, \"th\"),\n        (7, \"th\"),\n        (8, \"th\"),\n        (9, \"th\"),\n        (10, \"th\"),\n        (20, \"th\"),\n        (30, \"th\"),\n        (40, \"th\"),\n        (99, \"th\"),\n    ],\n)\ndef test_ordinal__other_numbers(number, expected):\n    \"\"\"Numbers ending in 0 or 4\u20119 (outside the teen exception) should get 'th'.\"\"\"\n    assert ordinal(number) == expected\n\n\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (-1, \"st\"),\n        (-2, \"nd\"),\n        (-3, \"rd\"),\n        (-11, \"th\"),\n        (-112, \"th\"),\n        (-213, \"th\"),\n    ],\n)\ndef test_ordinal__negative_numbers(number, expected):\n    \"\"\"Negative numbers are treated as their absolute value.\"\"\"\n    assert ordinal(number) == expected\n\n\ndef test_ordinal__zero():\n    \"\"\"Zero is a special case that should return 'th'.\"\"\"\n    assert ordinal(0) == \"th\"\n\n\ndef test_ordinal__non_integer_input():\n    \"\"\"Non\u2011numeric input that cannot be cast to int should raise ValueError.\"\"\"\n    with pytest.raises(ValueError):\n        ordinal(\"abc\")\n\n\ndef test_underscore__camelcase_to_snake():\n    # happy path: simple CamelCase to snake_case\n    assert underscore(\"DeviceType\") == \"device_type\"\n\n\ndef test_underscore__already_snake_case():\n    # edge: already snake_case should stay unchanged (except lowercasing)\n    assert underscore(\"device_type\") == \"device_type\"\n\n\ndef test_underscore__numbers_in_word():\n    # happy: digits adjacent to a capital trigger the second regex\n    assert underscore(\"Device2Type\") == \"device2_type\"\n\n\ndef test_underscore__empty_string():\n    # edge: empty input returns empty output\n    assert underscore(\"\") == \"\"\n\n\ndef test_camelize__uppercase_first_letter_true():\n    # Happy path: underscores with default uppercase_first_letter=True\n    assert camelize(\"device_type\") == \"DeviceType\"\n\n\ndef test_camelize__no_underscores():\n    # Edge: string without underscores \u2013 first character is capitalised when True\n    assert camelize(\"word\") == \"Word\"\n    # Edge: same string with lowercase first character when False\n    assert camelize(\"word\", False) == \"word\"\n\n\ndef test_transliterate__ligatures_and_diacritics():\n    # \u00c6 = \\u00c6, \u00f8 = \\u00f8\n    input_str = \"\\u00c6r\\u00f8sk\\u00f8bing\"\n    expected = \"rskbing\"\n    assert transliterate(input_str) == expected\n\n\ndef test_transliterate__empty_string():\n    assert transliterate(\"\") == \"\"\n\n\ndef test_transliterate__ascii_only():\n    assert transliterate(\"hello\") == \"hello\"\n\n\ndef test_transliterate__no_ascii_approximation():\n    # Grinning face emoji has no ASCII approximation\n    input_str = \"\\U0001f600\"\n    assert transliterate(input_str) == \"\"\n\n\ndef test_transliterate__mixed_ascii_and_non_ascii():\n    # caf\u00e9 with \u00e9 = \\u00e9\n    input_str = \"caf\\u00e9\"\n    expected = \"cafe\"\n    assert transliterate(input_str) == expected\n\n\ndef test_dasherize__empty_string():\n    \"\"\"Edge case: empty string should be returned unchanged.\"\"\"\n    assert dasherize(\"\") == \"\"\n\n\ndef test_dasherize__no_underscores():\n    \"\"\"Edge case: string without underscores remains unchanged.\"\"\"\n    original = \"already-dashed\"\n    assert dasherize(original) == original\n\n\ndef test_dasherize__multiple_underscores():\n    \"\"\"Edge case: each underscore in a multi\u2011underscore string is replaced.\"\"\"\n    assert dasherize(\"a_b_c\") == \"a-b-c\"\n\n\ndef test_dasherize__leading_trailing_underscores():\n    \"\"\"Edge case: leading and trailing underscores become leading/trailing dashes.\"\"\"\n    assert dasherize(\"_private_\") == \"-private-\"\n\n\ndef test_dasherize__only_underscores():\n    \"\"\"Edge case: a string of only underscores is converted to the same number of dashes.\"\"\"\n    assert dasherize(\"___\") == \"---\"\n\n\n# Happy path: positive integers\n@pytest.mark.parametrize(\n    \"num,expected\",\n    [\n        (1, \"1st\"),\n        (2, \"2nd\"),\n        (4, \"4th\"),\n    ],\n)\ndef test_ordinalize__positive_numbers(num, expected):\n    assert ordinalize(num) == expected\n\n\n# Edge: teens (11, 12, 13) always get 'th' suffix, even when part of larger numbers\n@pytest.mark.parametrize(\n    \"num,expected\",\n    [\n        (11, \"11th\"),\n        (12, \"12th\"),\n        (13, \"13th\"),\n        (113, \"113th\"),\n        (1112, \"1112th\"),\n    ],\n)\ndef test_ordinalize__teens_exception(num, expected):\n    assert ordinalize(num) == expected\n\n\n# Edge: negative integers preserve the sign and receive the correct suffix\n@pytest.mark.parametrize(\n    \"num,expected\",\n    [\n        (-1, \"-1st\"),\n        (-2, \"-2nd\"),\n        (-11, \"-11th\"),\n        (-21, \"-21st\"),\n    ],\n)\ndef test_ordinalize__negative_numbers(num, expected):\n    assert ordinalize(num) == expected\n\n\n# Edge: zero should be treated like any other number and get the 'th' suffix\ndef test_ordinalize__zero():\n    assert ordinalize(0) == \"0th\"\n\n\ndef test_tableize__underscored_plural():\n    # egg_and_ham -> egg_and_hams\n    result = tableize(\"egg_and_ham\")\n    assert result == \"egg_and_hams\"\n\n\ndef test_tableize__mixed_case_with_acronym():\n    # fancyCategory -> fancy_categories\n    result = tableize(\"fancyCategory\")\n    assert result == \"fancy_categories\"\n\n\ndef test_tableize__empty_string():\n    # empty input should stay empty\n    result = tableize(\"\")\n    assert result == \"\"\n\n\ndef test_tableize__uncountable_word():\n    # Sheep is uncountable; should stay singular and lower\u2011cased\n    result = tableize(\"Sheep\")\n    assert result == \"sheep\"\n\n\ndef test_tableize__hyphenated_word():\n    # hyphens are turned into underscores before pluralization\n    result = tableize(\"fancy-category\")\n    assert result == \"fancy_categories\"\n\n\ndef test_titleize__sentence_to_title():\n    # Simple sentence with spaces\n    assert titleize(\"man from the boondocks\") == \"Man From The Boondocks\"\n\n\ndef test_titleize__camelcase_to_title():\n    # CamelCase input should be split into words\n    assert titleize(\"TheManWithoutAPast\") == \"The Man Without A Past\"\n\n\ndef test_titleize__underscored_to_title():\n    # Underscored input should become spaced title\n    assert titleize(\"raiders_of_the_lost_ark\") == \"Raiders Of The Lost Ark\"\n\n\ndef test_titleize__empty_string():\n    # Empty input should return empty string\n    assert titleize(\"\") == \"\"\n\n\n@pytest.mark.parametrize(\n    \"bad_input\",\n    [\n        \"abc\",\n        None,\n        [1, 2, 3],\n    ],\n)\ndef test_ordinalize__non_integer_input(bad_input):\n    with pytest.raises((ValueError, TypeError)):\n        ordinalize(bad_input)",
+  "duration_s": 934.5,
+  "run_id": "4755d50860a1",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      797.4,
+      98.9,
+      90.9
+    ],
+    [
+      837.3,
+      98.9,
+      90.9
+    ],
+    [
+      856.7,
+      98.9,
+      90.9
+    ],
+    [
+      916.3,
+      98.9,
+      90.9
+    ]
+  ],
+  "llm_calls": 77,
+  "llm_tokens": 84929,
+  "models": [
+    "groq/openai/gpt-oss-20b",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b"
+  ],
+  "wall_s": 934.6,
+  "subject": "inflection",
+  "level": "basic",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 09:59:38"
+}

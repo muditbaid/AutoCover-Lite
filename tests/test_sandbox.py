@@ -206,3 +206,27 @@ def _import_lines(sandbox):
     probe = sandbox.run(RunRequest(target=TARGET, tests={
         "test_probe.py": "import ticket_price\n\ndef test_p():\n    assert ticket_price\n"}))
     return probe.coverage.executed_lines
+
+
+def test_transient_engine_errors_are_retried_then_reported(tmp_path, monkeypatch):
+    import autocover.tools.sandbox as sb
+
+    monkeypatch.setattr(sb.time, "sleep", lambda s: None)
+    box = DockerSandbox(EXAMPLE, SandboxConfig(workdir=str(tmp_path)), client=object())
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise OSError(231, "CreateFile", "All pipe instances are busy.")
+        return "ok"
+
+    assert box._api(flaky) == "ok" and len(calls) == 3
+
+    def always_busy():
+        raise OSError(231, "CreateFile", "All pipe instances are busy.")
+
+    with pytest.raises(sb.SandboxUnavailable):
+        box._api(always_busy)
+    with pytest.raises(ValueError):  # real errors are not retried
+        box._api(lambda: (_ for _ in ()).throw(ValueError("bad request")))

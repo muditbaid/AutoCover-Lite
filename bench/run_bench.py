@@ -89,6 +89,12 @@ async def bench_baseline(subject: dict, args) -> dict:
         runtime.close()
 
 
+def _engine_down(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__}: {exc}"
+    return any(s in text for s in ("SandboxUnavailable", "DockerException",
+                                   "All pipe instances are busy"))
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--subjects", nargs="*")
@@ -115,6 +121,11 @@ async def main() -> None:
                 result = await (bench_autocover if tool == "autocover" else bench_baseline)(
                     subject, args)
             except Exception as exc:  # noqa: BLE001 - record and move on
+                if _engine_down(exc):
+                    # Infrastructure, not a result: don't record it, stop the whole run.
+                    print(f"[bench] ABORT: sandbox engine unavailable ({exc}); results so "
+                          f"far are kept, re-run to resume", flush=True)
+                    return
                 result = {"error": f"{type(exc).__name__}: {str(exc)[:500]}"}
             result.update({"subject": subject["name"], "level": subject["level"],
                            "tool": tool, "target": subject["target"],

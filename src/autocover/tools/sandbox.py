@@ -14,6 +14,7 @@ runs never see each other's changes.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
@@ -21,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -268,7 +270,8 @@ class DockerSandbox(Sandbox):
         if self._client is None:
             import docker
 
-            self._client = docker.from_env()
+            # Creating the client already talks to the engine (API version negotiation).
+            self._client = self._api(docker.from_env)
         return self._client
 
     def image_tag(self) -> str:
@@ -285,7 +288,7 @@ class DockerSandbox(Sandbox):
 
         tag = self.image_tag()
         try:
-            self.client.images.get(tag)
+            self._api(self.client.images.get, tag)
         except docker.errors.ImageNotFound:
             with self.telemetry.span("sandbox", "build_image", tag=tag), \
                     tempfile.TemporaryDirectory(dir=self._workroot) as ctx:
@@ -295,14 +298,32 @@ class DockerSandbox(Sandbox):
                     DOCKERFILE.format(python_version=self.config.python_version),
                     encoding="utf-8", newline="\n",
                 )
-                self.client.images.build(path=str(context), tag=tag, rm=True, forcerm=True)
+                self._api(self.client.images.build, path=str(context), tag=tag, rm=True,
+                          forcerm=True)
         self.image = tag
+
+    def _api(self, fn, *args, **kwargs):
+        """One Docker API call: bounded concurrency, retried when the engine's named pipe
+        is momentarily out of instances (Windows error 231). Raises SandboxUnavailable if
+        the engine stays unreachable - never reported as a test outcome."""
+        for attempt in range(API_RETRIES):
+            try:
+                with _API_SLOTS:
+                    return fn(*args, **kwargs)
+            except Exception as exc:  # noqa: BLE001 - classified below
+                if not _is_transient_engine_error(exc):
+                    raise
+                if attempt == API_RETRIES - 1:
+                    raise SandboxUnavailable(f"Docker engine unreachable: {exc}") from exc
+                time.sleep(min(8.0, 0.5 * 2 ** attempt))
+        raise AssertionError("unreachable")
 
     def _execute(self, repo_dir, meta_dir, target, timeout, per_test=False):
         if self.image is None:
             self.prepare()
         include = str(PurePosixPath("/repo") / PurePosixPath(Path(target).as_posix()))
-        container = self.client.containers.run(
+        container = self._api(
+            self.client.containers.run,
             self.image,
             command=["python", "/ws/runner.py", "--repo", "/repo", "--tests", "/ws/tests",
                      "--include", include, "--out", "/ws/result.json"]
@@ -321,16 +342,40 @@ class DockerSandbox(Sandbox):
             detach=True,
         )
         try:
-            try:
-                exit_code = container.wait(timeout=timeout)["StatusCode"]
-                status = "ok"
-            except Exception:  # requests timeout while waiting
-                container.kill()
-                exit_code, status = None, "timeout"
-            log = container.logs(tail=200).decode("utf-8", "replace")
+            # Poll with short requests instead of one long-held `wait` connection per
+            # container: long waits were what exhausted the engine's pipe instances.
+            deadline = time.monotonic() + timeout
+            status, exit_code = "timeout", None
+            while time.monotonic() < deadline:
+                self._api(container.reload)
+                state = container.attrs.get("State", {})
+                if state.get("Status") in ("exited", "dead"):
+                    status, exit_code = "ok", state.get("ExitCode")
+                    break
+                time.sleep(POLL_INTERVAL_S)
+            if status == "timeout":
+                self._api(container.kill)
+            log = self._api(container.logs, tail=200).decode("utf-8", "replace")
             return status, exit_code, log
         finally:
-            container.remove(force=True)
+            with contextlib.suppress(Exception):  # a leftover exited container is harmless
+                self._api(container.remove, force=True)
+
+
+API_RETRIES = 6
+POLL_INTERVAL_S = 0.25
+_API_SLOTS = threading.BoundedSemaphore(4)  # concurrent Docker API calls, process-wide
+
+
+class SandboxUnavailable(RuntimeError):
+    """The sandbox engine could not be reached; results would be meaningless."""
+
+
+def _is_transient_engine_error(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__}: {exc}"
+    return any(s in text for s in ("All pipe instances are busy", "(231,",
+                                   "Connection aborted", "ConnectionResetError",
+                                   "Read timed out"))
 
 
 def make_sandbox(repo_root: str | Path, config: SandboxConfig,

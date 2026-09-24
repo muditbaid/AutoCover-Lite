@@ -1,0 +1,81 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 21,
+  "tests_passing": 19,
+  "collection_error": false,
+  "pass_rate": 90.5,
+  "line_pct": 97.5,
+  "branch_pct": 86.4,
+  "mutation": {
+    "killed": 64,
+    "total": 79,
+    "score_pct": 81.0
+  },
+  "llm_calls": 3,
+  "llm_tokens": 20295,
+  "latency_s": 16.4,
+  "wall_s": 364.7,
+  "suite": "import pytest\nimport re\n\nfrom inflection import (\n    camelize,\n    dasherize,\n    humanize,\n    ordinal,\n    ordinalize,\n    parameterize,\n    pluralize,\n    singularize,\n    tableize,\n    titleize,\n    transliterate,\n    underscore,\n    UNCOUNTABLES,\n)\n\n\ndef test_camelize_lowercase_first_letter_empty():\n    # empty string with uppercase_first_letter=False triggers IndexError\n    with pytest.raises(IndexError):\n        camelize(\"\", uppercase_first_letter=False)\n\n\n# ----------------------------------------------------------------------\n# dasherize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"word,expected\",\n    [\n        (\"puni_puni\", \"puni-puni\"),\n        (\"nochange\", \"nochange\"),\n        (\"multiple_under_scores_here\", \"multiple-under-scores-here\"),\n        (\"\", \"\"),\n    ],\n)\ndef test_dasherize(word, expected):\n    assert dasherize(word) == expected\n\n\n# ----------------------------------------------------------------------\n# humanize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"word,expected\",\n    [\n        (\"employee_salary\", \"Employee salary\"),\n        (\"author_id\", \"Author\"),\n        (\"multiple_words_here\", \"Multiple words here\"),\n        (\"alreadyHumanized\", \"Alreadyhumanized\"),\n        (\"\", \"\"),\n    ],\n)\ndef test_humanize(word, expected):\n    assert humanize(word) == expected\n\n\n# ----------------------------------------------------------------------\n# ordinal\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (1, \"st\"),\n        (2, \"nd\"),\n        (3, \"rd\"),\n        (4, \"th\"),\n        (11, \"th\"),\n        (12, \"th\"),\n        (13, \"th\"),\n        (21, \"st\"),\n        (22, \"nd\"),\n        (23, \"rd\"),\n        (111, \"th\"),\n        (0, \"th\"),\n        (-1, \"st\"),\n        (-11, \"th\"),\n        (-1021, \"st\"),\n    ],\n)\ndef test_ordinal(number, expected):\n    assert ordinal(number) == expected\n\n\n# ----------------------------------------------------------------------\n# ordinalize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"number,expected\",\n    [\n        (1, \"1st\"),\n        (2, \"2nd\"),\n        (3, \"3rd\"),\n        (4, \"4th\"),\n        (11, \"11th\"),\n        (12, \"12th\"),\n        (13, \"13th\"),\n        (21, \"21st\"),\n        (-1, \"-1st\"),\n        (-11, \"-11th\"),\n        (0, \"0th\"),\n    ],\n)\ndef test_ordinalize(number, expected):\n    assert ordinalize(number) == expected\n\n\n# ----------------------------------------------------------------------\n# parameterize\n# ----------------------------------------------------------------------\ndef test_parameterize_basic():\n    assert parameterize(\"Donald E. Knuth\") == \"donald-e-knuth\"\n\n\ndef test_parameterize_custom_separator():\n    assert parameterize(\"Donald E. Knuth\", separator=\"_\") == \"donald_e_knuth\"\n\n\ndef test_parameterize_collapsing_and_trimming():\n    # leading/trailing punctuation and multiple spaces become a single separator\n    assert parameterize(\"  Hello!!  \") == \"hello\"\n\n\ndef test_parameterize_non_ascii():\n    # non\u2011ASCII characters are transliterated then processed\n    assert parameterize(\"\u00c6r\u00f8sk\u00f8bing\") == \"rskbing\"\n\n\n# ----------------------------------------------------------------------\n# pluralize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"word,expected\",\n    [\n        (\"post\", \"posts\"),\n        (\"octopus\", \"octopi\"),\n        (\"sheep\", \"sheep\"),\n        (\"Person\", \"People\"),\n        (\"person\", \"people\"),\n        (\"\", \"\"),\n        (\"xyz\", \"xyzs\"),  # default rule adds 's'\n    ],\n)\ndef test_pluralize(word, expected):\n    assert pluralize(word) == expected\n\n\ndef test_pluralize_uncountable_case_insensitive():\n    for w in [\"Fish\", \"fish\", \"FISH\"]:\n        assert pluralize(w) == w\n\n\n# ----------------------------------------------------------------------\n# singularize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"word,expected\",\n    [\n        (\"posts\", \"post\"),\n        (\"octopi\", \"octopus\"),\n        (\"sheep\", \"sheep\"),\n        (\"People\", \"Person\"),\n        (\"people\", \"person\"),\n        (\"\", \"\"),\n        (\"xyzs\", \"xyz\"),\n    ],\n)\ndef test_singularize(word, expected):\n    assert singularize(word) == expected\n\n\ndef test_singularize_uncountable_case_insensitive():\n    for w in [\"Series\", \"series\", \"SERIES\"]:\n        assert singularize(w) == w\n\n\n# ----------------------------------------------------------------------\n# tableize\n# ----------------------------------------------------------------------\ndef test_tableize_camelcase():\n    assert tableize(\"RawScaledScorer\") == \"raw_scaled_scorers\"\n\n\ndef test_tableize_with_underscores():\n    assert tableize(\"egg_and_ham\") == \"egg_and_hams\"\n\n\ndef test_tableize_mixed():\n    assert tableize(\"FancyCategory\") == \"fancy_categories\"\n\n\n# ----------------------------------------------------------------------\n# titleize\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"input_str,expected\",\n    [\n        (\"man from the boondocks\", \"Man From The Boondocks\"),\n        (\"x-men: the last stand\", \"X Men: The Last Stand\"),\n        (\"TheManWithoutAPast\", \"The Man Without A Past\"),\n        (\"raiders_of_the_lost_ark\", \"Raiders Of The Lost Ark\"),\n        (\"\", \"\"),\n    ],\n)\ndef test_titleize(input_str, expected):\n    assert titleize(input_str) == expected\n\n\n# ----------------------------------------------------------------------\n# transliterate\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"src,expected\",\n    [\n        (\"\u00e4l\u00e4m\u00f6l\u00f6\", \"alamolo\"),\n        (\"\u00c6r\u00f8sk\u00f8bing\", \"rskbing\"),\n        (\"\u00f1\u00e1\u00e9\u00ed\u00f3\u00fa\", \"naeiou\"),\n        (\"\", \"\"),\n    ],\n)\ndef test_transliterate(src, expected):\n    assert transliterate(src) == expected\n\n\n# ----------------------------------------------------------------------\n# underscore\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"word,expected\",\n    [\n        (\"DeviceType\", \"device_type\"),\n        (\"IOError\", \"io_error\"),\n        (\"MyClassName\", \"my_class_name\"),\n        (\"my-class\", \"my_class\"),\n        (\"\", \"\"),\n    ],\n)\ndef test_underscore(word, expected):\n    assert underscore(word) == expected\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 21,
+      "tests_passing": 19,
+      "collection_error": false,
+      "pass_rate": 90.5,
+      "line_pct": 97.5,
+      "branch_pct": 86.4,
+      "mutation": {
+        "killed": 64,
+        "total": 79,
+        "score_pct": 81.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 7124,
+      "latency_s": 16.4,
+      "wall_s": 122.5
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 23,
+      "tests_passing": 18,
+      "collection_error": false,
+      "pass_rate": 78.3,
+      "line_pct": 97.5,
+      "branch_pct": 86.4,
+      "mutation": {
+        "killed": 64,
+        "total": 79,
+        "score_pct": 81.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 6362,
+      "latency_s": 11.9,
+      "wall_s": 112.7
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 15,
+      "tests_passing": 12,
+      "collection_error": false,
+      "pass_rate": 80.0,
+      "line_pct": 88.9,
+      "branch_pct": 81.8,
+      "mutation": {
+        "killed": 57,
+        "total": 79,
+        "score_pct": 72.2
+      },
+      "llm_calls": 1,
+      "llm_tokens": 6809,
+      "latency_s": 13.9,
+      "wall_s": 129.5
+    }
+  ],
+  "subject": "inflection",
+  "level": "basic",
+  "tool": "baseline",
+  "target": "inflection/__init__.py",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 09:44:03"
+}

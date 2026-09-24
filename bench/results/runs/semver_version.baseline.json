@@ -1,0 +1,81 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 16,
+  "tests_passing": 15,
+  "collection_error": false,
+  "pass_rate": 93.8,
+  "line_pct": 89.3,
+  "branch_pct": 77.1,
+  "mutation": {
+    "killed": 99,
+    "total": 150,
+    "score_pct": 66.0
+  },
+  "llm_calls": 3,
+  "llm_tokens": 30696,
+  "latency_s": 15.1,
+  "wall_s": 379.7,
+  "suite": "import pytest\nfrom semver.version import Version, VersionInfo\n\n\n# Helper to create a version quickly\ndef v(*args, **kwargs):\n    return Version(*args, **kwargs)\n\n\ndef test_init_negative_values():\n    with pytest.raises(ValueError, match=\"major' is negative\"):\n        Version(-1, 0, 0)\n    with pytest.raises(ValueError, match=\"minor' is negative\"):\n        Version(0, -2, 0)\n    with pytest.raises(ValueError, match=\"patch' is negative\"):\n        Version(0, 0, -3)\n\n\ndef test_readonly_properties():\n    ver = v(1, 2, 3, prerelease=\"alpha\", build=\"001\")\n    for name in (\"major\", \"minor\", \"patch\", \"prerelease\", \"build\"):\n        with pytest.raises(AttributeError):\n            setattr(ver, name, 99)\n\n\ndef test_to_tuple_and_to_dict():\n    ver = v(5, 3, 1)\n    assert ver.to_tuple() == (5, 3, 1, None, None)\n    assert ver.to_dict() == {\n        \"major\": 5,\n        \"minor\": 3,\n        \"patch\": 1,\n        \"prerelease\": None,\n        \"build\": None,\n    }\n\n    ver2 = v(2, 0, 0, prerelease=\"rc.2\", build=\"build.5\")\n    assert ver2.to_tuple() == (2, 0, 0, \"rc.2\", \"build.5\")\n    assert ver2.to_dict()[\"prerelease\"] == \"rc.2\"\n    assert ver2.to_dict()[\"build\"] == \"build.5\"\n\n\ndef test_iter_and_repr_str():\n    ver = v(1, 2, 3, prerelease=\"beta\", build=\"exp\")\n    # iteration yields the tuple\n    assert tuple(iter(ver)) == ver.to_tuple()\n    # __repr__ contains all fields with repr()\n    rep = repr(ver)\n    assert \"Version(\" in rep\n    for key, val in ver.to_dict().items():\n        assert f\"{key}={val!r}\" in rep\n    # __str__ format\n    assert str(ver) == \"1.2.3-beta+exp\"\n\n\ndef test_compare_various_inputs():\n    base = v(1, 0, 0)\n    # compare with string\n    assert base.compare(\"2.0.0\") < 0\n    # compare with dict\n    assert base.compare({\"major\": 1, \"minor\": 0, \"patch\": 0}) == 0\n    # compare with tuple\n    assert base.compare((1, 0, 0)) == 0\n    # compare with list\n    assert base.compare([1, 0, 0]) == 0\n    # compare with Version instance\n    assert base.compare(v(1, 0, 0)) == 0\n    # invalid type raises TypeError\n    with pytest.raises(TypeError):\n        base.compare(3.14)\n\n    # prerelease ordering\n    a = v(1, 0, 0, prerelease=\"alpha\")\n    b = v(1, 0, 0, prerelease=\"beta\")\n    assert a.compare(b) < 0\n    # missing prerelease considered greater\n    assert v(1, 0, 0).compare(a) > 0\n\n\ndef test_comparison_operators():\n    a = v(1, 2, 3)\n    b = v(1, 2, 4)\n    c = v(1, 2, 3, prerelease=\"rc.1\")\n    assert a < b\n    assert b > a\n    assert a <= a\n    assert a >= a\n    assert a != b\n    assert a == v(1, 2, 3)\n    # compare with other types via __eq__ wrapper\n    assert a == \"1.2.3\"\n    assert a != \"1.2.4\"\n    # unsupported type returns NotImplemented -> Python falls back to False\n    class Dummy: pass\n    assert (a == Dummy()) is False\n\n\ndef test_getitem_and_slice():\n    ver = v(3, 4, 5, prerelease=\"rc.2\", build=\"b1\")\n    # single index\n    assert ver[0] == 3\n    assert ver[1] == 4\n    assert ver[2] == 5\n    # slice returning tuple\n    assert ver[0:2] == (3, 4)\n    # slice that includes undefined part (prerelease) should skip None\n    assert ver[3:5] == (\"rc.2\", \"b1\")\n    # slice that yields no defined parts raises IndexError\n    with pytest.raises(IndexError):\n        ver[5:6]\n    # negative index raises IndexError\n    with pytest.raises(IndexError):\n        ver[-1]\n    # slice with negative start raises IndexError\n    with pytest.raises(IndexError):\n        ver[-1:2]\n\n\ndef test_hash_consistency():\n    a = v(1, 2, 3, prerelease=\"alpha\")\n    b = v(1, 2, 3, prerelease=\"alpha\")\n    c = v(1, 2, 3, prerelease=\"beta\")\n    assert hash(a) == hash(b)\n    assert hash(a) != hash(c)\n\n\ndef test_next_version_logic():\n    base = v(0, 1, 4)\n    # simple patch increment\n    assert base.next_version(\"patch\").to_tuple()[:3] == (0, 1, 5)\n    # prerelease handling: when no prerelease, bump_when_empty adds .0\n    nxt = base.next_version(\"prerelease\")\n    assert str(nxt) == \"0.1.5-rc.1\"\n    # when prerelease present and part is patch, it should drop prerelease\n    pre = v(1, 2, 3, prerelease=\"rc.2\")\n    assert pre.next_version(\"patch\").prerelease is None\n    # invalid part raises ValueError\n    with pytest.raises(ValueError):\n        base.next_version(\"build\")\n\n\ndef test_replace_valid_and_invalid():\n    ver = v(1, 2, 3, prerelease=\"alpha\", build=\"b\")\n    new = ver.replace(minor=5, prerelease=\"beta\")\n    assert new.minor == 5\n    assert new.prerelease == \"beta\"\n    # original unchanged\n    assert ver.minor == 2\n    # invalid key raises TypeError with proper message\n    with pytest.raises(TypeError) as exc:\n        ver.replace(foo=1)\n    assert \"unexpected keyword argument(s)\" in str(exc.value)\n\n\ndef test_is_valid_and_parse():\n    # valid strings\n    assert Version.is_valid(\"1.0.0\")\n    assert Version.is_valid(\"0.0.0-alpha+001\")\n    # invalid strings\n    assert not Version.is_valid(\"not-a-version\")\n    assert not Version.is_valid(\"1.0\")\n    # parse normal\n    parsed = Version.parse(\"2.3.4-pre.5+build.6\")\n    assert parsed.major == 2\n    assert parsed.minor == 3\n    assert parsed.patch == 4\n    assert parsed.prerelease == \"pre.5\"\n    assert parsed.build == \"build.6\"\n    # parse with optional minor/patch\n    opt = Version.parse(\"7\", optional_minor_and_patch=True)\n    assert opt.to_tuple() == (7, 0, 0, None, None)\n    opt2 = Version.parse(\"7.8\", optional_minor_and_patch=True)\n    assert opt2.to_tuple() == (7, 8, 0, None, None)\n    # wrong type raises TypeError\n    with pytest.raises(TypeError):\n        Version.parse(123)  # type: ignore\n    # invalid format raises ValueError\n    with pytest.raises(ValueError):\n        Version.parse(\"1.2.3.4\")\n\n\ndef test_is_compatible_cases():\n    v1 = v(1, 0, 0)\n    v2 = v(1, 1, 5)\n    v3 = v(1, 0, 5, prerelease=\"rc.1\")\n    v4 = v(0, 1, 0)\n    v5 = v(0, 1, 0, prerelease=\"alpha\")\n    # same major, other minor >= self, same prerelease (None)\n    assert v1.is_compatible(v2) is True\n    # prerelease mismatch -> False\n    assert v1.is_compatible(v3) is False\n    # major 0 incompatibility unless identical\n    assert v4.is_compatible(v5) is False\n    assert v4.is_compatible(v4) is True\n    # non-Version argument raises TypeError\n    with pytest.raises(TypeError):\n        v1.is_compatible(\"1.0.0\")  # type: ignore\n\n\ndef test_static_increment_helpers():\n    # _increment_prerelease\n    inc = Version._increment_prerelease\n    assert inc(\"rc.9\") == \"rc.10\"\n    assert inc(\"alpha\") == \"alpha.0\"\n    # _increment_string\n    inc_str = Version._increment_string\n    assert inc_str(\"build.9\") == \"build.10\"\n    # string without digits stays unchanged, then bump_build adds .0\n    assert inc_str(\"no-digits\") == \"no-digits\"\n\n\ndef test_finalize_version():\n    ver = v(1, 2, 3, prerelease=\"rc.1\", build=\"b1\")\n    fin = ver.finalize_version()\n    assert fin.prerelease is None\n    assert fin.build is None\n    assert fin.to_tuple()[:3] == (1, 2, 3)\n\n\ndef test_match_expressions():\n    ver = v(2, 0, 0)\n    assert ver.match(\">=1.0.0\") is True\n    assert ver.match(\">2.0.0\") is False\n    assert ver.match(\"2.0.0\") is True\n    assert ver.match(\"==2.0.0\") is True\n    assert ver.match(\"!=1.9.9\") is True\n    # malformed expression raises ValueError\n    with pytest.raises(ValueError):\n        ver.match(\"invalid\")\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 20,
+      "tests_passing": 18,
+      "collection_error": false,
+      "pass_rate": 90.0,
+      "line_pct": 90.0,
+      "branch_pct": 76.0,
+      "mutation": {
+        "killed": 99,
+        "total": 150,
+        "score_pct": 66.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 10450,
+      "latency_s": 22.2,
+      "wall_s": 166.2
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 16,
+      "tests_passing": 15,
+      "collection_error": false,
+      "pass_rate": 93.8,
+      "line_pct": 89.3,
+      "branch_pct": 77.1,
+      "mutation": {
+        "killed": 99,
+        "total": 150,
+        "score_pct": 66.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 9984,
+      "latency_s": 15.1,
+      "wall_s": 188.6
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 35,
+      "tests_passing": 0,
+      "collection_error": true,
+      "pass_rate": 0.0,
+      "line_pct": 0.0,
+      "branch_pct": 0.0,
+      "mutation": {
+        "killed": 0,
+        "total": 150,
+        "score_pct": 0.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 10262,
+      "latency_s": 18.1,
+      "wall_s": 24.9
+    }
+  ],
+  "subject": "semver_version",
+  "level": "medium",
+  "tool": "baseline",
+  "target": "semver/version.py",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 10:26:25"
+}

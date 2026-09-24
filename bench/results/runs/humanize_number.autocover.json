@@ -1,0 +1,155 @@
+{
+  "target": "humanize/number.py",
+  "test_path": "tests/test_number_autocover.py",
+  "rounds": 2,
+  "baseline": {
+    "line_pct": 13.5,
+    "branch_pct": 0.0,
+    "lines_covered": 23,
+    "lines_total": 170,
+    "branches_covered": 0,
+    "branches_total": 64
+  },
+  "final": {
+    "line_pct": 98.8,
+    "branch_pct": 98.4,
+    "lines_covered": 169,
+    "lines_total": 171,
+    "branches_covered": 63,
+    "branches_total": 64
+  },
+  "mutation": {
+    "killed": 68,
+    "total": 80,
+    "score_pct": 85.0,
+    "reused_kills": 64,
+    "survivors": [
+      "line 38 (None): 'th' -> ''",
+      "line 44 (None): 'four' -> ''",
+      "line 184 (None): 'trillion' -> ''",
+      "line 189 (None): 'octillion' -> ''",
+      "line 190 (None): 'nonillion' -> ''",
+      "line 59 (_format_not_finite): < -> <=",
+      "line 66 (ordinal): 'male' -> ''",
+      "line 111 (ordinal): 'male' -> ''",
+      "line 174 (intcomma): != -> ==",
+      "line 175 (intcomma): ',.' -> ''",
+      "line 555 (metric): - -> +",
+      "line 433 (clamp): '>' -> ''"
+    ]
+  },
+  "tests_in_suite": 52,
+  "candidates": 106,
+  "accepted": 52,
+  "accepted_by": {
+    "coverage": 36,
+    "scenario": 14,
+    "mutants": 2
+  },
+  "accepted_after_fix": 6,
+  "sent_to_fixer": 24,
+  "rejected_no_signal": 25,
+  "frozen": 5,
+  "superseded": 0,
+  "weak_kept": 1,
+  "failed": 8,
+  "rule_violations": {
+    "literal_oracle": 4,
+    "no_patching_module_under_test": 24
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 58,
+    "tokens": 170168,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 48,
+  "scenarios_covered": 43,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 2,
+      "tokens": 14988,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 13,
+      "tokens": 43151,
+      "roles": [
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 18,
+      "tokens": 17797,
+      "roles": [
+        "judge"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 25,
+      "tokens": 94232,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import math\n\nimport pytest\nfrom humanize.number import (\n    _format_not_finite,\n    apnumber,\n    clamp,\n    decimal_separator,\n    fractional,\n    intcomma,\n    intword,\n    metric,\n    ordinal,\n    scientific,\n)\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (None, \"None\"),\n        (\"abc\", \"abc\"),\n        (float(\"inf\"), \"+Inf\"),\n        (float(\"-inf\"), \"-Inf\"),\n        (float(\"nan\"), \"NaN\"),\n    ],\n)\ndef test_intcomma__non_convertible_and_special_floats(value, expected):\n    assert intcomma(value) == expected\n\n\ndef test_metric__rounding_bump():\n    \"\"\"\n    Values that round up to 1000 should bump to the next SI prefix.\n    Example: 999.5 \u2192 rounds to 1000, becomes 1.00 k.\n    \"\"\"\n    assert metric(999.5) == \"1.00 k\"\n\n\ndef _replace_decimal(s: str) -> str:\n    \"\"\"Replace the dot in a number string with the current locale decimal separator.\"\"\"\n    sep = decimal_separator()\n    return s.replace(\".\", sep)\n\n\ndef test_intword__thousands_millions_billions():\n    \"\"\"Typical large numbers are formatted with the appropriate unit.\"\"\"\n    sep = decimal_separator()\n    cases = [\n        (12400, f\"12{sep}4 thousand\"),\n        (1_000_000, f\"1{sep}0 million\"),\n        (1_200_000_000, f\"1{sep}2 billion\"),\n        (\n            8_100_000_000_000_000_000_000_000_000_000_000,\n            f\"8{sep}1 decillion\",\n        ),\n    ]\n    for value, expected in cases:\n        assert intword(value) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1.3, \"1 3/10\"),\n        (2.5, \"2 1/2\"),\n        (3.3333333333, \"3 1/3\"),\n    ],\n)\ndef test_fractional__mixed_fraction(value, expected):\n    assert fractional(value) == expected\n\n\ndef test_clamp__invalid_format():\n    # Passing a non\u2011string, non\u2011callable format must raise ValueError.\n    with pytest.raises(ValueError) as exc:\n        clamp(1, format=123)\n    assert \"Invalid format\" in str(exc.value)\n\n\n# Happy path: positive numbers with default precision\ndef test_scientific__positive_float_default_precision():\n    assert scientific(0.3) == \"3.00 x 10\u207b\u00b9\"\n    assert scientific(500) == \"5.00 x 10\u00b2\"\n    assert scientific(1000) == \"1.00 x 10\u00b3\"\n\n\n# ----------------------------------------------------------------------\n# Happy path: numbers 0\u20119 are spelled out\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (0, \"zero\"),\n        (1, \"one\"),\n        (5, \"five\"),\n        (9, \"nine\"),\n    ],\n)\ndef test_apnumber__zero_to_nine_spelled_out(inp, expected):\n    assert apnumber(inp) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1, \"1st\"),\n        (2, \"2nd\"),\n        (3, \"3rd\"),\n        (4, \"4th\"),\n        (11, \"11th\"),\n        (12, \"12th\"),\n        (13, \"13th\"),\n        (21, \"21st\"),\n        (22, \"22nd\"),\n        (23, \"23rd\"),\n        (100, \"100th\"),\n        (101, \"101st\"),\n        (111, \"111th\"),\n        (1002, \"1002nd\"),\n    ],\n)\ndef test_ordinal__positive_regular_suffixes(value, expected):\n    \"\"\"Happy path \u2013 positive integers receive the correct English ordinal suffix.\"\"\"\n    assert ordinal(value) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (100, \"100\"),\n        (0, \"0\"),\n        (-5, \"-5\"),\n    ],\n)\ndef test_intcomma__integer_no_commas_needed(value, expected):\n    assert intcomma(value) == expected\n\n\ndef test_intword__non_convertible_and_special_floats():\n    \"\"\"Non\u2011numeric values are returned as\u2011is; special floats use the helper.\"\"\"\n    # Non\u2011numeric inputs\n    assert intword(None) == \"None\"\n    assert intword(\"abc\") == \"abc\"\n\n    # Special floating\u2011point values\n    assert intword(float(\"inf\")) == \"+Inf\"\n    assert intword(float(\"-inf\")) == \"-Inf\"\n    assert intword(float(\"nan\")) == \"NaN\"\n\n\ndef test_metric__zero_value():\n    \"\"\"Zero should be formatted with the default precision (3 significant digits).\"\"\"\n    # With default precision=3 the function formats 0 as \"0.00\"\n    assert metric(0.0) == \"0.00\"\n\n\ndef test_fractional__non_convertible_and_special_floats():\n    # non\u2011numeric, convertible via str()\n    assert fractional(\"ten\") == \"ten\"\n    assert fractional(None) == \"None\"\n\n    # special floating\u2011point values trigger the _format_not_finite helper\n    assert fractional(float(\"inf\")) == \"+Inf\"\n    assert fractional(float(\"-inf\")) == \"-Inf\"\n    # NaN is not equal to itself, compare the string directly\n    assert fractional(float(\"nan\")) == \"NaN\"\n\n\n# Error handling: non\u2011convertible strings, None, and special floats\ndef test_scientific__non_convertible_and_special_floats():\n    assert scientific(\"foo\") == \"foo\"\n    assert scientific(None) == \"None\"\n    assert scientific(float(\"inf\")) == \"+Inf\"\n    assert scientific(float(\"-inf\")) == \"-Inf\"\n    assert scientific(float(\"nan\")) == \"NaN\"\n\n\ndef test_clamp__below_floor():\n    # Value below floor should be clamped and token prepended.\n    result = clamp(2, floor=5, floor_token=\"<\")\n    assert result == \"<5\"\n\n\ndef test_intword__below_thousand():\n    \"\"\"Values smaller than the first power (thousand) are returned unchanged.\"\"\"\n    cases = [\n        (100, \"100\"),\n        (999, \"999\"),\n        (0, \"0\"),\n    ]\n    for value, expected in cases:\n        assert intword(value) == expected\n\n\ndef test_intword__negative_numbers():\n    \"\"\"Negative inputs keep the sign and are otherwise formatted like positives.\"\"\"\n    sep = decimal_separator()\n    cases = [\n        (-1_000_000, f\"-1{sep}0 million\"),\n        (-12_400, f\"-12{sep}4 thousand\"),\n    ]\n    for value, expected in cases:\n        assert intword(value) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1, \"1\"),\n        (2.0, \"2\"),\n        (-3.0, \"-3\"),\n    ],\n)\ndef test_fractional__whole_number(value, expected):\n    assert fractional(value) == expected\n\n\n# ----------------------------------------------------------------------\n# Edge: 10 and above are returned as plain strings\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (10, \"10\"),\n        (11, \"11\"),\n        (100, \"100\"),\n    ],\n)\ndef test_apnumber__ten_and_above_returned_as_str(inp, expected):\n    assert apnumber(inp) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (\"something else\", \"something else\"),\n        ([1, 2, 3], \"[1, 2, 3]\"),\n        (None, \"None\"),\n    ],\n)\ndef test_ordinal__non_convertible_returns_str(value, expected):\n    \"\"\"Values that cannot be turned into a finite number are returned via `str()`.\"\"\"\n    assert ordinal(value) == expected\n\n\n# ----------------------------------------------------------------------\n# Error: values that cannot be converted to int are returned via str()\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (\"foo\", \"foo\"),\n        (None, \"None\"),\n        ([], \"[]\"),\n    ],\n)\ndef test_apnumber__non_convertible_returns_str(inp, expected):\n    assert apnumber(inp) == expected\n\n\ndef test_metric__positive_with_prefix_small():\n    \"\"\"Values with negative exponent should receive the correct small SI prefix.\"\"\"\n    # 220\u202f\u00b5F \u2192 220 \u03bc (unit omitted in this test)\n    assert metric(220e-6) == \"220 \u03bc\"\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (math.nan, \"NaN\"),\n        (math.inf, \"+Inf\"),\n        (-math.inf, \"-Inf\"),\n    ],\n)\ndef test_clamp__non_finite_input(value, expected):\n    # Non\u2011finite values bypass normal formatting and use the helper.\n    assert clamp(value) == expected\n\n\ndef test_clamp__above_ceil():\n    # Value above ceil should be clamped and token prepended.\n    result = clamp(20, ceil=15, ceil_token=\">\")\n    assert result == \">15\"\n\n\ndef test_clamp__cover_1():\n    # Directly exercise the fallback return path of _format_not_finite.\n    # A finite number goes through the helper and yields an empty string.\n    assert _format_not_finite(42.0) == \"\"\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (float(\"inf\"), \"+Inf\"),\n        (float(\"-inf\"), \"-Inf\"),\n        (float(\"nan\"), \"NaN\"),\n    ],\n)\ndef test_ordinal__infinite_and_nan(value, expected):\n    \"\"\"Non\u2011finite floats are delegated to the helper that returns the special strings.\"\"\"\n    assert ordinal(value) == expected\n\n\ndef test_metric__non_finite_input_nan():\n    \"\"\"NaN should be handled by _format_not_finite.\"\"\"\n    assert metric(math.nan) == \"NaN\"\n\n\n@pytest.mark.parametrize(\n    \"value,ndigits,expected\",\n    [\n        (1234.567, 2, \"1,234.57\"),\n        (14308.40, 1, \"14,308.4\"),\n        (1.999, 0, \"2\"),\n    ],\n)\ndef test_intcomma__float_with_ndigits_rounding(value, ndigits, expected):\n    assert intcomma(value, ndigits) == expected\n\n\ndef test_clamp__none_input():\n    assert clamp(None) is None\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (0.3, \"3/10\"),\n        (0.5, \"1/2\"),\n        (0.3333333333, \"1/3\"),\n    ],\n)\ndef test_fractional__simple_fraction(value, expected):\n    assert fractional(value) == expected\n\n\n# ----------------------------------------------------------------------\n# Error: handling of NaN and infinities (covers _format_not_finite lines)\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (float(\"inf\"), \"+Inf\"),\n        (float(\"-inf\"), \"-Inf\"),\n        (float(\"nan\"), \"NaN\"),\n    ],\n)\ndef test_apnumber__infinite_and_nan(inp, expected):\n    assert apnumber(inp) == expected\n\n\ndef test_clamp__within_bounds_string_format():\n    # Value inside floor/ceil, using a format string.\n    result = clamp(5.1234, format=\"{:.2f}\", floor=0, ceil=10)\n    assert result == \"5.12\"  # No token should be added.\n\n\ndef test_metric__positive_no_prefix():\n    \"\"\"Values whose exponent is 0\u20112 should have no SI prefix.\"\"\"\n    # 500 \u2192 exponent 2, no prefix, formatted with 0 decimal places\n    assert metric(500) == \"500\"\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1000, \"1,000\"),\n        (1_000_000, \"1,000,000\"),\n        (-12_345, \"-12,345\"),\n    ],\n)\ndef test_intcomma__integer_with_commas(value, expected):\n    assert intcomma(value) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1234.567, \"1,234.567\"),\n        (-0.123, \"-0.123\"),\n    ],\n)\ndef test_intcomma__float_without_ndigits(value, expected):\n    assert intcomma(value) == expected\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (-1.3, \"-1 3/10\"),\n        (-2.5, \"-2 1/2\"),\n    ],\n)\ndef test_fractional__negative_mixed_fraction(value, expected):\n    assert fractional(value) == expected\n\n\n# Happy path: negative numbers\ndef test_scientific__negative_number():\n    assert scientific(-1000) == \"-1.00 x 10\u00b3\"\n    assert scientific(-0.3) == \"-3.00 x 10\u207b\u00b9\"\n\n\n# Happy path: custom precision\ndef test_scientific__custom_precision():\n    assert scientific(1000, precision=1) == \"1.0 x 10\u00b3\"\n    assert scientific(1000, precision=3) == \"1.000 x 10\u00b3\"\n    assert scientific(0.3, precision=4) == \"3.0000 x 10\u207b\u00b9\"\n\n\n# Edge case: zero\ndef test_scientific__zero():\n    assert scientific(0) == \"0.00 x 10\u2070\"\n    assert scientific(0.0) == \"0.00 x 10\u2070\"\n\n\n# Edge case: string inputs that can be converted to float\ndef test_scientific__string_number_input():\n    assert scientific(\"99\") == \"9.90 x 10\u00b9\"\n    assert scientific(\"1e6\") == \"1.00 x 10\u2076\"\n\n\n@pytest.mark.parametrize(\n    \"value,expected\",\n    [\n        (1.0, \"1st\"),\n        (\"2\", \"2nd\"),\n    ],\n)\ndef test_ordinal__float_and_string_convertible_to_int(value, expected):\n    \"\"\"Edge cases \u2013 values that can be losslessly converted to an int.\"\"\"\n    assert ordinal(value) == expected\n\n\ndef test_ordinal__gender_parameter():\n    \"\"\"The `gender` argument does not affect the English suffixes.\"\"\"\n    for val, suffix in [(1, \"st\"), (2, \"nd\"), (3, \"rd\")]:\n        assert ordinal(val, gender=\"female\") == f\"{val}{suffix}\"\n\n\n# ----------------------------------------------------------------------\n# Edge: negative integers are returned unchanged as strings\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (-1, \"-1\"),\n        (-5, \"-5\"),\n    ],\n)\ndef test_apnumber__negative_numbers(inp, expected):\n    assert apnumber(inp) == expected\n\n\n# ----------------------------------------------------------------------\n# Edge: strings that can be converted to int are treated like ints\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"inp,expected\",\n    [\n        (\"7\", \"seven\"),\n        (\"0\", \"zero\"),\n    ],\n)\ndef test_apnumber__string_convertible_to_int(inp, expected):\n    assert apnumber(inp) == expected\n\n\ndef test_intword__rounding_carry_to_next_power():\n    \"\"\"\n    Rounding can push a value to the next power.\n    999\u202f999 with format \"%.1f\" becomes 1.0 million.\n    \"\"\"\n    assert intword(999_999, \"%.1f\") == \"1.0 million\"\n\n\ndef test_metric__scientific_fallback_large():\n    \"\"\"Values with exponent \u226533 fall back to scientific notation.\"\"\"\n    value = 1e40\n    assert metric(value) == '1.00 x 10\u2074\u2070'\n\n\ndef test_intword__custom_format_string():\n    \"\"\"A custom format string changes the number of decimal places.\"\"\"\n    assert intword(1_234_000, \"%0.3f\") == \"1.234 million\"\n\n\ndef test_clamp__ceil_boundary_no_token():\n    \"\"\"When value equals ceil the token must NOT be added (uses strict >).\"\"\"\n    # Using default string format\n    result = clamp(10.0, floor=5.0, ceil=10.0, ceil_token=\">\")\n    assert result == \"10.0\"  # no leading token\n\n    # Using a callable format to also hit the callable branch\n    fmt = lambda v: f\"{v:.1f}\"\n    result = clamp(10.0, floor=5.0, ceil=10.0, ceil_token=\">\", format=fmt)\n    assert result == \"10.0\"  # token absent, formatted via callable\n\n\ndef test_fractional__limit_denominator_boundary():\n    \"\"\"\n    When the denominator limit is 1000 the fraction 1/1001 is approximated\n    as 1/1000. If the implementation mistakenly uses 1001 as the limit,\n    the output would become '1/1001' and this test would fail.\n    \"\"\"\n    # Use a float close to the exact rational 1/1001.\n    value = float(1 / 1001)\n    # Expected result with the correct limit_denominator(1000) is \"1/1000\".\n    assert fractional(value) == \"1/1000\"\n\n# Helper to create NaN and infinities\nnan = float(\"nan\")\npos_inf = float(\"inf\")\nneg_inf = float(\"-inf\")\n\n\n@pytest.mark.parametrize(\n    \"value, unit, expected\",\n    [\n        # exponent % 3 == 0, simple case\n        (1500, \"V\", \"1.50 kV\"),\n        # exponent % 3 == 2, should not add extra trailing zeros\n        (2e8, \"W\", \"200 MW\"),\n        # exponent % 3 == 1, small number with micro prefix\n        (220e-6, \"F\", \"220 \u03bcF\"),\n        # no unit, exponent % 3 == 0\n        (1500, \"\", \"1.50 k\"),\n        # no unit, exponent % 3 == 2 (value 2e8)\n        (2e8, \"\", \"200 M\"),\n        # exponent % 3 == 1, no unit\n        (12345, \"\", \"12.3 k\"),\n    ],\n)\ndef test_metric__positive_with_prefix(value, unit, expected):\n    # default precision is 3, which matches the expected strings above\n    assert metric(value, unit) == expected\n\n\ndef test_intcomma__string_input_with_locale_separators__english():\n    # English locale uses thousands separator \",\" and decimal separator \".\"\n    result = intcomma(\"1,000.25\")\n    assert result == \"1,000.25\"\n\n\ndef test_intcomma__branch_int_conversion():\n    # String without a dot triggers the int conversion branch\n    result = intcomma(\"1234\")\n    assert result == \"1,234\"\n\n\ndef test_intcomma__nonfinite_string_nan():\n    # NaN should be handled by _format_not_finite\n    result = intcomma(\"NaN\")\n    assert result == \"NaN\"",
+  "duration_s": 930.6,
+  "run_id": "7b769b56ce8e",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      408.5,
+      94.7,
+      85.9
+    ],
+    [
+      473.1,
+      96.5,
+      89.1
+    ],
+    [
+      550.6,
+      96.5,
+      89.1
+    ],
+    [
+      648.2,
+      97.1,
+      90.6
+    ],
+    [
+      786.1,
+      99.4,
+      96.9
+    ],
+    [
+      911.7,
+      99.4,
+      96.9
+    ]
+  ],
+  "llm_calls": 58,
+  "llm_tokens": 170168,
+  "models": [
+    "groq/openai/gpt-oss-20b",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b"
+  ],
+  "wall_s": 930.7,
+  "subject": "humanize_number",
+  "level": "basic",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 10:20:05"
+}
