@@ -28,7 +28,8 @@ class Scenario(BaseModel):
     kind: str = "happy"  # happy | edge | error
 
 
-CandidateStatus = Literal["pending", "passed", "failed", "accepted", "rejected"]
+CandidateStatus = Literal["pending", "passed", "failed", "needs_fix", "accepted", "rejected",
+                          "frozen"]
 
 
 class Candidate(BaseModel):
@@ -47,13 +48,22 @@ class Candidate(BaseModel):
     new_lines: list[int] = Field(default_factory=list)
     new_branches: list[tuple[int, int]] = Field(default_factory=list)
     duration_s: float = 0.0
+    attempt: int = 0                  # 0 = as generated, n = after n Fixer repairs
+    parent_id: str | None = None      # candidate this one was repaired from
+    violations: list[str] = Field(default_factory=list)  # rule ids (errors and warnings)
+    mutants_run: int = 0
+    killed: list[str] = Field(default_factory=list)      # mutant ids this test kills
+    new_kills: list[str] = Field(default_factory=list)   # kills no accepted test had
+    accepted_by: str = ""             # coverage | mutants | scenario
 
 
 class RunState(TypedDict, total=False):
     round: int
     scenarios: dict[str, list[Scenario]]   # function qualname -> scenarios
     targets: list[str]                     # functions to (re)generate for, by priority
-    pending: list[Candidate]               # produced by Generator, consumed by Executor
+    pending: list[Candidate]               # produced by Generator/Fixer, run by Executor
+    executed: list[Candidate]              # run by Executor, judged by Validator
+    to_fix: list[Candidate]                # sent by Validator to the Fixer
     history: list[Candidate]               # every executed candidate
     suite: str                             # accumulated test file source
     feedback: dict[str, str]               # function -> failures to show the next round
@@ -76,6 +86,11 @@ class RunContext:
     seen_code: set[str] = field(default_factory=set)  # dedup of tried candidates
     covered_scenarios: set[tuple[str, str]] = field(default_factory=set)
     baseline: dict = field(default_factory=dict)  # coverage summary before generation
+    results: dict = field(default_factory=dict)   # candidate id -> RunResult
+    mutant_pool: list | None = None                # Mutant objects, built lazily
+    killed_mutants: set[str] = field(default_factory=set)  # killed by accepted tests
+    survivors: dict = field(default_factory=dict)  # candidate id -> mutants it let survive
+    scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
     _counter: int = 0
 
     def next_id(self) -> str:

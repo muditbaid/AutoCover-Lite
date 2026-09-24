@@ -18,7 +18,8 @@ dependencies = [
     "libcst>=1.4",
     "coverage>=7.5",
     "pytest>=8",
-    "tzdata>=2024.1",  # IANA time zones for quota resets (Windows has none built in)
+    "tzdata>=2024.1",
+    "ruff>=0.5",  # finalize removes unused imports / sorts imports in the merged suite  # IANA time zones for quota resets (Windows has none built in)
     "langgraph>=0.2",
     "opentelemetry-api>=1.25",
     "opentelemetry-sdk>=1.25",
@@ -26,7 +27,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff>=0.5"]
+dev = []
 
 [project.scripts]
 autocover = "autocover.cli:app"

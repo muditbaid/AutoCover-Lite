@@ -74,7 +74,11 @@ class SandboxConfig(BaseModel):
 
 
 class MutationConfig(BaseModel):
-    max_mutants_per_function: int = 8
+    enabled: bool = True
+    max_mutants_per_function: int = 8    # size of the per-function mutant pool
+    max_mutants_per_candidate: int = 12  # mutants run against one candidate test
+    final_score: bool = True             # mutation score of the final suite
+    timeout_s: float = 30
     seed: int = 0
 
 
@@ -85,6 +89,8 @@ class RunConfig(BaseModel):
     preparer_max_tokens: int = 4096
     generator_max_tokens: int = 8192  # reasoning models spend part of this thinking
     include_private: bool = False    # also test _private functions
+    max_fix_attempts: int = 2        # Fixer attempts per test before it is frozen
+    judge_scenarios: bool = True     # LLM judge may accept a test for a new scenario
 
 
 class TelemetryConfig(BaseModel):

@@ -118,13 +118,26 @@ def run(
                f"({final['lines_covered']}/{final['lines_total']})")
     typer.echo(f"  branches {base['branch_pct']:5.1f}% -> {final['branch_pct']:5.1f}%  "
                f"({final['branches_covered']}/{final['branches_total']})")
-    typer.echo(f"  candidates {summary['candidates']}: accepted {summary['accepted']}, "
-               f"failed {summary['failed']}, no new coverage {summary['rejected_no_gain']}")
-    typer.echo(f"  scenarios covered {summary['scenarios_covered']}/{summary['scenarios_total']}")
+    mutation = summary.get("mutation")
+    if mutation:
+        typer.echo(f"  mutants  killed {mutation['killed']}/{mutation['total']} "
+                   f"({mutation['score_pct']}% mutation score)")
+    by = ", ".join(f"{k} {v}" for k, v in summary["accepted_by"].items())
+    typer.echo(f"  candidates {summary['candidates']}: accepted {summary['accepted']} ({by}); "
+               f"{summary['accepted_after_fix']} after a fix; "
+               f"rejected {summary['rejected_no_signal']}; frozen {summary['frozen']}")
+    typer.echo(f"  scenarios covered {summary['scenarios_covered']}/"
+               f"{summary['scenarios_total']}")
+    if summary["rule_violations"]:
+        typer.echo("  rule violations seen: " + ", ".join(
+            f"{k} x{v}" for k, v in summary["rule_violations"].items()))
+    if mutation and mutation["survivors"]:
+        typer.echo("  surviving mutants: " + "; ".join(mutation["survivors"][:5]))
     if summary["removed_in_suite_check"]:
         typer.echo(f"  removed after suite check: {summary['removed_in_suite_check']}")
     for model, use in summary["llm"].items():
-        typer.echo(f"  llm {model}: {use['calls']} calls, {use['tokens']} tokens")
+        typer.echo(f"  llm {model} [{','.join(use['roles'])}]: {use['calls']} calls, "
+                   f"{use['tokens']} tokens")
     if summary.get("written"):
         typer.echo(f"\nwrote {summary['tests_in_suite']} tests to {summary['written']}")
     elif dry_run:

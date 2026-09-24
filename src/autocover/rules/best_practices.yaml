@@ -1,0 +1,91 @@
+# Best-practices registry used by the Validator (AutoCover paper, section 3.5).
+# Each rule is checked deterministically on the AST of a candidate test module.
+#   severity error   -> the candidate is not accepted; it goes to the Fixer with this text
+#   severity warning -> recorded in telemetry only
+# `fix` is the instruction shown to the Fixer; `example` is a short before/after.
+
+rules:
+  - id: literal_oracle
+    severity: error
+    rationale: >-
+      The expected value is computed by calling the code under test, so the test still
+      passes when that code is broken (both sides change together).
+    fix: Replace the computed expectation with a literal value worked out by hand.
+    example: |
+      # bad
+      expected = sum(ticket_price(a) for a in ages)
+      assert group_total(ages) == expected
+      # good
+      assert group_total([30, 30]) == 20.0
+
+  - id: no_autouse_fixture
+    severity: error
+    rationale: >-
+      Tests are merged into one shared file; an autouse fixture would silently apply to
+      every other test there.
+    fix: Remove autouse=True and request the fixture explicitly as a test parameter.
+    example: |
+      # bad
+      @pytest.fixture(autouse=True)
+      # good
+      @pytest.fixture
+      def data(): ...
+      def test_x(data): ...
+
+  - id: no_patching_module_under_test
+    severity: error
+    rationale: >-
+      Mocking functions of the module under test replaces the very code being tested;
+      the test then checks the mock, not the implementation.
+    fix: Call the real functions of the module; mock only external dependencies.
+    example: |
+      # bad
+      monkeypatch.setattr("ticket_price.ticket_price", fake)
+      # good
+      assert group_total([30, 30]) == 20.0
+
+  - id: has_assertion
+    severity: error
+    rationale: A test without an assertion only checks that the code does not crash.
+    fix: Assert on the returned value or use pytest.raises for the expected exception.
+    example: |
+      # bad
+      def test_x(): f(3)
+      # good
+      def test_x(): assert f(3) == 9
+
+  - id: no_sleep
+    severity: error
+    rationale: Sleeping makes tests slow and timing-dependent (flaky).
+    fix: Remove the sleep; inject or freeze time instead.
+    example: |
+      # bad
+      time.sleep(1)
+
+  - id: no_network
+    severity: error
+    rationale: Network access makes tests slow, flaky and non-hermetic (the sandbox blocks it).
+    fix: Do not import network libraries; mock the external call instead.
+    example: |
+      # bad
+      import requests
+
+  - id: private_attribute_assertion
+    severity: warning
+    rationale: >-
+      Asserting on private attributes creates change-detector tests that break on
+      harmless refactors.
+    fix: Assert through the public API instead.
+    example: |
+      # bad
+      assert cart._items == [1]
+      # good
+      assert cart.total() == 1
+
+  - id: unseeded_random
+    severity: warning
+    rationale: Randomness without a fixed seed makes failures irreproducible.
+    fix: Use fixed inputs or random.Random(0).
+    example: |
+      # bad
+      x = random.randint(0, 9)

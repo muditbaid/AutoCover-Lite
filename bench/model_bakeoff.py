@@ -38,6 +38,7 @@ async def bake(model: str, repo: Path, target: str, config_path: Path) -> dict:
     cfg = load_config(config_path)
     cfg.llm.roles["generator"] = [model]
     cfg.run.max_rounds = 1
+    cfg.run.max_fix_attempts = 0  # measure the generator alone: no repairs
     runtime = build_runtime(cfg)
     start = time.monotonic()
     try:
@@ -49,7 +50,10 @@ async def bake(model: str, repo: Path, target: str, config_path: Path) -> dict:
     gen = [e for e in runtime.telemetry.events
            if e.get("event") == "completion" and e.get("role") == "generator"]
     cands = summary["candidates"]
-    passed = summary["accepted"] + summary["rejected_no_gain"]
+    first_try = [e for e in runtime.telemetry.events
+                 if e.get("event") == "candidate" and e.get("attempt") == 0]
+    passed = sum(e["status"] not in ("needs_fix", "frozen") or "weak" in e.get("reason", "")
+                 for e in first_try)
     return {
         "model": model,
         "candidates": cands,

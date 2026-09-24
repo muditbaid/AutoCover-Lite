@@ -61,7 +61,7 @@ def make_candidates(ctx: RunContext, qualname: str, scenarios: list[Scenario], c
     prefix = f"test_{stem_of(qualname)}__"
     candidates = []
     for name, source in parts:
-        digest = hashlib.sha256(_normalize(source).encode()).hexdigest()
+        digest = hashlib.sha256(normalize_code(source).encode()).hexdigest()
         if digest in ctx.seen_code:
             ctx.telemetry.event("generator", "duplicate_dropped", function=qualname, test=name)
             continue
@@ -82,7 +82,7 @@ def uncovered_source(ctx: RunContext, qualname: str) -> list[tuple[int, str]]:
     return [(n, source_lines[n - 1].strip()) for n in missing if 0 < n <= len(source_lines)]
 
 
-def _normalize(source: str) -> str:
+def normalize_code(source: str) -> str:
     """Whitespace/comment-insensitive form used for duplicate detection."""
     no_comments = re.sub(r"#[^\n]*", "", source)
     return re.sub(r"\s+", " ", no_comments).strip()

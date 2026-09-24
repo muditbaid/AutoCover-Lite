@@ -112,9 +112,15 @@ run:
   preparer_max_tokens: 4096
   generator_max_tokens: 8192
   include_private: false
+  max_fix_attempts: 2       # Fixer attempts per test before it is frozen
+  judge_scenarios: true     # a test with no new coverage/kills can still count for a new scenario
 
 mutation:
-  max_mutants_per_function: 8
+  enabled: true
+  max_mutants_per_function: 8     # per-function pool (seeded sample)
+  max_mutants_per_candidate: 12   # mutants on lines a candidate executes, own function first
+  final_score: true               # report the final suite's mutation score
+  timeout_s: 30
   seed: 0
 
 telemetry:

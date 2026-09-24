@@ -91,6 +91,45 @@ def writer_messages(
             {"role": "user", "content": "\n\n".join(parts)}]
 
 
+FIXER_SYSTEM = f"""\
+You are the Fixer agent of an automated unit-test generator (TEST_FIXER).
+You get ONE pytest test that failed or was rejected, and why. Return a corrected version
+with the smallest change that fixes the problem, keeping the same intent and test name.
+If the test's expectation is wrong, re-derive the correct value from the code under test;
+if the code under test is behaving correctly, never change the test to hide it by
+weakening assertions.
+
+Rules:
+{TEST_RULES}
+
+Reply with a single ```python code block containing the complete test module (imports,
+helpers, the one test). Nothing outside the code block."""
+
+JUDGE_SYSTEM = """\
+You are the scenario judge of an automated unit-test generator (SCENARIO_JUDGE).
+Decide whether a test really checks the stated scenario: it must drive the code with
+inputs matching the scenario and assert the scenario's expected behaviour (a return
+value, an exception, or observable state). A test that only runs the code, asserts
+something unrelated, or checks a different situation does NOT cover the scenario.
+Reply with JSON only: {"covers": true|false, "reason": "one short sentence"}"""
+
+
+def fixer_messages(ctx: ModuleContext, fn: FunctionInfo, test_code: str, test_name: str,
+                   problem: str) -> list[dict]:
+    user = (f"{render_context(ctx, fn.qualname)}\n\n"
+            f"Test `{test_name}`:\n```python\n{test_code.rstrip()}\n```\n\n"
+            f"Problem:\n{problem.strip()}\n\n"
+            f"Return the fixed test, still named `{test_name}`.")
+    return [{"role": "system", "content": FIXER_SYSTEM}, {"role": "user", "content": user}]
+
+
+def judge_messages(fn: FunctionInfo, scenario: Scenario, test_code: str) -> list[dict]:
+    user = (f"Function under test:\n```python\n{fn.source.rstrip()}\n```\n\n"
+            f"Scenario [{scenario.kind}]: {scenario.description}\n\n"
+            f"Test:\n```python\n{test_code.rstrip()}\n```\n\nDoes the test cover the scenario?")
+    return [{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": user}]
+
+
 def stem_of(qualname: str) -> str:
     """`Class.method` -> `Class_method` (valid inside a test function name)."""
     return qualname.replace(".", "_")

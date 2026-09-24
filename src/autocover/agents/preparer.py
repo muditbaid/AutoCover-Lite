@@ -28,7 +28,8 @@ async def prepare(ctx: RunContext, state: RunState) -> RunState:
         functions = _functions(ctx)
         results = await asyncio.gather(*(_scenarios_for(ctx, fn) for fn in functions))
         scenarios = {fn.qualname: sc for fn, sc in zip(functions, results, strict=True)}
-        targets = prioritize(ctx, functions)
+        ctx.scenarios = scenarios
+        targets = plan_targets(ctx, scenarios)
         span.update(functions=len(functions),
                     scenarios=sum(len(s) for s in scenarios.values()),
                     baseline_line_pct=round(ctx.tracker.line_pct, 1))
@@ -102,6 +103,17 @@ def parse_scenarios(text: str, function: str, limit: int) -> list[Scenario]:
     if not scenarios:
         raise ValueError("no usable scenarios in reply")
     return scenarios
+
+
+def plan_targets(ctx: RunContext, scenarios: dict[str, list[Scenario]]) -> list[str]:
+    """Functions worth another Generator round: uncovered lines first (most first), then
+    functions whose lines are covered but that still have scenarios nobody tested."""
+    functions = [ctx.module.function(q) for q in scenarios]
+    targets = prioritize(ctx, functions)
+    if ctx.config.run.judge_scenarios:
+        targets += [q for q, items in scenarios.items() if q not in targets
+                    and any((q, s.id) not in ctx.covered_scenarios for s in items)]
+    return targets
 
 
 def prioritize(ctx: RunContext, functions: list[FunctionInfo]) -> list[str]:
