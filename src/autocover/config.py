@@ -78,6 +78,7 @@ class SandboxConfig(BaseModel):
 class MutationConfig(BaseModel):
     enabled: bool = True
     max_mutants_per_function: int = 8    # size of the per-function mutant pool
+    max_mutants_total: int = 150         # cap on the whole pool (seeded sample)
     max_mutants_per_candidate: int = 12  # mutants run against one candidate test
     final_score: bool = True             # mutation score of the final suite
     timeout_s: float = 30
@@ -88,6 +89,8 @@ class RunConfig(BaseModel):
     max_rounds: int = 3              # generate -> execute rounds per run
     budget_min: float = 10           # wall-clock budget for a run
     max_scenarios_per_function: int = 6
+    preparer_batch: int = 6          # functions planned per Preparer call
+    max_functions_per_round: int = 12  # Generator targets per round (highest priority)
     preparer_max_tokens: int = 4096
     generator_max_tokens: int = 8192  # reasoning models spend part of this thinking
     include_private: bool = False    # also test _private functions

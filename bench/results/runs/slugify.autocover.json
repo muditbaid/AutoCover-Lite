@@ -1,0 +1,152 @@
+{
+  "target": "slugify/slugify.py",
+  "test_path": "tests/test_slugify_autocover.py",
+  "rounds": 2,
+  "baseline": {
+    "line_pct": 21.1,
+    "branch_pct": 0.0,
+    "lines_covered": 27,
+    "lines_total": 128,
+    "branches_covered": 0,
+    "branches_total": 66
+  },
+  "final": {
+    "line_pct": 77.0,
+    "branch_pct": 59.1,
+    "lines_covered": 104,
+    "lines_total": 135,
+    "branches_covered": 39,
+    "branches_total": 66
+  },
+  "mutation": {
+    "killed": 22,
+    "total": 52,
+    "score_pct": 42.3,
+    "reused_kills": 12,
+    "survivors": [
+      "line 22 (None): '(?<=\\\\d),(?=\\\\d)' -> ''",
+      "line 25 (None): 'auto' -> ''",
+      "line 25 (None): 'text-unidecode' -> ''",
+      "line 15 (None): '|' -> ''",
+      "line 45 (_decode_entities): 10 -> 11",
+      "line 47 (_decode_entities): 16 -> 17",
+      "line 60 (_transliterate): '-' -> ''",
+      "line 62 (_transliterate): 'anyascii' -> ''",
+      "line 62 (_transliterate): 'anyascii' -> ''",
+      "line 74 (_modern_truncate): + -> -",
+      "line 74 (_modern_truncate): - -> +",
+      "line 85 (_modern_truncate): <= -> <",
+      "line 102 (_modern_truncate): 0 -> 1",
+      "line 74 (_modern_truncate): 1 -> 2",
+      "line 146 (_modern_slugify): and -> or",
+      "line 136 (_modern_slugify): remove `not`",
+      "line 139 (_modern_slugify): 'post' -> ''",
+      "line 178 (slugify): True -> False",
+      "line 179 (slugify): True -> False",
+      "line 183 (slugify): False -> True"
+    ]
+  },
+  "tests_in_suite": 6,
+  "candidates": 15,
+  "accepted": 6,
+  "accepted_by": {
+    "coverage": 4,
+    "scenario": 1,
+    "mutants": 1
+  },
+  "accepted_after_fix": 4,
+  "sent_to_fixer": 8,
+  "rejected_no_signal": 2,
+  "frozen": 0,
+  "superseded": 3,
+  "weak_kept": 2,
+  "failed": 1,
+  "rule_violations": {
+    "literal_oracle": 3
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "no gaps left",
+  "llm_budget": {
+    "calls": 15,
+    "tokens": 38808,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 6,
+  "scenarios_covered": 6,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 1,
+      "tokens": 1885,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 2,
+      "tokens": 6139,
+      "roles": [
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 4,
+      "tokens": 4792,
+      "roles": [
+        "judge"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 8,
+      "tokens": 25992,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "\nimport pytest\n\n# Import the public function and the internal helpers for direct comparison\nfrom slugify.slugify import slugify\n\n\n# Helper to check if a string contains only ASCII characters\ndef _is_ascii(s: str) -> bool:\n    return all(ord(ch) < 128 for ch in s)\n\n\ndef test_slugify__invalid_algorithm_raises():\n    \"\"\"\n    Passing an unsupported algorithm should raise ValueError with the correct message.\n    \"\"\"\n    with pytest.raises(ValueError) as excinfo:\n        slugify(\"test\", algorithm=\"invalid\")\n    assert \"algorithm must be 'legacy' or 'modern'\" in str(excinfo.value)\n\n\ndef test_slugify__max_length_truncation_word_boundary():\n    \"\"\"\n    Verify that max_length truncates correctly with and without word_boundary.\n    \"\"\"\n    text = \"one-two-three-four\"\n    # With word_boundary=True the cut must not split a word\n    result_boundary = slugify(\n        text,\n        max_length=10,\n        word_boundary=True,\n        algorithm=\"legacy\",\n    )\n    # \"one-two\" is length 7, adding \"-three\" would exceed 10, so expect \"one-two\"\n    assert result_boundary == \"one-two\"\n\n    # With word_boundary=False the cut is hard at max_length characters\n    result_hard = slugify(\n        text,\n        max_length=10,\n        word_boundary=False,\n        algorithm=\"legacy\",\n    )\n    # First 10 characters of the slugified string \"one-two-th...\"\n    assert result_hard == \"one-two-th\"\n\n    # Same checks for the modern algorithm to catch bugs where algorithm selection fails\n    result_boundary_mod = slugify(\n        text,\n        max_length=10,\n        word_boundary=True,\n        algorithm=\"modern\",\n    )\n    assert result_boundary_mod == \"one-two\"\n\n    result_hard_mod = slugify(\n        text,\n        max_length=10,\n        word_boundary=False,\n        algorithm=\"modern\",\n    )\n    assert result_hard_mod == \"one-two-th\"\n\n\ndef test_slugify__unicode_allowed_vs_transliterated():\n    \"\"\"\n    When allow_unicode=True the output retains non\u2011ASCII characters after NFKC.\n    When allow_unicode=False the output is transliterated to pure ASCII.\n    \"\"\"\n    text = \"\u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440\"  # \"Hello world\" in Russian\n\n    # Legacy algorithm\n    unicode_legacy = slugify(text, allow_unicode=True, algorithm=\"legacy\")\n    # Exact expected legacy Unicode slug (lowercase Cyrillic, hyphen separator)\n    assert unicode_legacy == \"\u043f\u0440\u0438\u0432\u0435\u0442-\u043c\u0438\u0440\"\n\n    ascii_legacy = slugify(text, allow_unicode=False, algorithm=\"legacy\")\n    # Exact expected legacy ASCII slug\n    assert ascii_legacy == \"privet-mir\"\n\n    # Modern algorithm \u2013 ensure the branch is exercised and behaves sensibly\n    unicode_modern = slugify(text, allow_unicode=True, algorithm=\"modern\")\n    # Should still contain non\u2011ASCII characters after NFKC normalization\n    assert not _is_ascii(unicode_modern)\n\n    ascii_modern = slugify(text, allow_unicode=False, algorithm=\"modern\")\n    # Should be ASCII after transliteration\n    assert _is_ascii(ascii_modern)\n    # The transliterated form should match the expected ASCII slug\n    assert ascii_modern == \"privet-mir\"\n\n\ndef test_slugify__legacy_default_behavior():\n    \"\"\"\n    Default call uses the legacy algorithm.\n    Expect lower\u2011casing, hyphen separator and HTML entities decoded.\n    \"\"\"\n    text = \"Hello &amp; World\"\n    expected = \"hello-world\"\n    result = slugify(text)  # default algorithm is 'legacy'\n    assert result == expected\n\n    # Ensure the modern algorithm path is reachable and does not raise\n    # (this would fail if the check for 'modern' was broken).\n    slugify(text, algorithm='modern')\n\n\ndef test_slugify__stopwords_and_save_order():\n    \"\"\"\n    Stopwords should be removed. With save_order=True the remaining words keep\n    their original order; with save_order=False the order may differ.\n    \"\"\"\n    text = \"the quick brown fox a jumps over the lazy dog\"\n    stopwords = (\"the\", \"a\")\n    # Preserve order\n    ordered = slugify(\n        text,\n        stopwords=stopwords,\n        save_order=True,\n        algorithm=\"legacy\",\n    )\n    # Expected order after removal of stopwords\n    assert ordered == \"quick-brown-fox-jumps-over-lazy-dog\"\n\n    # Do not preserve order\n    unordered = slugify(\n        text,\n        stopwords=stopwords,\n        save_order=False,\n        algorithm=\"legacy\",\n    )\n    # Stopwords must still be absent\n    for sw in stopwords:\n        assert sw not in unordered.split(\"-\")\n    # The set of words should be the same as in the ordered case\n    assert set(unordered.split(\"-\")) == {\"quick\", \"brown\", \"fox\", \"jumps\", \"over\", \"lazy\", \"dog\"}\n    # No assertion about order difference; legacy may preserve order.\n\n\ndef test_slugify__modern_algorithm_path():\n    \"\"\"\n    Verify that the modern algorithm path respects stopwords and the\n    max_length character budget.\n    \"\"\"\n    # Input contains several words, some of which are stopwords.\n    text = \"Alpha beta gamma delta epsilon\"\n    # The modern algorithm should remove the stopwords 'beta' and 'delta',\n    # lowercase the remaining words, and join them with the default separator.\n    result = slugify(\n        text,\n        algorithm=\"modern\",\n        stopwords=[\"beta\", \"delta\"],\n        max_length=20,          # generous enough to keep the whole result\n        lowercase=True,\n    )\n    # Expected slug after stopword removal and normalisation.\n    expected = \"alpha-gamma-epsilon\"\n    assert result == expected\n    # The emitted\u2011character length budget must not be exceeded.\n    assert len(result) <= 20",
+  "duration_s": 248.8,
+  "run_id": "014f62811480",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      37.5,
+      26.5,
+      4.5
+    ],
+    [
+      102.4,
+      80.0,
+      56.1
+    ],
+    [
+      156.1,
+      80.0,
+      56.1
+    ],
+    [
+      187.4,
+      82.2,
+      59.1
+    ]
+  ],
+  "llm_calls": 15,
+  "llm_tokens": 38808,
+  "models": [
+    "groq/openai/gpt-oss-20b",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b"
+  ],
+  "wall_s": 248.9,
+  "subject": "slugify",
+  "level": "basic",
+  "tool": "autocover",
+  "budget_min": 8.0,
+  "finished": "2026-09-24 08:54:31"
+}

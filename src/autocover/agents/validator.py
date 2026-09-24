@@ -15,8 +15,10 @@ For every executed candidate:
 from __future__ import annotations
 
 import asyncio
+import random
 
 from autocover.agents.executor import run_candidates
+from autocover.config import MutationConfig
 from autocover.llm.parsing import extract_json
 from autocover.llm.prompts import judge_messages
 from autocover.llm.router import AllModelsFailed
@@ -78,6 +80,7 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
                 killed=len(cand.killed), new_lines=len(cand.new_lines))
         span.update(accepted=sum(c.status == "accepted" for c in executed), to_fix=len(to_fix),
                     line_pct=round(ctx.tracker.line_pct, 1),
+                    branch_pct=round(ctx.tracker.branch_pct, 1),
                     killed_mutants=len(ctx.killed_mutants))
     return {"executed": [], "to_fix": to_fix, "suite": suite,
             "history": [*state.get("history", []), *executed],
@@ -87,12 +90,20 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
 # -- mutation ----------------------------------------------------------------------------
 
 
+def build_mutant_pool(source: str, cfg: MutationConfig) -> list[Mutant]:
+    """The module's mutant pool: per-function cap, then a seeded total cap. Deterministic,
+    so different tools (e.g. the benchmark baseline) are scored on identical mutants."""
+    pool = generate_mutants(source, max_per_function=cfg.max_mutants_per_function,
+                            seed=cfg.seed)
+    if cfg.max_mutants_total and len(pool) > cfg.max_mutants_total:
+        keep = set(random.Random(cfg.seed).sample(range(len(pool)), cfg.max_mutants_total))
+        pool = [m for i, m in enumerate(pool) if i in keep]
+    return pool
+
+
 def mutant_pool(ctx: RunContext) -> list[Mutant]:
     if ctx.mutant_pool is None:
-        cfg = ctx.config.mutation
-        ctx.mutant_pool = generate_mutants(ctx.module.source,
-                                           max_per_function=cfg.max_mutants_per_function,
-                                           seed=cfg.seed)
+        ctx.mutant_pool = build_mutant_pool(ctx.module.source, ctx.config.mutation)
     return ctx.mutant_pool
 
 
@@ -110,6 +121,7 @@ async def measure_kills(ctx: RunContext, cands: list[Candidate]) -> None:
         mutants = [m for m in mutant_pool(ctx) if m.lineno in executed]
         mutants.sort(key=lambda m: m.function != cand.function)  # own function first
         applicable[cand.id] = mutants[:cap]
+        ctx.tested_mutants |= {m.id for m in applicable[cand.id]}
     order: dict[str, Mutant] = {}
     for mutants in applicable.values():
         for m in mutants:

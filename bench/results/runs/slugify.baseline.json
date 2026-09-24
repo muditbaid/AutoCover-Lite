@@ -1,0 +1,25 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 20,
+  "tests_passing": 0,
+  "collection_error": false,
+  "pass_rate": 0.0,
+  "line_pct": 0.0,
+  "branch_pct": 0.0,
+  "mutation": {
+    "killed": 0,
+    "total": 52,
+    "score_pct": 0.0
+  },
+  "llm_calls": 1,
+  "llm_tokens": 5666,
+  "latency_s": 30.9,
+  "wall_s": 36.7,
+  "suite": "import builtins\nimport importlib\nimport re\nfrom types import SimpleNamespace\n\nimport pytest\n\n# Import the public API from the package under test\nfrom slugify.slugify import (\n    slugify,\n    smart_truncate,\n    Backend,\n    ReplacementStage,\n    Algorithm,\n)\n\n\n# ----------------------------------------------------------------------\n# Helper to stub out third\u2011party transliteration back\u2011ends\n# ----------------------------------------------------------------------\n@pytest.fixture(autouse=True)\ndef stub_backend(monkeypatch):\n    \"\"\"\n    Replace ``slugify.import_module`` with a stub that returns a dummy module\n    providing the required ``unidecode`` / ``anyascii`` callables.\n    The dummy simply returns the input unchanged, except that it replaces\n    the character '\u00e9' with 'e' to make the transliteration effect observable.\n    \"\"\"\n    def fake_import_module(name: str):\n        # The real code expects a module with either ``unidecode`` or ``anyascii``.\n        if name in (\"unidecode\", \"text_unidecode\"):\n            return SimpleNamespace(unidecode=lambda txt: txt.replace(\"\u00e9\", \"e\"))\n        if name == \"anyascii\":\n            return SimpleNamespace(anyascii=lambda txt: txt.replace(\"\u00e9\", \"e\"))\n        raise ModuleNotFoundError(name)\n\n    monkeypatch.setattr(\"slugify.slugify.import_module\", fake_import_module)\n",
+  "subject": "slugify",
+  "level": "basic",
+  "tool": "baseline",
+  "target": "slugify/slugify.py",
+  "budget_min": 8.0,
+  "finished": "2026-09-24 08:50:22"
+}

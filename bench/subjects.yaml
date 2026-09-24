@@ -1,0 +1,70 @@
+# Benchmark subjects: real open-source modules, pinned. `bench/prepare_subjects.py`
+# downloads each wheel, keeps only the package sources (no tests) plus the license, and
+# writes a requirements.txt for the sandbox image. Levels follow the AutoCover paper's
+# basic / infrastructure / product split, loosely: basic / medium / hard.
+
+subjects:
+  - name: slugify
+    level: basic
+    package: python-slugify==9.1.1
+    import_root: slugify
+    target: slugify/slugify.py
+    requirements: [text-unidecode>=1.3]
+    why: string and regex handling with many options
+
+  - name: inflection
+    level: basic
+    package: inflection==0.5.1
+    import_root: inflection
+    target: inflection/__init__.py
+    why: many small pure functions with edge cases
+
+  - name: humanize_number
+    level: basic
+    package: humanize==4.16.0
+    import_root: humanize
+    target: humanize/number.py
+    why: number formatting with thresholds and rounding boundaries
+
+  - name: semver_version
+    level: medium
+    package: semver==3.1.0
+    import_root: semver
+    target: semver/version.py
+    why: a class with parsing, comparison, bumping, exceptions and operators
+
+  - name: jmespath_lexer
+    level: medium
+    package: jmespath==1.1.0
+    import_root: jmespath
+    target: jmespath/lexer.py
+    why: tokenizer state machine, dense branches and error paths
+
+  - name: boltons_strutils
+    level: medium
+    package: boltons==26.2.0
+    import_root: boltons
+    target: boltons/strutils.py
+    why: ~30 utility functions of mixed difficulty
+
+  - name: dateutil_relativedelta
+    level: hard
+    package: python-dateutil==2.9.0.post0
+    import_root: dateutil
+    target: dateutil/relativedelta.py
+    requirements: [six>=1.5]
+    why: date arithmetic with interacting branches; expected values easy to get wrong
+
+  - name: tabulate
+    level: hard
+    package: tabulate==0.10.0
+    import_root: tabulate
+    target: tabulate/__init__.py
+    why: large formatting module; stresses context size and cost
+
+  - name: boltons_iterutils
+    level: hard
+    package: boltons==26.2.0
+    import_root: boltons
+    target: boltons/iterutils.py
+    why: higher-order and recursive utilities (remap, windowed, chunked)

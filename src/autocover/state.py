@@ -92,6 +92,15 @@ class RunContext:
     killed_mutants: set[str] = field(default_factory=set)  # killed by accepted tests
     survivors: dict = field(default_factory=dict)  # candidate id -> mutants it let survive
     candidates: dict = field(default_factory=dict)  # candidate id -> Candidate (all seen)
+    tested_mutants: set[str] = field(default_factory=set)  # run against some candidate
+    shown_survivors: set[str] = field(default_factory=set)  # already put in a prompt
+
+    def open_survivors(self) -> list:
+        """Mutants some test executed but no accepted test kills, not yet shown to the
+        Generator (each is shown once, so equivalent mutants cannot loop forever)."""
+        return [m for m in (self.mutant_pool or [])
+                if m.id in self.tested_mutants and m.id not in self.killed_mutants
+                and m.id not in self.shown_survivors]
     scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
     telemetry_start: int = 0  # index of this run's first telemetry event
     _counter: int = 0

@@ -111,6 +111,8 @@ run:
   max_rounds: 3             # generate -> execute rounds; later rounds target what is still uncovered
   budget_min: 10
   max_scenarios_per_function: 6
+  preparer_batch: 6         # functions planned per Preparer call (large modules)
+  max_functions_per_round: 12  # Generator targets per round, highest priority first
   preparer_max_tokens: 4096
   generator_max_tokens: 8192
   include_private: false
@@ -123,6 +125,7 @@ run:
 mutation:
   enabled: true
   max_mutants_per_function: 8     # per-function pool (seeded sample)
+  max_mutants_total: 150          # cap on the whole module's pool (seeded sample)
   max_mutants_per_candidate: 12   # mutants on lines a candidate executes, own function first
   final_score: true               # report the final suite's mutation score
   timeout_s: 30

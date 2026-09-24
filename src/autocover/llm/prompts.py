@@ -59,6 +59,31 @@ Output format:
   that cover listed uncovered lines are named `test_<function>__cover_<n>`."""
 
 
+PLANNER_GROUP_SYSTEM = PLANNER_SYSTEM.replace(
+    "Given one Python function, list", "Given several Python functions, list for each one"
+).replace(
+    '{"scenarios": [{"id": "short_snake_case_id", "kind": "happy|edge|error",\n'
+    '                 "description": "input -> expected observable behaviour"}]}',
+    '{"functions": {"<function name exactly as given>": [{"id": "short_snake_case_id",\n'
+    '   "kind": "happy|edge|error", "description": "input -> expected observable behaviour"}]}}',
+)
+
+
+WRITER_CONTEXT_CHARS = 12_000  # room for private helper sources the tests must reach
+
+
+def planner_group_messages(ctx: ModuleContext, fns: list[FunctionInfo], max_scenarios: int,
+                           max_chars_each: int = 3500) -> list[dict]:
+    """One planning call for several functions (cheaper on large modules)."""
+    blocks = [f"=== Function `{fn.qualname}` ===\n"
+              f"{render_context(ctx, fn.qualname, max_chars=max_chars_each)}" for fn in fns]
+    names = ", ".join(f"`{fn.qualname}`" for fn in fns)
+    user = ("\n\n".join(blocks) +
+            f"\n\nList at most {max_scenarios} scenarios for each of: {names}.")
+    return [{"role": "system", "content": PLANNER_GROUP_SYSTEM},
+            {"role": "user", "content": user}]
+
+
 def planner_messages(ctx: ModuleContext, fn: FunctionInfo, max_scenarios: int) -> list[dict]:
     user = (
         f"{render_context(ctx, fn.qualname)}\n\n"
@@ -73,9 +98,10 @@ def writer_messages(
     scenarios: list[Scenario],
     uncovered: list[tuple[int, str]],
     feedback: str = "",
+    survivors: list[tuple[int, str, str]] | None = None,
 ) -> list[dict]:
     test_prefix = f"test_{stem_of(fn.qualname)}__"
-    parts = [render_context(ctx, fn.qualname)]
+    parts = [render_context(ctx, fn.qualname, max_chars=WRITER_CONTEXT_CHARS)]
     if scenarios:
         listed = "\n".join(f"- {test_prefix}{s.id}  [{s.kind}] {s.description}"
                            for s in scenarios)
@@ -84,6 +110,11 @@ def writer_messages(
         lines = "\n".join(f"  {n:>4}: {text}" for n, text in uncovered)
         parts.append("These lines of the function are still not executed by any test. "
                      "Make sure some test reaches each of them:\n" + lines)
+    if survivors:
+        listed = "\n".join(f"  {n:>4}: `{code}` with {change}" for n, code, change in survivors)
+        parts.append("Every existing test still passes when the code is deliberately broken "
+                     "in these ways. Write tests (literal expected values, exact boundaries) "
+                     "that would FAIL on each of these bugs:\n" + listed)
     if feedback:
         parts.append("Previous attempts for this function failed like this - do not repeat "
                      "these mistakes:\n" + feedback)
@@ -116,7 +147,7 @@ Reply with JSON only: {"covers": true|false, "reason": "one short sentence"}"""
 
 def fixer_messages(ctx: ModuleContext, fn: FunctionInfo, test_code: str, test_name: str,
                    problem: str) -> list[dict]:
-    user = (f"{render_context(ctx, fn.qualname)}\n\n"
+    user = (f"{render_context(ctx, fn.qualname, max_chars=WRITER_CONTEXT_CHARS)}\n\n"
             f"Test `{test_name}`:\n```python\n{test_code.rstrip()}\n```\n\n"
             f"Problem:\n{problem.strip()}\n\n"
             f"Return the fixed test, still named `{test_name}`.")

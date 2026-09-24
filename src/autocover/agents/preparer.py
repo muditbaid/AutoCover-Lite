@@ -3,7 +3,8 @@
 1. Initial coverage check - runs any existing test file plus an import probe in the
    sandbox, so the tracker knows which lines are measurable and which are already covered
    (module-level `def` lines run on import and must not count as "new" later).
-2. Scenario discovery - one LLM call per function returns happy / edge / error scenarios.
+2. Scenario discovery - one LLM call per group of functions (`run.preparer_batch`) returns
+   happy / edge / error scenarios; functions missing from a reply are planned alone.
 3. Target map - functions ordered by how many of their lines are still uncovered.
 4. Scaffolding - the output test file starts from the existing one, if any.
 """
@@ -11,10 +12,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 
 from autocover.llm.parsing import extract_json
-from autocover.llm.prompts import planner_messages
+from autocover.llm.prompts import planner_group_messages, planner_messages
 from autocover.llm.router import AllModelsFailed
 from autocover.state import RunContext, RunState, Scenario
 from autocover.tools.context import FunctionInfo
@@ -26,8 +28,10 @@ async def prepare(ctx: RunContext, state: RunState) -> RunState:
         suite = _existing_suite(ctx)
         await _baseline(ctx, suite)
         functions = _functions(ctx)
-        results = await asyncio.gather(*(_scenarios_for(ctx, fn) for fn in functions))
-        scenarios = {fn.qualname: sc for fn, sc in zip(functions, results, strict=True)}
+        size = max(1, ctx.config.run.preparer_batch)
+        groups = [functions[i:i + size] for i in range(0, len(functions), size)]
+        planned = await asyncio.gather(*(_scenarios_for_group(ctx, g) for g in groups))
+        scenarios = {q: sc for part in planned for q, sc in part.items()}
         ctx.scenarios = scenarios
         targets = plan_targets(ctx, scenarios)
         span.update(functions=len(functions),
@@ -67,6 +71,35 @@ async def _baseline(ctx: RunContext, suite: str) -> None:
     ctx.baseline = ctx.tracker.summary()
 
 
+async def _scenarios_for_group(ctx: RunContext,
+                               fns: list[FunctionInfo]) -> dict[str, list[Scenario]]:
+    """Plan several functions in one call; functions missing from the reply are planned
+    individually."""
+    if len(fns) == 1:
+        return {fns[0].qualname: await _scenarios_for(ctx, fns[0])}
+    limit = ctx.config.run.max_scenarios_per_function
+    out: dict[str, list[Scenario]] = {}
+    try:
+        resp = await ctx.router.complete(
+            "preparer", planner_group_messages(ctx.module, fns, limit), json_mode=True,
+            max_tokens=ctx.config.run.preparer_max_tokens * 2)
+        data = extract_json(resp.text)
+        by_name = data.get("functions", data) if isinstance(data, dict) else {}
+        for fn in fns:
+            items = by_name.get(fn.qualname) or by_name.get(fn.name)
+            if isinstance(items, list):
+                with contextlib.suppress(ValueError):  # unusable -> planned individually
+                    out[fn.qualname] = scenarios_from_items(items, fn.qualname, limit)
+    except (AllModelsFailed, ValueError) as exc:
+        ctx.telemetry.event("preparer", "group_failed", functions=len(fns),
+                            error=str(exc)[:300])
+    missing = [fn for fn in fns if fn.qualname not in out]
+    if missing:
+        singles = await asyncio.gather(*(_scenarios_for(ctx, fn) for fn in missing))
+        out.update({fn.qualname: sc for fn, sc in zip(missing, singles, strict=True)})
+    return out
+
+
 async def _scenarios_for(ctx: RunContext, fn: FunctionInfo) -> list[Scenario]:
     limit = ctx.config.run.max_scenarios_per_function
     try:
@@ -85,6 +118,10 @@ async def _scenarios_for(ctx: RunContext, fn: FunctionInfo) -> list[Scenario]:
 def parse_scenarios(text: str, function: str, limit: int) -> list[Scenario]:
     data = extract_json(text)
     items = data.get("scenarios", []) if isinstance(data, dict) else data
+    return scenarios_from_items(items, function, limit)
+
+
+def scenarios_from_items(items, function: str, limit: int) -> list[Scenario]:
     scenarios: list[Scenario] = []
     seen: set[str] = set()
     for item in items if isinstance(items, list) else []:
@@ -110,6 +147,11 @@ def plan_targets(ctx: RunContext, scenarios: dict[str, list[Scenario]]) -> list[
     functions whose lines are covered but that still have scenarios nobody tested."""
     functions = [ctx.module.function(q) for q in scenarios]
     targets = prioritize(ctx, functions)
+    survivors = ctx.open_survivors() if ctx.config.mutation.enabled else []
+    if survivors:  # functions whose reachable code still has surviving mutants
+        survivor_lines = {m.lineno for m in survivors}
+        targets += [fn.qualname for fn in functions if fn.qualname not in targets
+                    and ctx.module.reach(fn) & survivor_lines]
     if ctx.config.run.judge_scenarios:
         targets += [q for q, items in scenarios.items() if q not in targets
                     and any((q, s.id) not in ctx.covered_scenarios for s in items)]
@@ -117,11 +159,12 @@ def plan_targets(ctx: RunContext, scenarios: dict[str, list[Scenario]]) -> list[
 
 
 def prioritize(ctx: RunContext, functions: list[FunctionInfo]) -> list[str]:
-    """Functions with uncovered lines first, most uncovered first."""
+    """Functions whose reachable code (own lines + private helpers) has uncovered lines,
+    most uncovered first."""
     uncovered = ctx.tracker.uncovered_lines
 
     def missing(fn: FunctionInfo) -> int:
-        return len(uncovered & set(fn.lines))
+        return len(uncovered & ctx.module.reach(fn))
 
     ranked = sorted(functions, key=missing, reverse=True)
     return [fn.qualname for fn in ranked if missing(fn) > 0]

@@ -39,12 +39,43 @@ class ModuleContext:
     imports: list[str]
     functions: list[FunctionInfo]
     class_headers: dict[str, str]  # class name -> "class X(Base):" + __init__ signature
+    helpers: dict[str, FunctionInfo] = field(default_factory=dict)  # private, not targets
 
     def function(self, qualname: str) -> FunctionInfo:
         for fn in self.functions:
             if fn.qualname == qualname:
                 return fn
         raise KeyError(qualname)
+
+    def reachable_helpers(self, fn: FunctionInfo) -> list[FunctionInfo]:
+        """Private helpers `fn` calls, transitively, in call-discovery order."""
+        found: list[FunctionInfo] = []
+        seen, todo = {fn.qualname}, list(fn.callees)
+        while todo:
+            name = todo.pop(0)
+            helper = self.helpers.get(name)
+            if helper is None or name in seen:
+                continue
+            seen.add(name)
+            found.append(helper)
+            todo.extend(helper.callees)
+        return found
+
+    def reach(self, fn: FunctionInfo) -> set[int]:
+        """Lines a test of `fn` can reach: its own plus those of the private helpers it
+        calls, transitively. Private helpers are not targets, so their gaps count here."""
+        lines = set(fn.lines)
+        for helper in self.reachable_helpers(fn):
+            lines |= set(helper.lines)
+        return lines
+
+    def owner_of(self, line: int) -> str | None:
+        """Qualname of the (innermost) function or helper containing `line`."""
+        best = None
+        for fn in [*self.functions, *self.helpers.values()]:
+            if fn.lineno <= line <= fn.end_lineno and (best is None or fn.lineno > best.lineno):
+                best = fn
+        return best.qualname if best else None
 
     def import_line(self, fn: FunctionInfo) -> str:
         target = fn.class_name or fn.name
@@ -81,12 +112,13 @@ def build_module_context(
     functions: list[FunctionInfo] = []
     class_headers: dict[str, str] = {}
 
+    helpers: dict[str, FunctionInfo] = {}
+
     def add(node: ast.FunctionDef | ast.AsyncFunctionDef, class_name: str | None) -> None:
-        if node.name.startswith("_") and not include_private and node.name != "__call__":
-            return
+        private = node.name.startswith("_") and node.name != "__call__"
         qualname = f"{class_name}.{node.name}" if class_name else node.name
         start = node.decorator_list[0].lineno if node.decorator_list else node.lineno
-        functions.append(FunctionInfo(
+        info = FunctionInfo(
             qualname=qualname,
             name=node.name,
             lineno=start,
@@ -96,8 +128,14 @@ def build_module_context(
             docstring=ast.get_docstring(node),
             class_name=class_name,
             is_async=isinstance(node, ast.AsyncFunctionDef),
-            callees=sorted(_called_names(node) & (module_level - {node.name})),
-        ))
+            callees=sorted((_called_names(node) & (module_level - {node.name}))
+                           | {f"{class_name}.{m}" for m in _self_calls(node)} if class_name
+                           else _called_names(node) & (module_level - {node.name})),
+        )
+        if private and not include_private:
+            helpers[qualname] = info
+        else:
+            functions.append(info)
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -115,6 +153,7 @@ def build_module_context(
         imports=imports,
         functions=functions,
         class_headers=class_headers,
+        helpers=helpers,
     )
 
 
@@ -122,30 +161,43 @@ def render_context(ctx: ModuleContext, qualname: str, *, max_chars: int = 6000) 
     """Prompt-ready context for one function, trimmed to `max_chars`."""
     fn = ctx.function(qualname)
     tree = ast.parse(ctx.source)
+    private = ctx.reachable_helpers(fn)
+    private_names = {h.qualname for h in private}
     helper_sigs = []
     for node in tree.body:
         name = getattr(node, "name", None)
-        if name in fn.callees:
+        if name in fn.callees and name not in private_names:
             if isinstance(node, ast.ClassDef):
                 helper_sigs.append(_class_header(node))
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 doc = ast.get_docstring(node)
                 first = f'\n    """{doc.splitlines()[0]}"""' if doc else ""
                 helper_sigs.append(signature_of(node) + first + "\n    ...")
-    parts = [
-        f"# Module under test: {ctx.module_name}  (import with: {ctx.import_line(fn)})",
-        "# Module imports:\n" + ("\n".join(ctx.imports) or "# (none)"),
-    ]
-    if helper_sigs:
-        parts.append("# Helpers it calls (signatures only):\n" + "\n\n".join(helper_sigs))
+    header = f"# Module under test: {ctx.module_name}  (import with: {ctx.import_line(fn)})"
+    fixed = [header]
     if fn.class_name:
-        parts.append("# Enclosing class:\n" + ctx.class_headers[fn.class_name])
-    parts.append("# Function under test:\n" + fn.source)
-    text = "\n\n".join(parts)
-    if len(text) > max_chars:  # keep the function itself; trim helper context first
-        head = "\n\n".join(parts[:2])[: max(0, max_chars - len(parts[-1]) - 20)]
-        text = head + "\n# ...(trimmed)\n\n" + parts[-1]
-    return text
+        fixed.append("# Enclosing class:\n" + ctx.class_headers[fn.class_name])
+    fixed.append("# Function under test:\n" + fn.source)
+    optional = ["# Module imports:\n" + ("\n".join(ctx.imports) or "# (none)")]
+    if helper_sigs:
+        optional.append("# Other functions it calls (signatures only):\n" +
+                        "\n\n".join(helper_sigs))
+    if private:
+        optional.append("# Private helpers it uses (full source; tests reach them only "
+                        "through the function under test):\n" +
+                        "\n".join(h.source for h in private))
+    # The function itself always fits; optional context is added in order until the
+    # budget runs out (the last piece is trimmed).
+    budget = max_chars - sum(len(p) + 2 for p in fixed)
+    extra = []
+    for piece in optional:
+        if budget <= 200:
+            break
+        if len(piece) > budget:
+            piece = piece[: budget - 20] + "\n# ...(trimmed)"
+        extra.append(piece)
+        budget -= len(piece) + 2
+    return "\n\n".join([fixed[0], *extra, *fixed[1:]])
 
 
 def signature_of(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
@@ -168,6 +220,16 @@ def _called_names(node: ast.AST) -> set[str]:
         call.func.id
         for call in ast.walk(node)
         if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    }
+
+
+def _self_calls(node: ast.AST) -> set[str]:
+    """Method names called as `self.x(...)` / `cls.x(...)` inside a method."""
+    return {
+        call.func.attr
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name) and call.func.value.id in ("self", "cls")
     }
 
 

@@ -120,8 +120,12 @@ class ScriptedLLM:
         system, user = messages[0]["content"], messages[-1]["content"]
         if "SCENARIO_PLANNER" in system:
             self.calls["planner"].append(user)
-            fn = re.search(r"scenarios for `([\w.]+)`", user).group(1)
-            text = json.dumps({"scenarios": SCENARIOS[fn]})
+            group = re.findall(r"=== Function `([\w.]+)` ===", user)
+            if group:  # grouped planning: several functions per call
+                text = json.dumps({"functions": {fn: SCENARIOS[fn] for fn in group}})
+            else:
+                fn = re.search(r"scenarios for `([\w.]+)`", user).group(1)
+                text = json.dumps({"scenarios": SCENARIOS[fn]})
         elif "TEST_FIXER" in system:
             self.calls["fixer"].append(user)
             name = re.search(r"Test `(test_\w+)`", user).group(1)
