@@ -14,6 +14,8 @@ class ProviderLimits(BaseModel):
 
     rpm: float | None = 10
     max_concurrency: int = 1
+    # Time zone in which the provider's daily quotas reset (Gemini: midnight Pacific).
+    quota_timezone: str = "UTC"
 
 
 class ModelLimits(BaseModel):
@@ -21,7 +23,7 @@ class ModelLimits(BaseModel):
 
     rpm: float | None = None  # requests per minute
     tpm: float | None = None  # tokens per minute (prompt + completion)
-    rpd: int | None = None    # requests per day (UTC day)
+    rpd: int | None = None    # requests per day (provider's quota day)
 
 
 class CircuitBreakerConfig(BaseModel):

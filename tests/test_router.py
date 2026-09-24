@@ -172,7 +172,7 @@ def make_limited_router(models, *, usage=None, max_wait=15, day="2026-09-23"):
     )
     fake = FakeCompletion({"a/one": ["a"] * 20, "b/two": ["b"] * 20})
     router = LLMRouter(cfg, usage=usage, completion_fn=fake, require_keys=False,
-                       clock=clock, sleep=clock.sleep, today=lambda: day)
+                       clock=clock, sleep=clock.sleep, today=lambda _tz: day)
     return router, fake, clock
 
 
@@ -225,3 +225,45 @@ def test_token_bucket_amounts_and_wait_time():
     assert bucket.wait_time(300) == pytest.approx(30)  # 10 tokens/s
     run(bucket.acquire(5000))  # oversized: capped at capacity, waits for a full bucket
     assert clock.now == pytest.approx(60)
+
+
+class QuotaError(Exception):
+    """Shaped like Gemini's 429 for an exhausted daily quota."""
+
+    status_code = 429
+
+    def __init__(self):
+        super().__init__("RESOURCE_EXHAUSTED: Quota exceeded for metric "
+                         "generate_content_free_tier_requests, quotaId: "
+                         "GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit: 20")
+
+
+def test_daily_quota_429_is_not_retried_and_skips_model_for_the_day():
+    clock = FakeClock()
+    cfg = LLMConfig(roles={"gen": ["a/one", "b/two"]}, retries=3,
+                    providers={"a": ProviderLimits(rpm=None), "b": ProviderLimits(rpm=None)})
+    fake = FakeCompletion({"a/one": [QuotaError(), "a"], "b/two": ["b1", "b2"]})
+    router = LLMRouter(cfg, completion_fn=fake, require_keys=False, clock=clock,
+                       sleep=clock.sleep, today=lambda _tz: "2026-09-23")
+    assert run(router.complete("gen", MESSAGES)).model == "b/two"
+    assert fake.calls == ["a/one", "b/two"] and clock.now == 0  # no retries, no backoff
+    assert run(router.complete("gen", MESSAGES, use_cache=False)).model == "b/two"
+    assert fake.calls.count("a/one") == 1  # skipped for the rest of the quota day
+
+
+def test_ordinary_rate_limit_is_still_retried():
+    from autocover.llm.router import is_daily_quota_error
+
+    assert is_daily_quota_error(QuotaError())
+    assert not is_daily_quota_error(ProviderError(429))  # per-minute limit: retry later
+
+
+def test_quota_day_uses_provider_time_zone():
+    seen = []
+    cfg = LLMConfig(roles={"gen": ["gemini/x"]},
+                    providers={"gemini": ProviderLimits(quota_timezone="America/Los_Angeles")},
+                    models={"gemini/x": ModelLimits(rpd=5)})
+    router = LLMRouter(cfg, completion_fn=FakeCompletion({"gemini/x": ["ok"]}),
+                       require_keys=False, today=lambda tz: seen.append(tz) or "2026-09-23")
+    run(router.complete("gen", MESSAGES))
+    assert set(seen) == {"America/Los_Angeles"}

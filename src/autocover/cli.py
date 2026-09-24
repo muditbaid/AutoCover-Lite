@@ -84,25 +84,27 @@ def llm_ping(
 @app.command()
 def usage(config: Path = ConfigOpt) -> None:
     """Show today's (UTC) requests and tokens per model against configured caps."""
-    from datetime import UTC, datetime
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
 
     from autocover.llm.cache import UsageLedger
 
     cfg = load_config(config)
-    day = datetime.now(UTC).date().isoformat()
     ledger = UsageLedger(cfg.llm.usage_path)
-    summary = ledger.day_summary(day)
-    ledger.close()
-    models = sorted({m for chain in cfg.llm.roles.values() for m in chain} | set(summary))
-    typer.echo(f"usage for {day} (UTC)\n")
-    typer.echo(f"{'model':<48} {'requests':>9} {'rpd cap':>8} {'tokens':>9}  rpm/tpm")
+    models = sorted({m for chain in cfg.llm.roles.values() for m in chain})
+    typer.echo("usage for the current quota day of each provider\n")
+    typer.echo(f"{'model':<48} {'day':<11} {'requests':>8} {'rpd cap':>8} {'tokens':>9}  "
+               "rpm/tpm")
     for model in models:
-        req, tok = summary.get(model, (0, 0))
+        tz = cfg.llm.limits_for(provider_of(model)).quota_timezone
+        day = datetime.now(ZoneInfo(tz)).date().isoformat()
+        req, tok = ledger.day_summary(day).get(model, (0, 0))
         lim = cfg.llm.model_limits(model)
         cap = str(lim.rpd) if lim.rpd else "-"
         flag = "  CAP REACHED" if lim.rpd and req >= lim.rpd else ""
         rate = "/".join(f"{v:g}" if v else "-" for v in (lim.rpm, lim.tpm))
-        typer.echo(f"{model:<48} {req:>9} {cap:>8} {tok:>9}  {rate}{flag}")
+        typer.echo(f"{model:<48} {day:<11} {req:>8} {cap:>8} {tok:>9}  {rate}{flag}")
+    ledger.close()
 
 
 @app.command("sandbox-run")

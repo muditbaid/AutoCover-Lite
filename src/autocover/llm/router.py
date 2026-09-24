@@ -21,11 +21,13 @@ from __future__ import annotations
 import asyncio
 import os
 import random
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from autocover.config import LLMConfig
 from autocover.llm.cache import ResponseCache, UsageLedger, cache_key
@@ -66,6 +68,17 @@ class LLMResponse:
 
 def provider_of(model: str) -> str:
     return model.split("/", 1)[0]
+
+
+_DAILY_QUOTA = re.compile(r"per[ _-]?day|PerDay|daily (quota|limit)|requests per day", re.I)
+
+
+def is_daily_quota_error(exc: BaseException) -> bool:
+    """A 429 caused by an exhausted *daily* quota: retrying today is pointless."""
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    text = str(exc)
+    looks_429 = status == 429 or "RESOURCE_EXHAUSTED" in text or "RateLimit" in type(exc).__name__
+    return looks_429 and bool(_DAILY_QUOTA.search(text))
 
 
 def is_retryable(exc: BaseException) -> bool:
@@ -162,12 +175,13 @@ class LLMRouter:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         rng: random.Random | None = None,
-        today: Callable[[], str] | None = None,
+        today: Callable[[str], str] | None = None,  # time zone -> "YYYY-MM-DD"
     ):
         self.config = config
         self.cache = cache
         self.usage = usage or UsageLedger(":memory:")
-        self._today = today or (lambda: datetime.now(UTC).date().isoformat())
+        self._today = today or (lambda tz: datetime.now(ZoneInfo(tz)).date().isoformat())
+        self._exhausted: set[tuple[str, str]] = set()  # (quota day, model) told "daily quota"
         self.telemetry = telemetry or Telemetry()
         self._completion_fn = completion_fn
         self._require_keys = require_keys
@@ -262,11 +276,15 @@ class LLMRouter:
                 async with self._semaphore(provider):
                     for bucket, amount in self._limiters(model, est_tokens):
                         await bucket.acquire(amount)
-                    self.usage.record(self._today(), model)  # providers count every attempt
+                    self.usage.record(self._day(model), model)  # providers count every attempt
                     start = self._clock()
                     raw = await self._invoke(model, messages, params)
                     latency = self._clock() - start
             except Exception as exc:
+                if is_daily_quota_error(exc):
+                    self._exhausted.add((self._day(model), model))
+                    self.telemetry.event("llm", "daily_quota_exhausted", model=model)
+                    raise
                 if is_retryable(exc) and attempt < attempts - 1:
                     self.telemetry.event("llm", "retry", model=model, attempt=attempt + 1,
                                          error=type(exc).__name__)
@@ -276,7 +294,7 @@ class LLMRouter:
                 raise
             self.breaker.record_success(model)
             text, usage = _unpack(raw)
-            self.usage.record(self._today(), model, requests=0,
+            self.usage.record(self._day(model), model, requests=0,
                               tokens=usage["prompt_tokens"] + usage["completion_tokens"])
             return LLMResponse(
                 text=text, model=model, latency_s=latency,
@@ -331,9 +349,16 @@ class LLMRouter:
     def expected_wait(self, model: str, est_tokens: int) -> float:
         return max((b.wait_time(a) for b, a in self._limiters(model, est_tokens)), default=0.0)
 
+    def _day(self, model: str) -> str:
+        """Current quota day for `model`, in its provider's reset time zone."""
+        return self._today(self.config.limits_for(provider_of(model)).quota_timezone)
+
     def _daily_cap_reached(self, model: str) -> bool:
+        day = self._day(model)
+        if (day, model) in self._exhausted:
+            return True
         rpd = self.config.model_limits(model).rpd
-        return rpd is not None and self.usage.requests(self._today(), model) >= rpd
+        return rpd is not None and self.usage.requests(day, model) >= rpd
 
     def _bucket(self, scope: str, name: str, per_minute: float,
                 capacity: float | None = None) -> TokenBucket:

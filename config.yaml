@@ -11,36 +11,41 @@ llm:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
       - gemini/gemini-3.5-flash
+      - gemini/gemini-2.5-flash       # separate 20/day quota from 3.5
     fixer:
-      - gemini/gemini-3.5-flash
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
-    preparer:
       - gemini/gemini-3.5-flash
+      - gemini/gemini-2.5-flash
+    preparer:                         # few calls per run, so reasoning quality matters most
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      - gemini/gemini-3.5-flash
       - groq/openai/gpt-oss-120b
-    judge:
+    judge:                            # many short calls: needs request/token headroom
       - groq/openai/gpt-oss-20b
       - mistral/ministral-14b-2512
       - gemini/gemini-3.5-flash-lite
 
   # Per-model quotas, set ~10% under what each provider reported for this account on
-  # 2026-09-23 (rate-limit response headers). `autocover usage` shows today's counts.
+  # 2026-09-23 (rate-limit headers; Gemini from aistudio.google.com/rate-limit).
+  # `autocover usage` shows today's counts.
   models:
-    groq/openai/gpt-oss-20b: { rpm: 25, tpm: 7200, rpd: 950 }     # reported: 1000/day, 8K TPM
-    groq/openai/gpt-oss-120b: { rpm: 25, tpm: 7200, rpd: 950 }    # reported: 1000/day, 8K TPM
-    mistral/codestral-2508: { rpm: 110, tpm: 560000 }             # reported: 125 RPM, 625K TPM
-    mistral/ministral-14b-2512: { rpm: 27, tpm: 840000 }          # reported: 30 RPM, 937K TPM
-    # Gemini sends no rate-limit headers; these are conservative placeholders. Check the
-    # real free-tier numbers at https://aistudio.google.com/rate-limit and update.
-    gemini/gemini-3.5-flash: { rpm: 8, rpd: 200 }
-    gemini/gemini-3.5-flash-lite: { rpm: 12, rpd: 800 }
+    groq/openai/gpt-oss-20b: { rpm: 25, tpm: 7200, rpd: 950 }     # 1000/day, 8K TPM
+    groq/openai/gpt-oss-120b: { rpm: 25, tpm: 7200, rpd: 950 }    # 1000/day, 8K TPM
+    mistral/codestral-2508: { rpm: 110, tpm: 560000 }             # 125 RPM, 625K TPM
+    mistral/ministral-14b-2512: { rpm: 27, tpm: 840000 }          # 30 RPM, 937K TPM
+    # Gemini free tier: every Flash version has its own 5 RPM / 250K TPM / 20 RPD quota;
+    # Flash-Lite 15 RPM / 250K TPM / 500 RPD. 20/day is why Flash is only a last resort.
+    gemini/gemini-3.5-flash: { rpm: 4, tpm: 225000, rpd: 18 }
+    gemini/gemini-2.5-flash: { rpm: 4, tpm: 225000, rpd: 18 }
+    gemini/gemini-3.5-flash-lite: { rpm: 13, tpm: 225000, rpd: 450 }
     # NVIDIA NIM meters the whole account (see providers.nvidia_nim), not each model.
 
-  # Provider-wide limits (shared by all of a provider's models) and concurrency.
+  # Provider-wide limits (shared by all of a provider's models), concurrency, and the
+  # time zone in which daily quotas reset.
   providers:
     nvidia_nim: { rpm: 35, max_concurrency: 3 }  # ~40 RPM for the whole account
-    gemini: { rpm: null, max_concurrency: 2 }
+    gemini: { rpm: null, max_concurrency: 2, quota_timezone: America/Los_Angeles }
     mistral: { rpm: null, max_concurrency: 2 }
     groq: { rpm: null, max_concurrency: 2 }
     openrouter: { rpm: 15, max_concurrency: 1 }
@@ -49,6 +54,7 @@ llm:
   #   Mistral: devstral-*, mistral-small/medium/large, magistral-* (0 RPM quota or tier-locked)
   #   Cerebras: gpt-oss-120b, qwen-3.8-27b ("payment required"); older models archived
   #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"
+  #   (and each 503 retry still counts against that version's 20/day quota)
   max_queue_wait_s: 15   # longer expected wait -> try the next model instead
   temperature: 0.2
   timeout_s: 120
