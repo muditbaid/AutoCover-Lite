@@ -36,12 +36,15 @@ tests for a module. A test is kept only if:
 
 Models are chosen per role (see `config.yaml`):
 
-| Role | Primary | Fallback |
-|---|---|---|
-| Generator | Mistral Devstral | Gemini Flash |
-| Fixer | Gemini Flash | Mistral Devstral |
-| Preparer | Gemini Flash | GPT-OSS 120B (Groq) |
-| Validator judge | GPT-OSS 120B (Cerebras) | GPT-OSS 20B (Groq) |
+| Role | #1 | #2 | #3 |
+|---|---|---|---|
+| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral (Mistral) | Gemini Flash |
+| Fixer | Gemini Flash | Nemotron 3 Super | Codestral |
+| Preparer | Gemini Flash | Nemotron 3 Ultra (NIM) | GPT-OSS 120B (Groq) |
+| Validator judge | GPT-OSS 20B (Groq) | GPT-OSS 120B (Groq) | Gemini Flash-Lite |
+
+All of these answered on free tiers as of 2026-09-23 (`autocover llm-ping --model <id>`).
+Devstral isn't on Mistral's free plan, and Cerebras required billing on the test account.
 
 ## Quickstart
 

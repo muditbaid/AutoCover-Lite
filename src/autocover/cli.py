@@ -31,14 +31,14 @@ def doctor(config: Path = ConfigOpt) -> None:
     cfg = load_config(config)
     ok = True
     typer.echo(f"config: {config} ({'found' if config.exists() else 'missing, using defaults'})")
-    typer.echo("\nLLM roles (✓ = API key present):")
+    typer.echo("\nLLM roles ([x] = API key present):")
     for role, chain in cfg.llm.roles.items():
         marks = []
         for model in chain:
             env = PROVIDER_KEY_ENV.get(provider_of(model))
             has_key = env is None or bool(os.environ.get(env))
-            marks.append(f"{'✓' if has_key else '✗'} {model}")
-        usable = any(m.startswith("✓") for m in marks)
+            marks.append(f"{'[x]' if has_key else '[ ]'} {model}")
+        usable = any(m.startswith("[x]") for m in marks)
         ok &= usable
         typer.echo(f"  {role:<10} {'OK  ' if usable else 'NONE'}  " + "  ->  ".join(marks))
     has_docker = docker_available()
@@ -55,16 +55,21 @@ def doctor(config: Path = ConfigOpt) -> None:
 @app.command("llm-ping")
 def llm_ping(
     role: str = typer.Option("generator", help="Agent role whose fallback chain to test"),
+    model: str = typer.Option(None, help="Test one model id instead of a role's chain"),
     prompt: str = typer.Option("Reply with exactly one word: pong"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     config: Path = ConfigOpt,
 ) -> None:
-    """Send one tiny prompt through a role's fallback chain."""
-    runtime = build_runtime(load_config(config))
+    """Send one tiny prompt through a role's fallback chain (or to a single model)."""
+    cfg = load_config(config)
+    if model:
+        role = "ping"
+        cfg.llm.roles[role] = [model]
+    runtime = build_runtime(cfg)
     try:
         resp = asyncio.run(runtime.router.complete(
             role, [{"role": "user", "content": prompt}], use_cache=not no_cache,
-            max_tokens=256))
+            max_tokens=1024))
     except AllModelsFailed as exc:
         typer.echo(f"FAILED: {exc}", err=True)
         raise typer.Exit(1) from exc

@@ -5,16 +5,30 @@
 llm:
   # Fallback chain per agent role: first healthy model wins.
   roles:
-    generator: [mistral/devstral-medium-latest, gemini/gemini-flash-latest, openrouter/openrouter/free]
-    fixer: [gemini/gemini-flash-latest, mistral/devstral-medium-latest, openrouter/openrouter/free]
-    preparer: [gemini/gemini-flash-latest, groq/openai/gpt-oss-120b]
-    judge: [cerebras/gpt-oss-120b, groq/openai/gpt-oss-20b]
+    generator:
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+      - mistral/codestral-latest
+      - gemini/gemini-flash-latest
+    fixer:
+      - gemini/gemini-flash-latest
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+      - mistral/codestral-latest
+    preparer:
+      - gemini/gemini-flash-latest
+      - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      - groq/openai/gpt-oss-120b
+    judge:
+      - groq/openai/gpt-oss-20b
+      - groq/openai/gpt-oss-120b
+      - gemini/gemini-flash-lite-latest
   # Client-side limits per provider, set a little under the free-tier quotas.
+  # Verified 2026-09-23: Devstral is not on Mistral's free plan (use Codestral);
+  # Cerebras models return "payment required" on this account, so it is not used.
   providers:
     gemini: { rpm: 10, max_concurrency: 2 }
     mistral: { rpm: 50, max_concurrency: 1 }
     groq: { rpm: 25, max_concurrency: 2 }
-    cerebras: { rpm: 25, max_concurrency: 2 }
+    nvidia_nim: { rpm: 35, max_concurrency: 3 }  # ~40 RPM shared across all NIM models
     openrouter: { rpm: 15, max_concurrency: 1 }
   temperature: 0.2
   timeout_s: 120
