@@ -46,6 +46,8 @@ PROVIDER_KEY_ENV = {
     "cerebras": "CEREBRAS_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "nvidia_nim": "NVIDIA_NIM_API_KEY",
+    "zai": "ZAI_API_KEY",
+    "cloudflare": "CLOUDFLARE_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
 }
@@ -201,10 +203,15 @@ class LLMRouter:
         except KeyError:
             raise KeyError(f"no models configured for role {role!r}") from None
 
+    def key_env(self, model: str) -> str | None:
+        """Environment variable holding the API key for `model`'s provider."""
+        provider = provider_of(model)
+        return self.config.limits_for(provider).api_key_env or PROVIDER_KEY_ENV.get(provider)
+
     def available(self, model: str) -> bool:
         if not self._require_keys:
             return True
-        env = PROVIDER_KEY_ENV.get(provider_of(model))
+        env = self.key_env(model)
         return env is None or bool(os.environ.get(env))
 
     async def complete(
@@ -314,6 +321,11 @@ class LLMRouter:
             kwargs["max_tokens"] = params["max_tokens"]
         if params["json_mode"]:
             kwargs["response_format"] = {"type": "json_object"}
+        provider = self.config.limits_for(provider_of(model))
+        if provider.api_base:
+            kwargs["api_base"] = provider.api_base
+        if provider.api_key_env and os.environ.get(provider.api_key_env):
+            kwargs["api_key"] = os.environ[provider.api_key_env]
         if self._completion_fn is not None:
             return await self._completion_fn(**kwargs)
         import litellm  # heavy import; deferred so tests and the CLI start fast

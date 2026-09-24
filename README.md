@@ -34,17 +34,23 @@ tests for a module. A test is kept only if:
 | Splicer | `src/autocover/tools/splicer.py` | libcst merges tests without disturbing existing formatting. Imports are deduplicated, and name clashes are renamed deterministically (references included). |
 | Sandbox | `src/autocover/tools/sandbox.py` | One Docker image per target repo. Each run gets its own container with `--network none`, memory/CPU/pid limits and a hard timeout, and reports per-test outcomes plus line/branch coverage. |
 
-Models are chosen per role, pinned to exact versions (see `config.yaml`):
+Models are chosen per role, pinned to exact versions, with 4-7 fallbacks each (full chains
+in `config.yaml`):
 
-| Role | #1 | #2 | #3 | #4 |
-|---|---|---|---|---|
-| Generator | Nemotron 3 Super (NVIDIA NIM) | `codestral-2508` (Mistral) | `gemini-3.5-flash` | `gemini-2.5-flash` |
-| Fixer | Nemotron 3 Super | `codestral-2508` | `gemini-3.5-flash` | `gemini-2.5-flash` |
-| Preparer | Nemotron 3 Ultra (NIM) | `gemini-3.5-flash` | GPT-OSS 120B (Groq) | |
-| Validator judge | GPT-OSS 20B (Groq) | `ministral-14b-2512` (Mistral) | `gemini-3.5-flash-lite` | |
+| Role | Primary | Fallbacks, in order |
+|---|---|---|
+| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral 2508 -> Nemotron 3 Super (Ollama Cloud) -> GLM-4.7-Flash (Z.ai) -> Gemini 3.5 / 2.5 Flash -> OpenRouter |
+| Fixer | Nemotron 3 Super (NIM) | Codestral 2508 -> GPT-OSS 120B (Ollama) -> GLM-4.7-Flash -> Gemini 3.5 / 2.5 Flash |
+| Preparer | Nemotron 3 Ultra (NIM) | Nemotron 3 Ultra (Ollama) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
+| Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
 
-Gemini Flash is last in each chain because the free tier allows only **20 requests per day
-per Flash version** (5 RPM); NVIDIA NIM has no daily cap (~40 RPM for the account).
+The same model on two providers (NVIDIA NIM and Ollama Cloud) gives two independent
+quotas at one quality level. Gemini Flash sits late in every chain because the free tier
+allows only **20 requests per day per Flash version**. NVIDIA NIM has no daily cap (~40 RPM
+for the account).
+
+Free tiers can use your prompts for training (Mistral's free plan requires opting in, and
+Google does outside the EU/UK), so only point this tool at code you are allowed to share.
 
 Free-tier quotas are metered **per model version**, so `config.yaml` pins versions (no
 `-latest` aliases) and sets per-model `rpm` / `tpm` / `rpd` limits taken from each

@@ -35,7 +35,8 @@ def doctor(config: Path = ConfigOpt) -> None:
     for role, chain in cfg.llm.roles.items():
         marks = []
         for model in chain:
-            env = PROVIDER_KEY_ENV.get(provider_of(model))
+            env = (cfg.llm.limits_for(provider_of(model)).api_key_env
+                   or PROVIDER_KEY_ENV.get(provider_of(model)))
             has_key = env is None or bool(os.environ.get(env))
             marks.append(f"{'[x]' if has_key else '[ ]'} {model}")
         usable = any(m.startswith("[x]") for m in marks)

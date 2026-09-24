@@ -7,24 +7,34 @@ llm:
   # "-latest" aliases): aliases move without notice, and free-tier quotas are metered per
   # model version, so a silent alias change would also change the limits.
   roles:
+    # Same model on two providers (e.g. Nemotron 3 Super on NVIDIA NIM and Ollama Cloud)
+    # means two independent quotas for one quality level.
     generator:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
+      - ollama_chat/nemotron-3-super
+      - zai/glm-4.7-flash
       - gemini/gemini-3.5-flash
       - gemini/gemini-2.5-flash       # separate 20/day quota from 3.5
+      - openrouter/nvidia/nemotron-3-super-120b-a12b:free
     fixer:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
+      - ollama_chat/gpt-oss:120b
+      - zai/glm-4.7-flash
       - gemini/gemini-3.5-flash
       - gemini/gemini-2.5-flash
     preparer:                         # few calls per run, so reasoning quality matters most
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      - ollama_chat/nemotron-3-ultra
       - gemini/gemini-3.5-flash
       - groq/openai/gpt-oss-120b
     judge:                            # many short calls: needs request/token headroom
       - groq/openai/gpt-oss-20b
       - mistral/ministral-14b-2512
+      - ollama_chat/gpt-oss:20b
       - gemini/gemini-3.5-flash-lite
+      - zai/glm-4.5-flash
 
   # Per-model quotas, set ~10% under what each provider reported for this account on
   # 2026-09-23 (rate-limit headers; Gemini from aistudio.google.com/rate-limit).
@@ -40,6 +50,9 @@ llm:
     gemini/gemini-2.5-flash: { rpm: 4, tpm: 225000, rpd: 18 }
     gemini/gemini-3.5-flash-lite: { rpm: 13, tpm: 225000, rpd: 450 }
     # NVIDIA NIM meters the whole account (see providers.nvidia_nim), not each model.
+    openrouter/nvidia/nemotron-3-super-120b-a12b:free: { rpd: 45 }  # key: 50/day total
+    # Ollama Cloud free meters GPU time (5-hour session + weekly caps, unpublished) and
+    # runs one model at a time; Z.ai free Flash models publish no numeric limits.
 
   # Provider-wide limits (shared by all of a provider's models), concurrency, and the
   # time zone in which daily quotas reset.
@@ -49,8 +62,14 @@ llm:
     mistral: { rpm: null, max_concurrency: 2 }
     groq: { rpm: null, max_concurrency: 2 }
     openrouter: { rpm: 15, max_concurrency: 1 }
+    zai: { rpm: 20, max_concurrency: 1 }
+    ollama_chat: { rpm: 20, max_concurrency: 1, api_base: "https://ollama.com", api_key_env: OLLAMA_API_KEY }
 
-  # Checked 2026-09-23 and NOT usable on the free plans of this account:
+  # Checked 2026-09-24 and NOT usable on the free plans of this account:
+  #   Z.ai: glm-4.5-air, glm-4.7, glm-5.x incl. glm-5.3-flash ("insufficient balance")
+  #   Ollama Cloud: kimi-*, deepseek-v4*, glm-5.x, qwen3.5, minimax, mistral-large-3
+  #   OpenRouter: 50 requests/day for the whole key; free models rotate often
+  #   Cloudflare Workers AI: token rejected ("Invalid API Token"), not configured
   #   Mistral: devstral-*, mistral-small/medium/large, magistral-* (0 RPM quota or tier-locked)
   #   Cerebras: gpt-oss-120b, qwen-3.8-27b ("payment required"); older models archived
   #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"

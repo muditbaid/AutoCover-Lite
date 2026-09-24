@@ -267,3 +267,22 @@ def test_quota_day_uses_provider_time_zone():
                        require_keys=False, today=lambda tz: seen.append(tz) or "2026-09-23")
     run(router.complete("gen", MESSAGES))
     assert set(seen) == {"America/Los_Angeles"}
+
+
+def test_provider_api_base_and_key_env_are_passed_through(monkeypatch):
+    monkeypatch.setenv("MY_OLLAMA_KEY", "secret")
+    seen = {}
+
+    async def completion(**kwargs):
+        seen.update(kwargs)
+        return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    cfg = LLMConfig(roles={"gen": ["ollama_chat/gpt-oss:120b"]},
+                    providers={"ollama_chat": ProviderLimits(
+                        api_base="https://ollama.com", api_key_env="MY_OLLAMA_KEY")})
+    router = LLMRouter(cfg, completion_fn=completion)
+    assert router.key_env("ollama_chat/gpt-oss:120b") == "MY_OLLAMA_KEY"
+    run(router.complete("gen", MESSAGES))
+    assert seen["api_base"] == "https://ollama.com" and seen["api_key"] == "secret"
+    monkeypatch.delenv("MY_OLLAMA_KEY")
+    assert not router.available("ollama_chat/gpt-oss:120b")

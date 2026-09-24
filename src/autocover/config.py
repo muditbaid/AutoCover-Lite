@@ -16,6 +16,9 @@ class ProviderLimits(BaseModel):
     max_concurrency: int = 1
     # Time zone in which the provider's daily quotas reset (Gemini: midnight Pacific).
     quota_timezone: str = "UTC"
+    # Connection overrides, e.g. Ollama Cloud: api_base https://ollama.com + OLLAMA_API_KEY.
+    api_base: str | None = None
+    api_key_env: str | None = None
 
 
 class ModelLimits(BaseModel):
