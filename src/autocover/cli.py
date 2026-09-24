@@ -94,6 +94,8 @@ def run(
     budget_min: float = typer.Option(None, help="Wall-clock budget in minutes"),
     backend: str = typer.Option(None, help="docker | local (default: from config)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Don't write the test file"),
+    max_llm_calls: int = typer.Option(None, help="LLM call budget for this run"),
+    json_out: Path = typer.Option(None, help="Also write the run summary as JSON here"),
     config: Path = ConfigOpt,
 ) -> None:
     """Generate tests for one module with the agent pipeline."""
@@ -106,12 +108,20 @@ def run(
         cfg.run.max_rounds = rounds
     if budget_min:
         cfg.run.budget_min = budget_min
+    if max_llm_calls:
+        cfg.run.max_llm_calls = max_llm_calls
     runtime = build_runtime(cfg)
     try:
         summary = asyncio.run(run_autocover(runtime, repo, target, test_path=out,
                                             functions=function or None, write=not dry_run))
     finally:
         runtime.close()
+    if json_out:
+        import json
+
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps({k: v for k, v in summary.items() if k != "suite"},
+                                       indent=2, default=str), encoding="utf-8")
     base, final = summary["baseline"], summary["final"]
     typer.echo(f"\n{summary['target']}: {summary['rounds']} round(s) in {summary['duration_s']}s")
     typer.echo(f"  lines    {base['line_pct']:5.1f}% -> {final['line_pct']:5.1f}%  "
@@ -142,6 +152,28 @@ def run(
         typer.echo(f"\nwrote {summary['tests_in_suite']} tests to {summary['written']}")
     elif dry_run:
         typer.echo("\n--dry-run: suite not written\n\n" + summary["suite"])
+
+
+@app.command()
+def changed(
+    base: str = typer.Option(..., help="Base ref to diff against, e.g. origin/main"),
+    repo: Path = typer.Option(Path("."), help="Repository root"),
+) -> None:
+    """List source modules added or modified since BASE (one per line)."""
+    from autocover.ci import changed_modules
+
+    for path in changed_modules(repo, base):
+        typer.echo(path)
+
+
+@app.command("ci-summary")
+def ci_summary(
+    directory: Path = typer.Argument(..., help="Directory of `run --json-out` files"),
+) -> None:
+    """Markdown summary of several runs (for CI job summaries and PR bodies)."""
+    from autocover.ci import load_summaries, summary_markdown
+
+    typer.echo(summary_markdown(load_summaries(directory)))
 
 
 @app.command()

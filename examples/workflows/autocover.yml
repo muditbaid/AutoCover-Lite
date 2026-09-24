@@ -1,0 +1,31 @@
+# Copy to .github/workflows/autocover.yml in the repository you want tests for, and add
+# your free-tier API keys as repository secrets (Settings -> Secrets -> Actions).
+name: AutoCover-Lite
+
+on:
+  pull_request:
+    paths: ["**.py"]
+
+permissions:
+  contents: write        # push the branch with generated tests
+  pull-requests: write   # open the follow-up pull request
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest   # GitHub-hosted runners include Docker for the sandbox
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: muditbaid/AutoCover-Lite@main
+        with:
+          budget-min: "10"
+          max-modules: "3"
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
