@@ -72,3 +72,38 @@ def test_imports_already_bound_by_a_broader_import_are_skipped():
     assert src.count("from ticket_price import ticket_price\n") == 0
     assert "import pytest" in src
     assert "from ticket_price import ticket_price as tp" in src  # new binding: kept
+
+
+HELPER_PREAMBLE = '''import pytest
+from ticket_price import group_total
+
+# helper used to isolate group_total
+def _fake(age):
+    return age // 10
+
+@pytest.fixture
+def patched(monkeypatch):
+    monkeypatch.setattr("ticket_price.ticket_price", _fake)
+
+'''
+
+
+def test_identical_preamble_with_comments_is_not_duplicated():
+    first = splice_tests("def test_t1():\n    assert True\n",
+                         HELPER_PREAMBLE + "def test_a(patched):\n    assert 1\n").source
+    result = splice_tests(first, HELPER_PREAMBLE + "def test_b(patched):\n    assert 2\n")
+    assert result.renamed == {} and result.skipped_duplicates == 2
+    assert result.source.count("def _fake(") == 1 and result.source.count("def patched(") == 1
+    assert "# helper used to isolate group_total" in result.source  # comment survives
+
+
+def test_renaming_a_helper_cascades_to_fixtures_that_use_it():
+    first = splice_tests("", HELPER_PREAMBLE + "def test_a(patched):\n    assert 1\n").source
+    changed = HELPER_PREAMBLE.replace("age // 10", "age // 20")
+    result = splice_tests(first, changed + "def test_b(patched):\n    assert 2\n")
+    assert result.renamed == {"_fake": "_fake_2", "patched": "patched_2"}
+    src = result.source
+    assert src.count("def patched(") == 1 and "def patched_2(monkeypatch):" in src
+    assert '"ticket_price.ticket_price", _fake_2)' in src
+    assert "def test_b(patched_2):" in src
+    compile(src, "<suite>", "exec")

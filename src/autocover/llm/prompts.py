@@ -21,7 +21,10 @@ TEST_RULES = """\
 - Deterministic and hermetic: no network, no sleeping, no real clock or randomness without
   a fixed seed, no files outside pytest's `tmp_path`, no reliance on test order.
 - Import the code under test exactly as shown in the context. Do not redefine or copy the
-  function under test, and do not mock it. Mock only true external dependencies.
+  function under test, and do not mock or monkeypatch it or other code of the same module
+  (call its real helpers). Mock only true external dependencies (network, files, clock).
+- No `autouse=True` fixtures and no module-level state changes: every test is later merged
+  into one shared test file and must not affect the other tests there.
 - Every expected value must follow from the code's actual logic - trace it carefully,
   especially at boundaries. A wrong expectation makes the test fail and it is discarded.
 - Write expected values as literals (e.g. `== 45.0`). Never compute them by calling the

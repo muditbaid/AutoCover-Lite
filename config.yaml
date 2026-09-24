@@ -9,15 +9,13 @@ llm:
   roles:
     # Same model on two providers (e.g. Nemotron 3 Super on NVIDIA NIM and Ollama Cloud)
     # means two independent quotas for one quality level.
-    generator:
-      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
-      - mistral/codestral-2508
-      - ollama_chat/nemotron-3-super
-      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
-      - zai/glm-4.7-flash
-      - gemini/gemini-3.5-flash
-      - gemini/gemini-2.5-flash       # separate 20/day quota from 3.5
-      - openrouter/nvidia/nemotron-3-super-120b-a12b:free
+    generator:                        # ordered by bench/results/model_bakeoff.md
+      - ollama_chat/gpt-oss:120b      # 100% pass, 9s
+      - gemini/gemini-3.5-flash       # 100% pass, 7s, but 18/day
+      - gemini/gemini-2.5-flash       # 100% pass, 17s, separate 18/day
+      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b   # 75%, 11s, 25/day
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
+      - mistral/codestral-2508        # 53%, 5s, high volume
     fixer:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508

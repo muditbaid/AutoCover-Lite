@@ -27,26 +27,34 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
     cand = cst.parse_module(candidate)
 
     bound = set().union(*(_bindings(s) for s in base.body if _is_import(s)))
-    existing_stmts = {_code(s) for s in base.body}
+    existing_stmts = {_key(s) for s in base.body}
     taken = _defined_names(base)
 
+    # Rename clashing definitions until none are left: renaming a helper changes the text
+    # of the fixtures/tests that use it, which can create new clashes (fixpoint).
     renames: dict[str, str] = {}
-    for stmt in cand.body:
-        name = _def_name(stmt)
-        if name and name in taken and _code(stmt) not in existing_stmts:
-            renames[name] = _fresh(name, taken | set(renames.values()) | _defined_names(cand))
-    if renames:
-        cand = cand.visit(_Renamer(renames))
+    original = cand
+    while True:
+        current = original.visit(_Renamer(renames)) if renames else original
+        new_clashes = {
+            name for stmt in current.body
+            if (name := _def_name(stmt)) in taken and name not in renames.values()
+            and _key(stmt) not in existing_stmts
+        }
+        if not new_clashes:
+            cand = current
+            break
+        for name in sorted(new_clashes):
+            renames[name] = _fresh(name, taken | set(renames.values()) | _defined_names(original))
 
     new_imports, new_body, added, skipped = [], [], [], 0
     for stmt in cand.body:
-        code = _code(stmt)
         if _is_import(stmt):
             names = _bindings(stmt)
             if not names <= bound:  # skip imports whose every name is already bound
                 new_imports.append(stmt)
                 bound |= names
-        elif code in existing_stmts:
+        elif _key(stmt) in existing_stmts:
             skipped += 1
         else:
             new_body.append(stmt)
@@ -56,10 +64,11 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
     body = list(base.body)
     insert_at = _import_insertion_index(body)
     body[insert_at:insert_at] = new_imports
-    if new_body:
-        first = new_body[0]
-        new_body[0] = first.with_changes(leading_lines=[cst.EmptyLine(), cst.EmptyLine()]) \
-            if body and isinstance(first, (cst.FunctionDef, cst.ClassDef)) else first
+    after_imports = insert_at + len(new_imports)
+    if new_imports and after_imports < len(body):
+        body[after_imports] = _with_blank_lines(body[after_imports])
+    if new_body and body:
+        new_body[0] = _with_blank_lines(new_body[0])
     body.extend(new_body)
     result = base.with_changes(body=body)
     return SpliceResult(result.code, added, renames, skipped)
@@ -111,6 +120,22 @@ _EMPTY = cst.Module(body=[])
 
 def _code(node: cst.CSTNode) -> str:
     return _EMPTY.code_for_node(node).strip()
+
+
+def _key(stmt: cst.CSTNode) -> str:
+    """Comparison key for duplicate detection: the statement without the blank lines and
+    comments above it (splicing re-spaces statements, which must not defeat dedup)."""
+    if hasattr(stmt, "leading_lines"):
+        stmt = stmt.with_changes(leading_lines=[])
+    return _code(stmt)
+
+
+def _with_blank_lines(stmt: cst.CSTNode, count: int = 2) -> cst.CSTNode:
+    """PEP 8 spacing before a top-level def/class, keeping any comments above it."""
+    if not isinstance(stmt, (cst.FunctionDef, cst.ClassDef)):
+        return stmt
+    comments = [line for line in stmt.leading_lines if line.comment is not None]
+    return stmt.with_changes(leading_lines=[cst.EmptyLine()] * count + comments)
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:

@@ -16,11 +16,41 @@ tests for a module. A test is kept only if:
 | Milestone | What | State |
 |---|---|---|
 | 1. Foundation | Config, LLM router, cache, telemetry, context retriever, mutator, splicer, Docker sandbox, CLI | ✅ done |
-| 2. Happy path | Preparer → Generator → Executor graph with a line-coverage gate | ⏳ next |
-| 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | |
+| 2. Happy path | Preparer → Generator → Executor graph with a line-coverage gate | ✅ done |
+| 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ⏳ next |
 | 4. Scale & ops | Per-function fan-out, budgets, run summaries | |
 | 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | |
 | 6. Shipping | GitHub Action that opens test PRs; architecture write-up | |
+
+## How a run works
+
+```
+prepare -> generate -> execute -> plan_next --(lines still uncovered, rounds/time left)--> generate
+                                         \-> finalize (whole-suite check, write file)
+```
+
+1. **Preparer.** Runs the existing tests plus an import probe to get a baseline, asks an LLM
+   for happy / edge / error *scenarios* per function, and ranks functions by uncovered lines.
+2. **Generator.** Makes one LLM call per function for all of its open scenarios, and splits
+   the reply into standalone single-test candidates. Later rounds get the source lines that
+   are still uncovered plus the previous round's failures.
+3. **Executor.** Runs every candidate in its own sandbox, in parallel. A passing candidate is
+   kept only if it adds line or branch coverage (greedy, biggest gain first). Kept tests are
+   spliced into the suite.
+4. **Finalize.** Runs the merged suite as a whole, drops any test that fails in combination
+   with others, and writes `tests/test_<module>_autocover.py`.
+
+```bash
+autocover run examples/ticket_price ticket_price.py          # writes the test file
+autocover run <repo> src/pkg/mod.py -f some_function --dry-run
+```
+
+Live runs on `examples/ticket_price` reach **15% -> 100% lines and 0% -> 100%
+branches in one round with 4 LLM calls** (about 20-150s depending on which models answer). They
+also show why milestone 3 matters: line
+coverage alone kept a test whose expected value was computed *with* the code under test, and
+dropped the direct `ticket_price(5) == 5` check as "no new coverage". Mutation testing and
+scenario coverage fix exactly that.
 
 ## What's built so far
 
@@ -39,10 +69,22 @@ in `config.yaml`):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
-| Generator | Nemotron 3 Super (NVIDIA NIM) | Codestral 2508 -> Nemotron 3 Super (Ollama Cloud) -> Nemotron 3 Super (Cloudflare) -> GLM-4.7-Flash (Z.ai) -> Gemini 3.5 / 2.5 Flash -> OpenRouter |
+| Generator | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Gemini 2.5 Flash -> Nemotron 3 Super (Cloudflare) -> Nemotron 3 Super (NVIDIA NIM) -> Codestral 2508 |
 | Fixer | Nemotron 3 Super (NIM) | Codestral 2508 -> GPT-OSS 120B (Ollama) -> Nemotron 3 Super (Cloudflare) -> GLM-4.7-Flash -> Gemini 3.5 / 2.5 Flash |
 | Preparer | Nemotron 3 Ultra (NIM) | Nemotron 3 Ultra (Ollama) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
 | Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
+
+The Generator order comes from `bench/model_bakeoff.py` (one round per model on identical
+cached scenarios; results in `bench/results/model_bakeoff.md`):
+
+| Generator model | Tests passing | Coverage | Latency/call |
+|---|---|---|---|
+| Gemini 3.5 Flash | 100% | 100% | 7s |
+| GPT-OSS 120B (Ollama) | 100% | 100% | 9s |
+| Nemotron 3 Super (Cloudflare / Ollama / NIM) | 75% / 67% / 58% | 100% / 100% / 92% | 11s / 15s / 96s |
+| Codestral 2508 | 53% | 92% | 5s |
+
+That's one small module, so treat it as a first signal. Milestone 5 reruns it on 9 subjects.
 
 The same model on several providers (Nemotron 3 Super on NVIDIA NIM, Ollama Cloud and
 Cloudflare) gives independent quotas at one quality level. Gemini Flash sits late in every chain because the free tier
