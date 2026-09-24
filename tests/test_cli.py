@@ -30,8 +30,11 @@ def test_sandbox_run_local(tmp_path):
 
 
 def test_doctor_reports_missing_keys(tmp_path, monkeypatch):
-    for env in ("GEMINI_API_KEY", "MISTRAL_API_KEY", "GROQ_API_KEY", "CEREBRAS_API_KEY",
-                "OPENROUTER_API_KEY"):
+    from autocover.config import load_config
+    from autocover.llm.router import PROVIDER_KEY_ENV
+
+    providers = load_config(ROOT / "config.yaml").llm.providers.values()
+    for env in {*PROVIDER_KEY_ENV.values(), *(p.api_key_env for p in providers if p.api_key_env)}:
         monkeypatch.delenv(env, raising=False)
     monkeypatch.chdir(tmp_path)  # no .env here
     result = runner.invoke(app, ["doctor", "--config", str(ROOT / "config.yaml")])
