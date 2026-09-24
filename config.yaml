@@ -107,6 +107,14 @@ sandbox:
   max_parallel: 4
   workdir: null          # scratch dir for workspaces; null = system temp dir
 
+run:
+  max_rounds: 3             # generate -> execute rounds; later rounds target what is still uncovered
+  budget_min: 10
+  max_scenarios_per_function: 6
+  preparer_max_tokens: 4096
+  generator_max_tokens: 8192
+  include_private: false
+
 mutation:
   max_mutants_per_function: 8
   seed: 0

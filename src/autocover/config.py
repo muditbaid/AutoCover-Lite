@@ -78,6 +78,15 @@ class MutationConfig(BaseModel):
     seed: int = 0
 
 
+class RunConfig(BaseModel):
+    max_rounds: int = 3              # generate -> execute rounds per run
+    budget_min: float = 10           # wall-clock budget for a run
+    max_scenarios_per_function: int = 6
+    preparer_max_tokens: int = 4096
+    generator_max_tokens: int = 8192  # reasoning models spend part of this thinking
+    include_private: bool = False    # also test _private functions
+
+
 class TelemetryConfig(BaseModel):
     jsonl_path: str | None = ".autocover/telemetry.jsonl"
     otlp_endpoint: str | None = None
@@ -87,6 +96,7 @@ class Config(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     mutation: MutationConfig = Field(default_factory=MutationConfig)
+    run: RunConfig = Field(default_factory=RunConfig)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
 
 

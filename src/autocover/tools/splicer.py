@@ -71,6 +71,28 @@ def remove_tests(source: str, names: set[str]) -> str:
     return module.with_changes(body=body).code
 
 
+def split_tests(source: str) -> list[tuple[str, str]]:
+    """Split a generated test module into standalone single-test modules.
+
+    Returns (test_name, module_source) pairs; each module keeps the shared preamble
+    (imports, helpers, fixtures, constants) plus exactly one `test_*` function or one
+    `Test*` class. Raises libcst.ParserSyntaxError on invalid source.
+    """
+    module = cst.parse_module(source)
+    preamble, tests = [], []
+    for stmt in module.body:
+        name = _def_name(stmt)
+        if name and (name.startswith("test") or name.startswith("Test")):
+            tests.append((name, stmt))
+        else:
+            preamble.append(stmt)
+    out = []
+    for name, stmt in tests:
+        body = [*preamble, stmt]
+        out.append((name, module.with_changes(body=body).code))
+    return out
+
+
 def list_tests(source: str) -> list[str]:
     """Top-level `test_*` functions and `Test*` classes, in file order."""
     names = []

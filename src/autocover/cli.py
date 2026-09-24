@@ -83,6 +83,55 @@ def llm_ping(
 
 
 @app.command()
+def run(
+    repo: Path = typer.Argument(..., help="Repository root"),
+    target: str = typer.Argument(..., help="Module to test, relative to the repo"),
+    out: str = typer.Option(None, help="Output test file, relative to the repo "
+                            "(default: tests/test_<module>_autocover.py)"),
+    function: list[str] = typer.Option(None, "--function", "-f",
+                                       help="Only these functions (repeatable)"),
+    rounds: int = typer.Option(None, help="Max generate/execute rounds"),
+    budget_min: float = typer.Option(None, help="Wall-clock budget in minutes"),
+    backend: str = typer.Option(None, help="docker | local (default: from config)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Don't write the test file"),
+    config: Path = ConfigOpt,
+) -> None:
+    """Generate tests for one module with the agent pipeline."""
+    from autocover.run import run_autocover
+
+    cfg = load_config(config)
+    if backend:
+        cfg.sandbox.backend = backend
+    if rounds:
+        cfg.run.max_rounds = rounds
+    if budget_min:
+        cfg.run.budget_min = budget_min
+    runtime = build_runtime(cfg)
+    try:
+        summary = asyncio.run(run_autocover(runtime, repo, target, test_path=out,
+                                            functions=function or None, write=not dry_run))
+    finally:
+        runtime.close()
+    base, final = summary["baseline"], summary["final"]
+    typer.echo(f"\n{summary['target']}: {summary['rounds']} round(s) in {summary['duration_s']}s")
+    typer.echo(f"  lines    {base['line_pct']:5.1f}% -> {final['line_pct']:5.1f}%  "
+               f"({final['lines_covered']}/{final['lines_total']})")
+    typer.echo(f"  branches {base['branch_pct']:5.1f}% -> {final['branch_pct']:5.1f}%  "
+               f"({final['branches_covered']}/{final['branches_total']})")
+    typer.echo(f"  candidates {summary['candidates']}: accepted {summary['accepted']}, "
+               f"failed {summary['failed']}, no new coverage {summary['rejected_no_gain']}")
+    typer.echo(f"  scenarios covered {summary['scenarios_covered']}/{summary['scenarios_total']}")
+    if summary["removed_in_suite_check"]:
+        typer.echo(f"  removed after suite check: {summary['removed_in_suite_check']}")
+    for model, use in summary["llm"].items():
+        typer.echo(f"  llm {model}: {use['calls']} calls, {use['tokens']} tokens")
+    if summary.get("written"):
+        typer.echo(f"\nwrote {summary['tests_in_suite']} tests to {summary['written']}")
+    elif dry_run:
+        typer.echo("\n--dry-run: suite not written\n\n" + summary["suite"])
+
+
+@app.command()
 def usage(config: Path = ConfigOpt) -> None:
     """Show today's (UTC) requests and tokens per model against configured caps."""
     from datetime import datetime
