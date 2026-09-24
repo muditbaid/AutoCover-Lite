@@ -104,6 +104,8 @@ sandbox:
   pids_limit: 256
   max_parallel: 4
   workdir: null          # scratch dir for workspaces; null = system temp dir
+  batch: true            # one sandbox runs many candidates; coverage is credited per test
+  batch_size: 25
 
 run:
   max_rounds: 3             # generate -> execute rounds; later rounds target what is still uncovered
@@ -114,6 +116,9 @@ run:
   include_private: false
   max_fix_attempts: 2       # Fixer attempts per test before it is frozen
   judge_scenarios: true     # a test with no new coverage/kills can still count for a new scenario
+  max_llm_calls: 60         # per-run budget of non-cached LLM calls (free-tier friendly)
+  max_llm_tokens: null
+  flaky_reruns: 1           # re-run the final suite; a test failing in any rerun is dropped
 
 mutation:
   enabled: true
@@ -125,4 +130,5 @@ mutation:
 
 telemetry:
   jsonl_path: .autocover/telemetry.jsonl
+  runs_dir: .autocover/runs  # one JSON summary per run (autocover report)
   otlp_endpoint: null    # or set OTEL_EXPORTER_OTLP_ENDPOINT, e.g. http://localhost:4318

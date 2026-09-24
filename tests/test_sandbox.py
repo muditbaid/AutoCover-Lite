@@ -161,3 +161,48 @@ def test_non_ascii_test_source_and_output(sandbox):
     result = sandbox.run(RunRequest(target=TARGET, tests={"test_uni.py": src}))
     assert result.status == "ok" and not result.passed
     assert "über" in result.diagnostics()
+
+
+GROUP = """
+import pytest
+from ticket_price import group_total
+
+
+@pytest.fixture
+def five_adults():
+    return [30] * 5
+
+
+def test_group_discount(five_adults):
+    assert group_total(five_adults, discount=0.1) == 45.0
+
+
+@pytest.mark.parametrize("ages,total", [([30], 10.0), ([5, 70], 12.0)])
+def test_group_small(ages, total):
+    assert group_total(ages) == total
+"""
+
+
+def test_batched_run_attributes_coverage_exactly_per_file(sandbox):
+    files = {"test_good.py": GOOD, "test_bad.py": BAD, "test_group.py": GROUP,
+             "test_broken.py": BROKEN}
+    batch = sandbox.run(RunRequest(target=TARGET, tests=files, per_test=True))
+    assert batch.status == "ok" and batch.per_test
+    for name, source in files.items():
+        alone = sandbox.run(RunRequest(target=TARGET, tests={name: source}))
+        part = batch.for_file(name)
+        assert part.passed == alone.passed, name
+        assert [t.outcome for t in part.tests] == [t.outcome for t in alone.tests], name
+        assert bool(part.collection_errors) == bool(alone.collection_errors), name
+        if alone.tests:
+            assert part.coverage.executed_lines == alone.coverage.executed_lines - \
+                _import_lines(sandbox), name
+            assert part.coverage.executed_branches == alone.coverage.executed_branches, name
+        assert part.coverage.all_lines == batch.coverage.all_lines
+
+
+def _import_lines(sandbox):
+    """Module-level lines run at import time belong to no test in a batched run."""
+    probe = sandbox.run(RunRequest(target=TARGET, tests={
+        "test_probe.py": "import ticket_price\n\ndef test_p():\n    assert ticket_price\n"}))
+    return probe.coverage.executed_lines

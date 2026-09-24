@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 
-from autocover.agents.executor import run_candidate
+from autocover.agents.executor import run_candidates
 from autocover.llm.parsing import extract_json
 from autocover.llm.prompts import judge_messages
 from autocover.llm.router import AllModelsFailed
@@ -52,7 +52,7 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
 
         weak: list[Candidate] = []
         if ctx.config.mutation.enabled:
-            await asyncio.gather(*(_measure_kills(ctx, c) for c in clean))
+            await measure_kills(ctx, clean)
             weak = [c for c in clean if c.mutants_run and not c.killed]
             for cand in weak:
                 cand.reason = f"weak oracle: kills 0 of {cand.mutants_run} mutants"
@@ -96,17 +96,36 @@ def mutant_pool(ctx: RunContext) -> list[Mutant]:
     return ctx.mutant_pool
 
 
-async def _measure_kills(ctx: RunContext, cand: Candidate) -> None:
-    executed = ctx.results[cand.id].coverage.executed_lines
-    applicable = [m for m in mutant_pool(ctx) if m.lineno in executed]
-    applicable.sort(key=lambda m: m.function != cand.function)  # own function first
-    applicable = applicable[: ctx.config.mutation.max_mutants_per_candidate]
+async def measure_kills(ctx: RunContext, cands: list[Candidate]) -> None:
+    """Which pooled mutants each candidate kills.
+
+    A candidate is only credited for mutants on lines it executes (capped per candidate,
+    own function first). Each mutant runs once, against all candidates it applies to in a
+    single batched sandbox run - M runs per round instead of candidates x mutants.
+    """
+    cap = ctx.config.mutation.max_mutants_per_candidate
+    applicable: dict[str, list[Mutant]] = {}
+    for cand in cands:
+        executed = ctx.results[cand.id].coverage.executed_lines
+        mutants = [m for m in mutant_pool(ctx) if m.lineno in executed]
+        mutants.sort(key=lambda m: m.function != cand.function)  # own function first
+        applicable[cand.id] = mutants[:cap]
+    order: dict[str, Mutant] = {}
+    for mutants in applicable.values():
+        for m in mutants:
+            order.setdefault(m.id, m)
+    targets = {mid: [c for c in cands if any(x.id == mid for x in applicable[c.id])]
+               for mid in order}
     runs = await asyncio.gather(*(
-        run_candidate(ctx, cand, overrides={ctx.target: m.source},
-                      timeout_s=ctx.config.mutation.timeout_s) for m in applicable))
-    cand.mutants_run = len(applicable)
-    cand.killed = [m.id for m, r in zip(applicable, runs, strict=True) if not r.passed]
-    ctx.survivors[cand.id] = [m for m, r in zip(applicable, runs, strict=True) if r.passed]
+        run_candidates(ctx, targets[mid], overrides={ctx.target: m.source},
+                       timeout_s=ctx.config.mutation.timeout_s)
+        for mid, m in order.items()))
+    by_mutant = dict(zip(order, runs, strict=True))
+    for cand in cands:
+        mine = applicable[cand.id]
+        cand.mutants_run = len(mine)
+        cand.killed = [m.id for m in mine if not by_mutant[m.id][cand.id].passed]
+        ctx.survivors[cand.id] = [m for m in mine if by_mutant[m.id][cand.id].passed]
 
 
 def _survivors_text(ctx: RunContext, cand: Candidate) -> str:
@@ -174,7 +193,8 @@ def _accept_one(ctx: RunContext, cand: Candidate, suite: str, by: str) -> str:
 
 async def _judge_accepts(ctx: RunContext, cand: Candidate) -> bool:
     if not (ctx.config.run.judge_scenarios and cand.scenario_id) or \
-            (cand.function, cand.scenario_id) in ctx.covered_scenarios:
+            (cand.function, cand.scenario_id) in ctx.covered_scenarios or \
+            not ctx.budget_left():
         return False
     scenario = next((s for s in ctx.scenarios.get(cand.function, []) if s.id == cand.scenario_id),
                     None)

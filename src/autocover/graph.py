@@ -59,14 +59,12 @@ def build_graph(ctx: RunContext):
         return await finalize(ctx, state)
 
     def after_validate(state: RunState) -> str:
-        return "fix" if state.get("to_fix") and ctx.time_left() > 0 else "plan_next"
+        if state.get("to_fix") and ctx.time_left() > 0:
+            return "fix"  # fix() itself freezes everything when the LLM budget is gone
+        return "plan_next"
 
     def should_generate(state: RunState) -> str:
-        if not state.get("targets"):
-            return "finalize"
-        if state.get("round", 0) >= ctx.config.run.max_rounds or ctx.time_left() <= 0:
-            return "finalize"
-        return "generate"
+        return "generate" if stop_reason(ctx, state) is None else "finalize"
 
     def after_fix(state: RunState) -> str:
         return "execute" if state.get("pending") else "plan_next"
@@ -87,10 +85,28 @@ def build_graph(ctx: RunContext):
     return graph.compile()
 
 
+def stop_reason(ctx: RunContext, state: RunState) -> str | None:
+    """Why the run should stop generating (None = keep going)."""
+    if not state.get("targets"):
+        return "no gaps left"
+    if state.get("round", 0) >= ctx.config.run.max_rounds:
+        return "max rounds"
+    if ctx.time_left() <= 0:
+        return "time budget"
+    if not ctx.budget_left():
+        return "LLM budget"
+    return None
+
+
+def _failing_names(result) -> set[str]:
+    return {t.nodeid.split("::")[1].split("[")[0] for t in result.failures if "::" in t.nodeid}
+
+
 async def finalize(ctx: RunContext, state: RunState) -> RunState:
     """Lint, run the merged suite as a whole ("do no harm"), score it, summarise."""
     suite = lint_fix(state.get("suite", ""))
     removed: list[str] = []
+    flaky: list[str] = []
     final_cov = None
     with ctx.telemetry.span("finalize", "suite_check") as span:
         for _ in range(MAX_SUITE_REPAIRS + 1):
@@ -99,13 +115,23 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
             result = await ctx.sandbox.arun(RunRequest(
                 target=ctx.target, tests={SUITE_FILE: suite}, label="suite"))
             final_cov = result.coverage
-            failing = {t.nodeid.split("::")[1].split("[")[0] for t in result.failures
-                       if "::" in t.nodeid}
-            if result.passed or not failing:
+            failing = _failing_names(result)
+            if failing:
+                removed.extend(sorted(failing))
+                suite = remove_tests(suite, failing)
+                continue
+            if not result.passed:
+                break  # crash/timeout without a failing test to blame: keep the suite
+            # Flakiness defence: the suite passed once; it must also pass again.
+            reruns = await asyncio.gather(*(ctx.sandbox.arun(RunRequest(
+                target=ctx.target, tests={SUITE_FILE: suite}, label=f"rerun-{i}"))
+                for i in range(ctx.config.run.flaky_reruns)))
+            unstable = set().union(*(_failing_names(r) for r in reruns)) if reruns else set()
+            if not unstable:
                 break
-            removed.extend(sorted(failing))
-            suite = remove_tests(suite, failing)
-        span.update(tests=len(list_tests(suite)), removed=len(removed))
+            flaky.extend(sorted(unstable))
+            suite = remove_tests(suite, unstable)
+        span.update(tests=len(list_tests(suite)), removed=len(removed), flaky=len(flaky))
 
     mutation = await suite_mutation_score(ctx, suite) \
         if ctx.config.mutation.enabled and ctx.config.mutation.final_score else None
@@ -140,6 +166,11 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
                       ("test failed", "collection error", "timeout", "no test collected")),
         "rule_violations": dict(violations),
         "removed_in_suite_check": removed,
+        "removed_flaky": flaky,
+        "stopped_by": stop_reason(ctx, state) or "done",
+        "llm_budget": {"calls": ctx.llm_used()[0], "tokens": ctx.llm_used()[1],
+                       "max_calls": ctx.config.run.max_llm_calls,
+                       "max_tokens": ctx.config.run.max_llm_tokens},
         "scenarios_total": sum(len(s) for s in state.get("scenarios", {}).values()),
         "scenarios_covered": len(ctx.covered_scenarios),
         "llm": _llm_usage(ctx),

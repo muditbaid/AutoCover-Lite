@@ -4,12 +4,18 @@ Runs pytest on a directory of candidate tests while measuring line and branch co
 exactly one module, then writes a single JSON result:
 
     {"exit_code", "duration_s", "tests": [...], "collection_errors": [...],
-     "coverage": {"executed_lines", "missing_lines", "executed_branches", "missing_branches"}}
+     "coverage": {"executed_lines", "missing_lines", "executed_branches", "missing_branches"},
+     "per_test": {nodeid: {"lines": [...], "branches": [[a, b], ...]}}   # with --per-test}
+
+With --per-test, coverage switches its dynamic context to each test's node id while pytest
+runs that test (setup, call and teardown), so one run of many candidate files still credits
+every line to the exact test that executed it.
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -54,6 +60,7 @@ def main(argv=None):
     parser.add_argument("--tests", required=True)
     parser.add_argument("--include", required=True, help="path of the module under test")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--per-test", action="store_true", help="per-test coverage contexts")
     args = parser.parse_args(argv)
 
     for path in (args.repo, os.path.join(args.repo, "src")):
@@ -66,23 +73,36 @@ def main(argv=None):
     include = os.path.abspath(args.include)
     cov = coverage.Coverage(data_file=None, branch=True, include=[include], config_file=False)
     collector = Collector()
+    plugins = [collector]
+    if args.per_test:
+        class PerTestContext:
+            @pytest.hookimpl(hookwrapper=True)
+            def pytest_runtest_protocol(self, item, nextitem):
+                cov.switch_context(item.nodeid)
+                yield
+                cov.switch_context("")
+
+        plugins.append(PerTestContext())
     start = time.perf_counter()
     cov.start()
     try:
         exit_code = int(pytest.main(
-            [args.tests, "-q", "-p", "no:cacheprovider", "--rootdir", args.tests, "--no-header"],
-            plugins=[collector],
+            [args.tests, "-q", "-p", "no:cacheprovider", "--rootdir", args.tests, "--no-header",
+             "--continue-on-collection-errors"],  # one broken file must not sink a batch
+            plugins=plugins,
         ))
     finally:
         cov.stop()
     duration = time.perf_counter() - start
 
+    overall = _coverage(cov, include, os.path.dirname(os.path.abspath(args.out)))
     result = {
         "exit_code": exit_code,
         "duration_s": round(duration, 3),
         "tests": list(collector.tests.values()),
         "collection_errors": collector.collection_errors,
-        "coverage": _coverage(cov, include, os.path.dirname(os.path.abspath(args.out))),
+        "coverage": overall,
+        "per_test": _per_test(cov, include, overall) if args.per_test else {},
     }
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(result, fh)
@@ -112,6 +132,29 @@ def _coverage(cov, include, scratch):
         "missing_branches": entry.get("missing_branches", []),
         "measured": True,
     }
+
+
+def _per_test(cov, include, overall):
+    """Lines and branches executed by each test (keyed by pytest node id)."""
+    data = cov.get_data()
+    wanted = os.path.normcase(os.path.abspath(include))
+    target = next((f for f in data.measured_files()
+                   if os.path.normcase(os.path.abspath(f)) == wanted), None)
+    if target is None:
+        return {}
+    branch_set = {tuple(b) for b in overall.get("executed_branches", [])}
+    out = {}
+    for context in sorted(data.measured_contexts()):
+        if not context:
+            continue  # import-time lines and anything outside a test
+        data.set_query_contexts(["^" + re.escape(context) + "$"])
+        arcs = data.arcs(target) or []
+        out[context] = {
+            "lines": sorted(data.lines(target) or []),
+            "branches": sorted([list(a) for a in arcs if tuple(a) in branch_set]),
+        }
+    data.set_query_contexts(None)
+    return out
 
 
 if __name__ == "__main__":

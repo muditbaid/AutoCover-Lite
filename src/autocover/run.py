@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path, PurePosixPath
 
@@ -38,6 +39,7 @@ async def run_autocover(
         router=runtime.router, sandbox=box, telemetry=runtime.telemetry,
         module=build_module_context(repo, target, include_private=config.run.include_private),
         deadline=time.monotonic() + config.run.budget_min * 60, functions=functions,
+        telemetry_start=len(runtime.telemetry.events),
     )
     start = time.monotonic()
     with runtime.telemetry.span("run", "autocover", target=target) as span:
@@ -50,4 +52,10 @@ async def run_autocover(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(final["suite"], encoding="utf-8", newline="\n")
         final["written"] = str(out)
+    final["run_id"] = runtime.telemetry.run_id
+    if config.telemetry.runs_dir:
+        runs = Path(config.telemetry.runs_dir)
+        runs.mkdir(parents=True, exist_ok=True)
+        (runs / f"{runtime.telemetry.run_id}.json").write_text(
+            json.dumps(final, indent=2, default=str), encoding="utf-8")
     return final

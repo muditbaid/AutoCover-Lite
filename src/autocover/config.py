@@ -71,6 +71,8 @@ class SandboxConfig(BaseModel):
     pids_limit: int = 256
     max_parallel: int = 4
     workdir: str | None = None
+    batch: bool = True        # run many candidate files per sandbox, per-test coverage
+    batch_size: int = 25
 
 
 class MutationConfig(BaseModel):
@@ -91,10 +93,14 @@ class RunConfig(BaseModel):
     include_private: bool = False    # also test _private functions
     max_fix_attempts: int = 2        # Fixer attempts per test before it is frozen
     judge_scenarios: bool = True     # LLM judge may accept a test for a new scenario
+    max_llm_calls: int | None = 60   # per-run budget of non-cached LLM calls
+    max_llm_tokens: int | None = None
+    flaky_reruns: int = 1            # extra whole-suite runs; tests failing in any are dropped
 
 
 class TelemetryConfig(BaseModel):
     jsonl_path: str | None = ".autocover/telemetry.jsonl"
+    runs_dir: str | None = ".autocover/runs"  # one JSON summary per run
     otlp_endpoint: str | None = None
 
 

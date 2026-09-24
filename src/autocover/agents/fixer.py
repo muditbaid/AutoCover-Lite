@@ -26,6 +26,10 @@ from autocover.tools.splicer import split_tests
 
 async def fix(ctx: RunContext, state: RunState) -> RunState:
     to_fix = state.get("to_fix", [])
+    if not ctx.budget_left():
+        for cand in to_fix:
+            _freeze(ctx, cand, "LLM budget exhausted")
+        return {"to_fix": [], "pending": []}
     with ctx.telemetry.span("fixer", "round", candidates=len(to_fix)) as span:
         repaired = await asyncio.gather(*(_fix_one(ctx, c) for c in to_fix))
         pending = [c for c in repaired if c is not None]

@@ -57,6 +57,8 @@ WORKDIR /ws
 
 @dataclass
 class TestOutcome:
+    __test__ = False  # not a pytest test class, despite the name
+
     nodeid: str
     outcome: str  # passed | failed | error | skipped
     message: str = ""
@@ -100,6 +102,9 @@ class RunResult:
     coverage: CoverageData | None = None
     log_tail: str = ""
     duration_s: float = 0.0
+    # node id -> (lines, branches) executed by that test; filled when per_test=True
+    per_test: dict[str, tuple[frozenset[int], frozenset[tuple[int, int]]]] = field(
+        default_factory=dict)
 
     @property
     def passed(self) -> bool:
@@ -110,6 +115,29 @@ class RunResult:
     @property
     def failures(self) -> list[TestOutcome]:
         return [t for t in self.tests if t.outcome in ("failed", "error")]
+
+    def for_file(self, filename: str) -> RunResult:
+        """The part of a batched (per_test) run that belongs to one test file."""
+        prefix = filename + "::"
+        tests = [t for t in self.tests if t.nodeid.startswith(prefix)]
+        errors = [e for e in self.collection_errors if e["nodeid"].split("::")[0] == filename]
+        lines: set[int] = set()
+        branches: set[tuple[int, int]] = set()
+        for nodeid, (test_lines, test_branches) in self.per_test.items():
+            if nodeid.startswith(prefix):
+                lines |= test_lines
+                branches |= test_branches
+        coverage = None
+        if self.coverage is not None:
+            coverage = CoverageData(
+                executed_lines=frozenset(lines),
+                missing_lines=self.coverage.all_lines - lines,
+                executed_branches=frozenset(branches),
+                missing_branches=self.coverage.all_branches - branches,
+                measured=self.coverage.measured)
+        return RunResult(status=self.status, exit_code=self.exit_code, tests=tests,
+                         collection_errors=errors, coverage=coverage, log_tail=self.log_tail,
+                         duration_s=self.duration_s)
 
     def diagnostics(self, limit: int = 4000) -> str:
         """Human/LLM-readable summary of what went wrong."""
@@ -133,6 +161,7 @@ class RunRequest:
     overrides: dict[str, str] = field(default_factory=dict)  # repo-relative path -> source
     timeout_s: float | None = None
     label: str = ""
+    per_test: bool = False  # attribute coverage to each test (for batched runs)
 
 
 class Sandbox(ABC):
@@ -151,8 +180,8 @@ class Sandbox(ABC):
         """One-time setup (e.g. building the image)."""
 
     @abstractmethod
-    def _execute(self, repo_dir: Path, meta_dir: Path, target: str,
-                 timeout: float) -> tuple[str, int | None, str]:
+    def _execute(self, repo_dir: Path, meta_dir: Path, target: str, timeout: float,
+                 per_test: bool = False) -> tuple[str, int | None, str]:
         """Run the runner; return (status, exit_code, log_tail)."""
 
     def run(self, request: RunRequest) -> RunResult:
@@ -173,11 +202,12 @@ class Sandbox(ABC):
             with self.telemetry.span("sandbox", "run", backend=self.backend,
                                      label=request.label, mutated=bool(request.overrides)) as span:
                 start = time.perf_counter()
-                status, exit_code, log = self._execute(repo_dir, meta, request.target, timeout)
+                status, exit_code, log = self._execute(repo_dir, meta, request.target, timeout,
+                                                       per_test=request.per_test)
                 result = self._read_result(meta / "result.json", status, exit_code, log)
                 result.duration_s = round(time.perf_counter() - start, 3)
                 span.update(result=result.status, passed=result.passed,
-                            tests=len(result.tests))
+                            tests=len(result.tests), files=len(request.tests))
             return result
         finally:
             shutil.rmtree(ws, ignore_errors=True)
@@ -202,19 +232,21 @@ class Sandbox(ABC):
             collection_errors=data["collection_errors"],
             coverage=CoverageData.from_json(data["coverage"]),
             log_tail=log[-4000:],
+            per_test={nodeid: (frozenset(v["lines"]), frozenset(tuple(b) for b in v["branches"]))
+                      for nodeid, v in data.get("per_test", {}).items()},
         )
 
 
 class LocalSandbox(Sandbox):
     backend = "local"
 
-    def _execute(self, repo_dir, meta_dir, target, timeout):
+    def _execute(self, repo_dir, meta_dir, target, timeout, per_test=False):
         env = {**os.environ, "PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",
                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
         env["PYTHONPATH"] = os.pathsep.join([str(repo_dir), str(repo_dir / "src")])
         cmd = [sys.executable, str(meta_dir / "runner.py"), "--repo", str(repo_dir),
                "--tests", str(meta_dir / "tests"), "--include", str(repo_dir / target),
-               "--out", str(meta_dir / "result.json")]
+               "--out", str(meta_dir / "result.json")] + (["--per-test"] if per_test else [])
         try:
             proc = subprocess.run(cmd, cwd=meta_dir, env=env, capture_output=True,
                                   encoding="utf-8", errors="replace", timeout=timeout)
@@ -266,14 +298,15 @@ class DockerSandbox(Sandbox):
                 self.client.images.build(path=str(context), tag=tag, rm=True, forcerm=True)
         self.image = tag
 
-    def _execute(self, repo_dir, meta_dir, target, timeout):
+    def _execute(self, repo_dir, meta_dir, target, timeout, per_test=False):
         if self.image is None:
             self.prepare()
         include = str(PurePosixPath("/repo") / PurePosixPath(Path(target).as_posix()))
         container = self.client.containers.run(
             self.image,
             command=["python", "/ws/runner.py", "--repo", "/repo", "--tests", "/ws/tests",
-                     "--include", include, "--out", "/ws/result.json"],
+                     "--include", include, "--out", "/ws/result.json"]
+            + (["--per-test"] if per_test else []),
             volumes={
                 str(repo_dir): {"bind": "/repo", "mode": "ro"},
                 str(meta_dir): {"bind": "/ws", "mode": "rw"},

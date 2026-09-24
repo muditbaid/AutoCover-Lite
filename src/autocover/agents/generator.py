@@ -23,6 +23,9 @@ from autocover.tools.splicer import split_tests
 
 async def generate(ctx: RunContext, state: RunState) -> RunState:
     round_no = state.get("round", 0) + 1
+    if not ctx.budget_left():
+        ctx.telemetry.event("generator", "budget_exhausted", round=round_no)
+        return {"round": round_no, "pending": []}
     with ctx.telemetry.span("generator", "round", round=round_no) as span:
         batches = await asyncio.gather(
             *(_generate_for(ctx, state, fn, round_no) for fn in state.get("targets", [])))

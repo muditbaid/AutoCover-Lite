@@ -93,7 +93,24 @@ class RunContext:
     survivors: dict = field(default_factory=dict)  # candidate id -> mutants it let survive
     candidates: dict = field(default_factory=dict)  # candidate id -> Candidate (all seen)
     scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
+    telemetry_start: int = 0  # index of this run's first telemetry event
     _counter: int = 0
+
+    def llm_used(self) -> tuple[int, int]:
+        """(calls, tokens) of non-cached LLM completions in this run."""
+        calls = tokens = 0
+        for e in self.telemetry.events[self.telemetry_start:]:
+            if (e.get("stage") == "llm" and e.get("event") == "completion"
+                    and not e.get("cached")):
+                calls += 1
+                tokens += e.get("prompt_tokens", 0) + e.get("completion_tokens", 0)
+        return calls, tokens
+
+    def budget_left(self) -> bool:
+        calls, tokens = self.llm_used()
+        run = self.config.run
+        return ((run.max_llm_calls is None or calls < run.max_llm_calls)
+                and (run.max_llm_tokens is None or tokens < run.max_llm_tokens))
 
     def next_id(self) -> str:
         self._counter += 1

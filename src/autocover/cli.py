@@ -145,6 +145,27 @@ def run(
 
 
 @app.command()
+def report(
+    run_id: str = typer.Argument(None, help="Run id (default: the most recent run)"),
+    config: Path = ConfigOpt,
+) -> None:
+    """Explain a run: time by stage, sandbox work, LLM use, candidate funnel."""
+    import json
+
+    from autocover.report import build_report, load_events
+
+    cfg = load_config(config)
+    if not cfg.telemetry.jsonl_path or not Path(cfg.telemetry.jsonl_path).exists():
+        typer.echo("no telemetry file; is telemetry.jsonl_path set?", err=True)
+        raise typer.Exit(1)
+    run_id, events = load_events(cfg.telemetry.jsonl_path, run_id)
+    summary_path = Path(cfg.telemetry.runs_dir or "") / f"{run_id}.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8")) \
+        if cfg.telemetry.runs_dir and summary_path.exists() else None
+    typer.echo(build_report(events, summary))
+
+
+@app.command()
 def usage(config: Path = ConfigOpt) -> None:
     """Show today's (UTC) requests and tokens per model against configured caps."""
     from datetime import datetime
