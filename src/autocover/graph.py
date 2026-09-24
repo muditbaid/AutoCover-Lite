@@ -134,6 +134,8 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
         "sent_to_fixer": sum(c.parent_id is not None for c in history),
         "rejected_no_signal": statuses.get("rejected", 0),
         "frozen": statuses.get("frozen", 0),
+        "superseded": statuses.get("superseded", 0),
+        "weak_kept": sum(c.reason.startswith("weak oracle") for c in accepted),
         "failed": sum(1 for c in history if c.reason in
                       ("test failed", "collection error", "timeout", "no test collected")),
         "rule_violations": dict(violations),
@@ -172,9 +174,9 @@ def lint_fix(source: str) -> str:
         proc = subprocess.run(
             [sys.executable, "-m", "ruff", "check", "--select", "F401,I", "--fix",
              "--quiet", "--exit-zero", "--stdin-filename", "test_autocover.py", "-"],
-            input=source, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return source
+            input=source, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        return source  # linting is cosmetic: never let it fail a run
     fixed = proc.stdout
     return fixed if proc.returncode == 0 and fixed.strip() else source
 

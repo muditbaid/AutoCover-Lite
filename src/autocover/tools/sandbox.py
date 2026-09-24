@@ -209,14 +209,15 @@ class LocalSandbox(Sandbox):
     backend = "local"
 
     def _execute(self, repo_dir, meta_dir, target, timeout):
-        env = {**os.environ, "PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1"}
+        env = {**os.environ, "PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",
+               "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
         env["PYTHONPATH"] = os.pathsep.join([str(repo_dir), str(repo_dir / "src")])
         cmd = [sys.executable, str(meta_dir / "runner.py"), "--repo", str(repo_dir),
                "--tests", str(meta_dir / "tests"), "--include", str(repo_dir / target),
                "--out", str(meta_dir / "result.json")]
         try:
-            proc = subprocess.run(cmd, cwd=meta_dir, env=env, capture_output=True, text=True,
-                                  timeout=timeout)
+            proc = subprocess.run(cmd, cwd=meta_dir, env=env, capture_output=True,
+                                  encoding="utf-8", errors="replace", timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             return "timeout", None, _text(exc.stdout) + _text(exc.stderr)
         return "ok", proc.returncode, proc.stdout + proc.stderr

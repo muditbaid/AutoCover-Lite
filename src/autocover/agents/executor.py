@@ -20,6 +20,7 @@ async def execute(ctx: RunContext, state: RunState) -> RunState:
         results = await asyncio.gather(*(run_candidate(ctx, c) for c in pending))
         for cand, result in zip(pending, results, strict=True):
             ctx.results[cand.id] = result
+            ctx.candidates[cand.id] = cand
             cand.duration_s = result.duration_s
             if result.passed:
                 cand.status = "passed"

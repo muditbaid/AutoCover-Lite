@@ -17,40 +17,65 @@ tests for a module. A test is kept only if:
 |---|---|---|
 | 1. Foundation | Config, LLM router, cache, telemetry, context retriever, mutator, splicer, Docker sandbox, CLI | ✅ done |
 | 2. Happy path | Preparer → Generator → Executor graph with a line-coverage gate | ✅ done |
-| 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ⏳ next |
-| 4. Scale & ops | Per-function fan-out, budgets, run summaries | |
+| 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ✅ done |
+| 4. Scale & ops | Per-function fan-out, budgets, run summaries | ⏳ next |
 | 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | |
 | 6. Shipping | GitHub Action that opens test PRs; architecture write-up | |
 
 ## How a run works
 
 ```
-prepare -> generate -> execute -> plan_next --(lines still uncovered, rounds/time left)--> generate
-                                         \-> finalize (whole-suite check, write file)
+prepare -> generate -> execute -> validate --(tests to repair)--> fix -> execute -> ...
+                                          \-> plan_next --(gaps left)--> generate
+                                                       \-> finalize -> tests/test_<module>_autocover.py
 ```
 
 1. **Preparer.** Runs the existing tests plus an import probe to get a baseline, asks an LLM
    for happy / edge / error *scenarios* per function, and ranks functions by uncovered lines.
 2. **Generator.** Makes one LLM call per function for all of its open scenarios, and splits
-   the reply into standalone single-test candidates. Later rounds get the source lines that
-   are still uncovered plus the previous round's failures.
-3. **Executor.** Runs every candidate in its own sandbox, in parallel. A passing candidate is
-   kept only if it adds line or branch coverage (greedy, biggest gain first). Kept tests are
-   spliced into the suite.
-4. **Finalize.** Runs the merged suite as a whole, drops any test that fails in combination
-   with others, and writes `tests/test_<module>_autocover.py`.
+   the reply into standalone single-test candidates. Later rounds get the lines that are still
+   uncovered, the scenarios nobody has tested yet, and earlier failures.
+3. **Executor.** Runs every candidate in its own Docker sandbox, in parallel, and records
+   exactly the coverage it produced.
+4. **Validator**, the quality gate:
+   - **Rules** (`rules/best_practices.yaml`, checked on the AST):
+     - no expected values computed with the code under test (taint-tracked);
+     - no `autouse` fixtures;
+     - no mocking of the module under test;
+     - no introspection (`inspect`, `__defaults__`);
+     - every test must assert something;
+     - no sleep and no network.
+   - **Mutation gate:** the test runs against *mutants* (small planted bugs) on the lines it
+     executes. A test that kills none of them is a *weak oracle*.
+   - **Acceptance** is greedy by *new signal*: new lines or branches, **or new mutants
+     killed**. A test with neither can still be accepted if an LLM judge confirms it covers
+     a scenario nobody has tested yet.
+5. **Fixer.** Repairs failed and rejected tests, using the pytest output, the rule's fix
+   instructions, or the surviving mutants. A weak test that adds coverage stays in the suite
+   until a stronger repaired version *replaces* it. A test is frozen after 2 attempts.
+6. **Finalize.**
+   - ruff removes unused imports;
+   - the merged suite runs as a whole, and tests that fail in combination are dropped;
+   - the suite's **mutation score** is measured, and the surviving mutants are listed as
+     "what is still untested".
 
 ```bash
 autocover run examples/ticket_price ticket_price.py          # writes the test file
 autocover run <repo> src/pkg/mod.py -f some_function --dry-run
 ```
 
-Live runs on `examples/ticket_price` reach **15% -> 100% lines and 0% -> 100%
-branches in one round with 4 LLM calls** (about 20-150s depending on which models answer). They
-also show why milestone 3 matters: line
-coverage alone kept a test whose expected value was computed *with* the code under test, and
-dropped the direct `ticket_price(5) == 5` check as "no new coverage". Mutation testing and
-scenario coverage fix exactly that.
+On `examples/ticket_price`:
+
+| | Milestone 2 (coverage gate) | Milestone 3 (quality loop) |
+|---|---|---|
+| Lines / branches | 100% / 100% | 100% / 100% |
+| Mutation score | not measured (a `return 5 -> 6` bug went unnoticed) | **87.5%** (14/16) |
+| Scenarios covered | 4/12 | **12/12** |
+| Expected values computed with the code under test | kept | caught 4 times and rewritten as literals |
+| Wall time | 22-168s | ~140s (1 round) |
+
+The two surviving mutants are one real gap (no test of a 5+ group without a discount) and
+one near-equivalent change (rounding to 3 decimals instead of 2).
 
 ## What's built so far
 

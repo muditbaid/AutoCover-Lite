@@ -56,11 +56,14 @@ async def _fix_one(ctx: RunContext, cand: Candidate) -> Candidate | None:
     return Candidate(
         id=ctx.next_id(), function=cand.function, test_name=name,
         scenario_id=cand.scenario_id, code=source, round=cand.round, model=resp.model,
-        attempt=cand.attempt + 1, parent_id=cand.id)
+        attempt=cand.attempt + 1, parent_id=cand.id,
+        replaces=cand.test_name if cand.status == "accepted" else cand.replaces)
 
 
 def _freeze(ctx: RunContext, cand: Candidate, why: str) -> None:
-    cand.status = "frozen"
+    """Stop repairing `cand`. An accepted weak test keeps its place in the suite."""
+    if cand.status != "accepted":
+        cand.status = "frozen"
     cand.reason = f"{cand.reason}; {why}" if cand.reason else why
     ctx.telemetry.event("fixer", "frozen", id=cand.id, test=cand.test_name, reason=why)
     return None

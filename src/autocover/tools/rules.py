@@ -63,6 +63,7 @@ def check_test_source(source: str, module_name: str) -> list[Violation]:
     found += _patching(tree, module_name, aliases)
     found += _sleep(tree)
     found += _random(tree)
+    found += _introspection(tree)
     for fn in _test_functions(tree):
         found += _has_assertion(fn)
         found += _literal_oracle(fn, names, aliases)
@@ -217,6 +218,20 @@ def _private_attrs(fn):
                     yield ("private_attribute_assertion", node.lineno,
                            f"asserts on private attribute {sub.attr}")
                     break
+
+
+INTROSPECTION_ATTRS = {"__defaults__", "__kwdefaults__", "__code__", "__closure__",
+                       "__annotations__", "__wrapped__"}
+
+
+def _introspection(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            mods = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module]
+            if "inspect" in mods:
+                yield ("no_introspection", node.lineno, "imports inspect")
+        elif isinstance(node, ast.Attribute) and node.attr in INTROSPECTION_ATTRS:
+            yield ("no_introspection", node.lineno, f"reads {node.attr}")
 
 
 def _random(tree):

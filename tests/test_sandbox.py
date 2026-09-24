@@ -152,3 +152,12 @@ def test_group_discount():
     assert tracker.gain(second.coverage).lines
     tracker.add(second.coverage)
     assert tracker.summary()["lines_covered"] > len(first.coverage.executed_lines)
+
+
+def test_non_ascii_test_source_and_output(sandbox):
+    src = ('from ticket_price import ticket_price\n\n'
+           'def test_unicode():\n    """Age‑boundary – café."""\n'
+           '    print("résumé ‑")\n    assert ticket_price(5) == 6, "über"\n')
+    result = sandbox.run(RunRequest(target=TARGET, tests={"test_uni.py": src}))
+    assert result.status == "ok" and not result.passed
+    assert "über" in result.diagnostics()

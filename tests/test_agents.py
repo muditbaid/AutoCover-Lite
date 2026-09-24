@@ -65,3 +65,12 @@ def test_writer_prompt_lists_scenarios_uncovered_lines_and_feedback():
 
 def test_test_stem():
     assert stem_of("Cart.total") == "Cart_total"
+
+
+def test_lint_fix_handles_non_ascii():
+    from autocover.graph import lint_fix
+
+    src = ('import os\nfrom m import f\n\n\ndef test_a():\n'
+           '    """Non‑breaking – café."""\n    assert f()\n')
+    fixed = lint_fix(src)
+    assert "import os" not in fixed and "‑" in fixed and "café" in fixed

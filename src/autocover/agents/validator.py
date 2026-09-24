@@ -23,7 +23,7 @@ from autocover.llm.router import AllModelsFailed
 from autocover.state import Candidate, RunContext, RunState
 from autocover.tools.mutator import Mutant, generate_mutants
 from autocover.tools.rules import check_test_source, describe
-from autocover.tools.splicer import splice_tests
+from autocover.tools.splicer import remove_tests, splice_tests
 
 MAX_FEEDBACK_CHARS = 2500
 MAX_SURVIVORS_SHOWN = 6
@@ -50,18 +50,25 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
             else:
                 clean.append(cand)
 
+        weak: list[Candidate] = []
         if ctx.config.mutation.enabled:
             await asyncio.gather(*(_measure_kills(ctx, c) for c in clean))
-            for cand in clean:
-                if cand.mutants_run and not cand.killed:
-                    cand.reason = f"weak oracle: kills 0 of {cand.mutants_run} mutants"
-                    if cand.attempt < ctx.config.run.max_fix_attempts:
-                        _route_to_fixer(ctx, cand, _survivors_text(ctx, cand), to_fix)
-                    # Out of attempts: the survivors may be equivalent mutants, so keep the
-                    # test's coverage rather than freeze it; the reason records the weakness.
-            clean = [c for c in clean if c.status == "passed"]
+            weak = [c for c in clean if c.mutants_run and not c.killed]
+            for cand in weak:
+                cand.reason = f"weak oracle: kills 0 of {cand.mutants_run} mutants"
 
         suite = await _accept(ctx, clean, suite)
+        # Weak oracles: a weak test that adds coverage stays in the suite (its survivors
+        # may be equivalent mutants), and the Fixer is asked for a stronger replacement;
+        # one that was rejected is sent to the Fixer like any other rejected test.
+        for cand in weak:
+            if cand.attempt >= ctx.config.run.max_fix_attempts:
+                continue
+            if cand.status == "accepted":
+                cand.diagnostics = _survivors_text(ctx, cand)
+                to_fix.append(cand)
+            elif cand.status == "rejected":
+                _route_to_fixer(ctx, cand, _survivors_text(ctx, cand), to_fix)
         for cand in executed:
             ctx.telemetry.event(
                 "validator", "candidate", id=cand.id, function=cand.function,
@@ -104,13 +111,17 @@ async def _measure_kills(ctx: RunContext, cand: Candidate) -> None:
 
 def _survivors_text(ctx: RunContext, cand: Candidate) -> str:
     lines = ctx.module.source.splitlines()
-    shown = ctx.survivors.get(cand.id, [])[:MAX_SURVIVORS_SHOWN]
+    survivors = ctx.survivors.get(cand.id, [])
+    own = [m for m in survivors if m.function == cand.function]
+    shown = (own or survivors)[:MAX_SURVIVORS_SHOWN]
     listed = "\n".join(f"- line {m.lineno}: `{lines[m.lineno - 1].strip()}` with {m.description}"
                        for m in shown)
     return ("The test still passes when the code under test is deliberately broken in each "
             "of these ways, so its assertions are too weak. Strengthen them (exact literal "
             "expected values, boundary inputs) so that the test would fail on these bugs:\n"
-            + listed)
+            + listed + "\n\nStay within this test's scenario: do not add assertions about "
+            "unrelated behaviour, and never inspect signatures or other implementation "
+            "details. If a bug above cannot be caught within this scenario, leave it.")
 
 
 # -- acceptance --------------------------------------------------------------------------
@@ -145,6 +156,12 @@ async def _accept(ctx: RunContext, clean: list[Candidate], suite: str) -> str:
 
 
 def _accept_one(ctx: RunContext, cand: Candidate, suite: str, by: str) -> str:
+    if cand.replaces:  # a stronger version of an accepted weak test: swap it in
+        suite = remove_tests(suite, {cand.replaces})
+        for other in ctx.candidates.values():
+            if (other.status == "accepted" and other.test_name == cand.replaces
+                    and other.function == cand.function):
+                other.status, other.reason = "superseded", f"replaced by {cand.id}"
     ctx.tracker.add(ctx.results[cand.id].coverage)
     ctx.killed_mutants |= set(cand.killed)
     if cand.scenario_id:

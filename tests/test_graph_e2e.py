@@ -191,10 +191,11 @@ def test_quality_loop_end_to_end(tmp_path, repo):
     assert small[0]["status"] == "needs_fix" and "literal_oracle" in small[0]["violations"]
     assert small[-1]["status"] == "accepted"
 
-    # pytest.raises without checking the message kills no mutant -> strengthened.
+    # pytest.raises without checking the message kills no mutant: the weak test is kept
+    # for its coverage (only it reaches the `raise`), and a stronger version replaces it.
     neg = seen["test_ticket_price__negative_age"]
-    assert neg[0]["status"] == "needs_fix" and neg[0]["reason"].startswith("weak oracle")
-    assert neg[-1]["status"] == "accepted"
+    assert neg[0]["status"] == "accepted" and neg[0]["reason"].startswith("weak oracle")
+    assert neg[-1]["status"] == "accepted" and neg[-1]["attempt"] == 1
 
     # No new lines or kills, but an untested scenario confirmed by the judge.
     assert seen["test_ticket_price__senior_old"][-1]["accepted_by"] == "scenario"
@@ -214,6 +215,9 @@ def test_quality_loop_end_to_end(tmp_path, repo):
 
     written = (repo / "tests" / "test_ticket_price_autocover.py").read_text()
     assert "assert ticket_price(12) == 10" in written
+    assert "match='non-negative'" in written
+    assert written.count("def test_ticket_price__negative") == 1
+    assert summary["superseded"] == 1
     assert "expected = sum(" not in written and "another_child" not in written
     check = box.run(RunRequest(target="ticket_price.py", tests={"test_final.py": written}))
     assert check.passed and len(check.tests) == summary["tests_in_suite"]

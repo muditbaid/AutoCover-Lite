@@ -89,3 +89,15 @@ rules:
     example: |
       # bad
       x = random.randint(0, 9)
+
+  - id: no_introspection
+    severity: error
+    rationale: >-
+      Inspecting signatures, defaults or code objects checks how the code is written, not
+      what it does; such tests break on harmless refactors (change detectors).
+    fix: Check the behaviour instead, e.g. call the function without the argument.
+    example: |
+      # bad
+      assert inspect.signature(group_total).parameters["discount"].default == 0.0
+      # good
+      assert group_total([30] * 5) == 50.0

@@ -64,6 +64,13 @@ def test_missing_assertion_sleep_network_private_random():
                         "private_attribute_assertion", "unseeded_random"]
 
 
+def test_introspection_is_rejected():
+    src = ("import inspect\nfrom ticket_price import group_total\n\ndef test_x():\n"
+           "    assert group_total.__defaults__ == (0.0,)\n"
+           "    assert inspect.signature(group_total)\n")
+    assert ids(src) == ["no_introspection", "no_introspection"]
+
+
 def test_describe_explains_errors_only():
     src = ("import pytest\n\n@pytest.fixture(autouse=True)\ndef f():\n    pass\n\n"
            "def test_x():\n    assert 1\n")

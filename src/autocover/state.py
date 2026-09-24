@@ -29,7 +29,7 @@ class Scenario(BaseModel):
 
 
 CandidateStatus = Literal["pending", "passed", "failed", "needs_fix", "accepted", "rejected",
-                          "frozen"]
+                          "frozen", "superseded"]
 
 
 class Candidate(BaseModel):
@@ -50,6 +50,7 @@ class Candidate(BaseModel):
     duration_s: float = 0.0
     attempt: int = 0                  # 0 = as generated, n = after n Fixer repairs
     parent_id: str | None = None      # candidate this one was repaired from
+    replaces: str | None = None       # accepted weak test this stronger version replaces
     violations: list[str] = Field(default_factory=list)  # rule ids (errors and warnings)
     mutants_run: int = 0
     killed: list[str] = Field(default_factory=list)      # mutant ids this test kills
@@ -90,6 +91,7 @@ class RunContext:
     mutant_pool: list | None = None                # Mutant objects, built lazily
     killed_mutants: set[str] = field(default_factory=set)  # killed by accepted tests
     survivors: dict = field(default_factory=dict)  # candidate id -> mutants it let survive
+    candidates: dict = field(default_factory=dict)  # candidate id -> Candidate (all seen)
     scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
     _counter: int = 0
 
