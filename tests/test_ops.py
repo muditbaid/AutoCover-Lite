@@ -77,3 +77,33 @@ def test_report_covers_all_sections(tmp_path):
                     "mutation score", "stopped by"):
         assert section in text, section
     assert "batched" in text and "accepted by:" in text
+
+
+def test_replacement_that_covers_less_keeps_the_weak_test():
+    from autocover.agents.validator import _accept_one
+    from autocover.state import Candidate
+    from autocover.tools.sandbox import CoverageData
+
+    ctx = RunContext(config=Config(), repo=EXAMPLE, target="ticket_price.py",
+                     test_path="t.py", router=None, sandbox=None, telemetry=Telemetry(),
+                     module=build_module_context(EXAMPLE, "ticket_price.py"))
+    weak = Candidate(id="c1", function="ticket_price", test_name="test_tp", round=1,
+                     code="def test_tp():\n    assert True\n", status="accepted")
+    ctx.candidates["c1"] = weak
+    ctx.results["c1"] = RunResult(status="ok", coverage=CoverageData(
+        executed_lines=frozenset({6, 7, 8}), missing_lines=frozenset({9})))
+    suite = weak.code
+
+    narrower = Candidate(id="c2", function="ticket_price", test_name="test_tp", round=1,
+                         code="def test_tp():\n    assert 1 == 1\n", replaces="test_tp")
+    ctx.results["c2"] = RunResult(status="ok", coverage=CoverageData(
+        executed_lines=frozenset({6, 7}), missing_lines=frozenset({8, 9})))
+    suite = _accept_one(ctx, narrower, suite, "mutants")
+    assert weak.status == "accepted" and suite.count("def test_tp") == 2  # both kept
+
+    wider = Candidate(id="c3", function="ticket_price", test_name="test_tp", round=1,
+                      code="def test_tp():\n    assert 2 == 2\n", replaces="test_tp")
+    ctx.results["c3"] = RunResult(status="ok", coverage=CoverageData(
+        executed_lines=frozenset({6, 7, 8, 9}), missing_lines=frozenset()))
+    _accept_one(ctx, wider, weak.code, "mutants")
+    assert weak.status == "superseded"

@@ -1,25 +1,81 @@
 {
   "model": "ollama_chat/gpt-oss:120b",
-  "tests_generated": 20,
-  "tests_passing": 0,
+  "tests_generated": 21,
+  "tests_passing": 17,
   "collection_error": false,
-  "pass_rate": 0.0,
-  "line_pct": 0.0,
-  "branch_pct": 0.0,
+  "pass_rate": 81.0,
+  "line_pct": 86.7,
+  "branch_pct": 74.2,
   "mutation": {
-    "killed": 0,
+    "killed": 22,
     "total": 52,
-    "score_pct": 0.0
+    "score_pct": 42.3
   },
-  "llm_calls": 1,
-  "llm_tokens": 5666,
-  "latency_s": 30.9,
-  "wall_s": 36.7,
-  "suite": "import builtins\nimport importlib\nimport re\nfrom types import SimpleNamespace\n\nimport pytest\n\n# Import the public API from the package under test\nfrom slugify.slugify import (\n    slugify,\n    smart_truncate,\n    Backend,\n    ReplacementStage,\n    Algorithm,\n)\n\n\n# ----------------------------------------------------------------------\n# Helper to stub out third\u2011party transliteration back\u2011ends\n# ----------------------------------------------------------------------\n@pytest.fixture(autouse=True)\ndef stub_backend(monkeypatch):\n    \"\"\"\n    Replace ``slugify.import_module`` with a stub that returns a dummy module\n    providing the required ``unidecode`` / ``anyascii`` callables.\n    The dummy simply returns the input unchanged, except that it replaces\n    the character '\u00e9' with 'e' to make the transliteration effect observable.\n    \"\"\"\n    def fake_import_module(name: str):\n        # The real code expects a module with either ``unidecode`` or ``anyascii``.\n        if name in (\"unidecode\", \"text_unidecode\"):\n            return SimpleNamespace(unidecode=lambda txt: txt.replace(\"\u00e9\", \"e\"))\n        if name == \"anyascii\":\n            return SimpleNamespace(anyascii=lambda txt: txt.replace(\"\u00e9\", \"e\"))\n        raise ModuleNotFoundError(name)\n\n    monkeypatch.setattr(\"slugify.slugify.import_module\", fake_import_module)\n",
+  "llm_calls": 3,
+  "llm_tokens": 17296,
+  "latency_s": 18.3,
+  "wall_s": 218.1,
+  "suite": "import builtins\nimport re\nimport types\n\nimport pytest\n\nfrom slugify.slugify import (\n    slugify,\n    smart_truncate,\n    _legacy_slugify,\n    Backend,\n    ReplacementStage,\n    Algorithm,\n)\n\n\n# ----------------------------------------------------------------------\n# Helper fixtures\n# ----------------------------------------------------------------------\n@pytest.fixture\ndef dummy_backend(monkeypatch):\n    \"\"\"Monkeypatch import_module used by _transliterate to a dummy implementation.\"\"\"\n    def fake_import(name: str):\n        # Provide a module with the expected callable(s).\n        if name == \"anyascii\":\n            # anyascii backend: replace '\u00e9' with 'e' for testing.\n            return types.SimpleNamespace(anyascii=lambda s: s.replace(\"\u00e9\", \"e\"))\n        # For other backends just return identity.\n        return types.SimpleNamespace(unidecode=lambda s: s)\n\n    monkeypatch.setattr(\"slugify.slugify.import_module\", fake_import)\n\n\n# ----------------------------------------------------------------------\n# Validation tests\n# ----------------------------------------------------------------------\ndef test_invalid_algorithm():\n    with pytest.raises(ValueError, match=\"algorithm must be 'legacy' or 'modern'\"):\n        slugify(\"test\", algorithm=\"unknown\")  # type: ignore[arg-type]\n\n\ndef test_invalid_max_length_type():\n    with pytest.raises(TypeError, match=\"max_length must be an int\"):\n        slugify(\"test\", max_length=True, algorithm=\"modern\")  # type: ignore[arg-type]\n\n\ndef test_invalid_separator_type():\n    with pytest.raises(TypeError, match=\"separator must be str\"):\n        slugify(\"test\", separator=1, algorithm=\"modern\")  # type: ignore[arg-type]\n\n\ndef test_invalid_replacement_stage():\n    with pytest.raises(ValueError, match=\"replacement_stage must be\"):\n        slugify(\"test\", replacement_stage=\"invalid\", algorithm=\"modern\")  # type: ignore[arg-type]\n\n\ndef test_invalid_backend():\n    with pytest.raises(ValueError, match=\"backend must be\"):\n        slugify(\"test\", backend=\"invalid\", algorithm=\"modern\")  # type: ignore[arg-type]\n\n\n# ----------------------------------------------------------------------\n# Legacy delegation test\n# ----------------------------------------------------------------------\ndef test_slugify_legacy_delegates():\n    # The legacy function is imported directly; the result should be identical.\n    text = \"Hello, World!\"\n    legacy_result = _legacy_slugify(\n        text,\n        entities=True,\n        decimal=True,\n        hexadecimal=True,\n        max_length=0,\n        word_boundary=False,\n        separator=\"-\",\n        save_order=False,\n        stopwords=(),\n        regex_pattern=None,\n        lowercase=True,\n        replacements=(),\n        allow_unicode=False,\n        replacement_stage=\"both\",\n        backend=\"auto\",\n    )\n    modern_result = slugify(text, algorithm=\"legacy\")\n    assert modern_result == legacy_result\n\n\n# ----------------------------------------------------------------------\n# Modern slugify basic behaviour\n# ----------------------------------------------------------------------\ndef test_modern_basic_slugify():\n    assert slugify(\"Hello World!\", algorithm=\"modern\") == \"hello-world\"\n\n\ndef test_modern_stopwords():\n    text = \"The quick brown fox jumps\"\n    result = slugify(\n        text,\n        stopwords=[\"the\", \"brown\"],\n        lowercase=True,\n        algorithm=\"modern\",\n    )\n    assert result == \"quick-fox-jumps\"\n\n\ndef test_modern_replacements_pre_stage():\n    # Replace before cleaning: \"quick\" \u2192 \"slow\"\n    result = slugify(\n        \"the quick brown fox\",\n        replacements=[(\"quick\", \"slow\")],\n        replacement_stage=\"pre\",\n        stopwords=[\"the\"],\n        algorithm=\"modern\",\n    )\n    assert result == \"slow-brown-fox\"\n\n\ndef test_modern_replacements_post_stage():\n    # Replace after cleaning: \"fox\" \u2192 \"dog\"\n    result = slugify(\n        \"the quick brown fox\",\n        replacements=[(\"fox\", \"dog\")],\n        replacement_stage=\"post\",\n        stopwords=[\"the\"],\n        algorithm=\"modern\",\n    )\n    assert result == \"quick-brown-dog\"\n\n\ndef test_modern_custom_separator_and_truncate():\n    # Use '_' as separator and truncate to length 7 with word_boundary=True.\n    result = slugify(\n        \"one-two-three-four\",\n        max_length=7,\n        word_boundary=True,\n        separator=\"_\",\n        algorithm=\"modern\",\n    )\n    assert result == \"one_two\"\n\n\ndef test_modern_hard_truncate_without_word_boundary():\n    # Same text, but without word_boundary: should cut hard but not split delimiter.\n    result = slugify(\n        \"one-two-three-four\",\n        max_length=7,\n        word_boundary=False,\n        separator=\"-\",\n        algorithm=\"modern\",\n    )\n    assert result == \"one-two\"\n\n\ndef test_modern_no_length_limit_replaces_separator():\n    # max_length <= 0 should return full slug with custom separator.\n    result = slugify(\n        \"a b c\",\n        max_length=0,\n        separator=\"_\",\n        algorithm=\"modern\",\n    )\n    assert result == \"a_b_c\"\n\n\ndef test_modern_duplicate_dash_collapsing():\n    # Multiple spaces become a single dash after processing.\n    result = slugify(\"a   b    c\", algorithm=\"modern\")\n    assert result == \"a-b-c\"\n\n\ndef test_modern_numbers_pattern():\n    # Numbers separated by commas should lose the commas.\n    result = slugify(\"123,456,789\", algorithm=\"modern\")\n    assert result == \"123456789\"\n\n\ndef test_modern_lowercase_flag():\n    result = slugify(\"ABC Def\", lowercase=False, algorithm=\"modern\")\n    # Lowercase disabled, but other processing still normalizes.\n    assert result == \"ABC-Def\"\n\n\ndef test_modern_save_order_truncation():\n    # When save_order=True, truncation stops at first token that would exceed limit.\n    result = slugify(\n        \"alpha-beta-gamma-delta\",\n        max_length=10,\n        word_boundary=True,\n        save_order=True,\n        algorithm=\"modern\",\n    )\n    # \"alpha-beta\" fits (10 chars), next token would exceed, so stop.\n    assert result == \"alpha-beta\"\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 20,
+      "tests_passing": 0,
+      "collection_error": false,
+      "pass_rate": 0.0,
+      "line_pct": 0.0,
+      "branch_pct": 0.0,
+      "mutation": {
+        "killed": 0,
+        "total": 52,
+        "score_pct": 0.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 5666,
+      "latency_s": 30.9,
+      "wall_s": 5.1
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 19,
+      "tests_passing": 17,
+      "collection_error": false,
+      "pass_rate": 89.5,
+      "line_pct": 87.5,
+      "branch_pct": 74.2,
+      "mutation": {
+        "killed": 26,
+        "total": 52,
+        "score_pct": 50.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 5722,
+      "latency_s": 27.2,
+      "wall_s": 108.0
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 21,
+      "tests_passing": 17,
+      "collection_error": false,
+      "pass_rate": 81.0,
+      "line_pct": 86.7,
+      "branch_pct": 74.2,
+      "mutation": {
+        "killed": 22,
+        "total": 52,
+        "score_pct": 42.3
+      },
+      "llm_calls": 1,
+      "llm_tokens": 5908,
+      "latency_s": 18.3,
+      "wall_s": 105.0
+    }
+  ],
   "subject": "slugify",
   "level": "basic",
   "tool": "baseline",
   "target": "slugify/slugify.py",
-  "budget_min": 8.0,
-  "finished": "2026-09-24 08:50:22"
+  "budget_min": 10.0,
+  "finished": "2026-09-24 09:06:26"
 }

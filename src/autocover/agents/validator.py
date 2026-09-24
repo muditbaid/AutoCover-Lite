@@ -187,11 +187,18 @@ async def _accept(ctx: RunContext, clean: list[Candidate], suite: str) -> str:
 
 
 def _accept_one(ctx: RunContext, cand: Candidate, suite: str, by: str) -> str:
-    if cand.replaces:  # a stronger version of an accepted weak test: swap it in
-        suite = remove_tests(suite, {cand.replaces})
+    if cand.replaces:  # a stronger version of an accepted weak test
+        new_cov = ctx.results[cand.id].coverage
         for other in ctx.candidates.values():
-            if (other.status == "accepted" and other.test_name == cand.replaces
+            if not (other.status == "accepted" and other.test_name == cand.replaces
                     and other.function == cand.function):
+                continue
+            old_cov = ctx.results[other.id].coverage
+            # Swap only if nothing the weak test covered is lost; otherwise keep both,
+            # so the suite always covers what the tracker says it covers.
+            if old_cov.executed_lines <= new_cov.executed_lines and \
+                    old_cov.executed_branches <= new_cov.executed_branches:
+                suite = remove_tests(suite, {cand.replaces})
                 other.status, other.reason = "superseded", f"replaced by {cand.id}"
     ctx.tracker.add(ctx.results[cand.id].coverage)
     ctx.killed_mutants |= set(cand.killed)
