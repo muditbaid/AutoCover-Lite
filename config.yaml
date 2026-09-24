@@ -102,7 +102,7 @@ sandbox:
   memory: 1g
   cpus: 1.0
   pids_limit: 256
-  max_parallel: 4
+  max_parallel: 6        # concurrent sandboxes (1 CPU, 1g RAM each)
   workdir: null          # scratch dir for workspaces; null = system temp dir
   batch: true            # one sandbox runs many candidates; coverage is credited per test
   batch_size: 25

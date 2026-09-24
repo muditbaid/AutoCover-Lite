@@ -133,7 +133,8 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
             suite = remove_tests(suite, unstable)
         span.update(tests=len(list_tests(suite)), removed=len(removed), flaky=len(flaky))
 
-    mutation = await suite_mutation_score(ctx, suite) \
+    history = state.get("history", [])
+    mutation = await suite_mutation_score(ctx, suite, history) \
         if ctx.config.mutation.enabled and ctx.config.mutation.final_score else None
 
     tracker = CoverageTracker()
@@ -141,7 +142,6 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
     tracker.universe_branches = set(ctx.tracker.universe_branches)
     if final_cov is not None:
         tracker.add(final_cov)
-    history = state.get("history", [])
     statuses = Counter(c.status for c in history)
     accepted = [c for c in history if c.status == "accepted"]
     violations = Counter(v for c in history for v in c.violations)
@@ -179,20 +179,30 @@ async def finalize(ctx: RunContext, state: RunState) -> RunState:
     return {"suite": suite, "final": final}
 
 
-async def suite_mutation_score(ctx: RunContext, suite: str) -> dict | None:
-    """Kill rate of the final suite over the module's (capped) mutant pool."""
-    if not list_tests(suite):
+async def suite_mutation_score(ctx: RunContext, suite: str, history: list) -> dict | None:
+    """Kill rate of the final suite over the module's (capped) mutant pool.
+
+    Mutants already killed by a test that is still in the suite are known kills (the
+    Validator ran them); only the rest are executed against the whole suite.
+    """
+    names = set(list_tests(suite))
+    if not names:
         return None
     pool = mutant_pool(ctx)
-    with ctx.telemetry.span("finalize", "mutation_score", mutants=len(pool)) as span:
+    known = {k for c in history if c.status == "accepted" and c.test_name in names
+             for k in c.killed}
+    unknown = [m for m in pool if m.id not in known]
+    with ctx.telemetry.span("finalize", "mutation_score", mutants=len(pool),
+                            reused=len(pool) - len(unknown)) as span:
         runs = await asyncio.gather(*(ctx.sandbox.arun(RunRequest(
             target=ctx.target, tests={SUITE_FILE: suite}, overrides={ctx.target: m.source},
-            timeout_s=ctx.config.mutation.timeout_s, label=f"score-{m.id}")) for m in pool))
-        survivors = [m for m, r in zip(pool, runs, strict=True) if r.passed]
+            timeout_s=ctx.config.mutation.timeout_s, label=f"score-{m.id}")) for m in unknown))
+        survivors = [m for m, r in zip(unknown, runs, strict=True) if r.passed]
         killed = len(pool) - len(survivors)
         score = round(100 * killed / len(pool), 1) if pool else 0.0
         span.update(killed=killed, score=score)
     return {"killed": killed, "total": len(pool), "score_pct": score,
+            "reused_kills": len(pool) - len(unknown),
             "survivors": [f"line {m.lineno} ({m.function}): {m.description}"
                           for m in survivors][:20]}
 

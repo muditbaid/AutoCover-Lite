@@ -18,8 +18,8 @@ tests for a module. A test is kept only if:
 | 1. Foundation | Config, LLM router, cache, telemetry, context retriever, mutator, splicer, Docker sandbox, CLI | ✅ done |
 | 2. Happy path | Preparer → Generator → Executor graph with a line-coverage gate | ✅ done |
 | 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ✅ done |
-| 4. Scale & ops | Per-function fan-out, budgets, run summaries | ⏳ next |
-| 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | |
+| 4. Scale & ops | Batched sandbox runs, budgets, flaky reruns, run reports | ✅ done |
+| 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ⏳ next |
 | 6. Shipping | GitHub Action that opens test PRs; architecture write-up | |
 
 ## How a run works
@@ -76,6 +76,33 @@ On `examples/ticket_price`:
 
 The two surviving mutants are one real gap (no test of a 5+ group without a discount) and
 one near-equivalent change (rounding to 3 decimals instead of 2).
+
+## Operations
+
+- **Batched sandbox runs with per-test coverage.** The runner switches coverage's dynamic
+  context to each test's pytest node id, so one container can run a whole round of candidate
+  files and still credit every line to the exact test. Mutation checks run once per mutant
+  across every candidate it applies to. Safety nets:
+  - a batch that times out falls back to one sandbox per candidate;
+  - failures seen in a batch are confirmed in isolation.
+- **Budgets.** Every run is limited by wall-clock time (`run.budget_min`), generation rounds,
+  and an LLM budget (`run.max_llm_calls`, `max_llm_tokens`). Each run records why it
+  stopped.
+- **Flakiness defence.** The final suite is re-run (`run.flaky_reruns`), and any test that
+  fails on a re-run is dropped.
+- **Reports.** A run summary is saved to `.autocover/runs/<run_id>.json`. `autocover report`
+  shows time by stage, sandbox work, LLM calls per role/model (with cache hits and fallback
+  depth), and the candidate funnel.
+
+Effect on `examples/ticket_price`, with the same results (100% lines and branches, 87.5%
+mutation score, 12/12 scenarios) and cached LLM replies so only the pipeline is compared:
+
+| | Before (milestone 3) | After (milestone 4) |
+|---|---|---|
+| Sandbox runs | 122 | 50 |
+| Validator time | 93s | 47s |
+| Final mutation score | 25s (16 runs) | 4s (14 known kills reused, 2 runs) |
+| **Wall time** | **143s** | **71s** |
 
 ## What's built so far
 
