@@ -24,10 +24,16 @@ tests for a module. A test is kept only if:
 
 ## How a run works
 
-```
-prepare -> generate -> execute -> validate --(tests to repair)--> fix -> execute -> ...
-                                          \-> plan_next --(gaps left)--> generate
-                                                       \-> finalize -> tests/test_<module>_autocover.py
+```mermaid
+flowchart TD
+    P[Preparer<br/>baseline run, plan scenarios] --> G[Generator<br/>one LLM call per function]
+    G --> E[Executor<br/>batched pytest in Docker]
+    E --> V[Validator<br/>rules, mutants, accept, judge]
+    V -- tests to repair, fix cycle fits --> F[Fixer<br/>repairs failed or weak tests]
+    F -- re-run --> E
+    V -- nothing to repair, or no time --> N[Plan next round<br/>rank functions with gaps]
+    N -- gaps left, round fits --> G
+    N -- no gaps, or no time --> Z[Finalize<br/>suite check, flaky rerun, mutation score]
 ```
 
 1. **Preparer.** Runs the existing tests plus an import probe to get a baseline, asks an LLM
@@ -121,10 +127,13 @@ in `config.yaml`):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
-| Generator | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Gemini 2.5 Flash -> Nemotron 3 Super (Cloudflare) -> Nemotron 3 Super (NVIDIA NIM) -> Codestral 2508 |
-| Fixer | Nemotron 3 Super (NIM) | Codestral 2508 -> GPT-OSS 120B (Ollama) -> Nemotron 3 Super (Cloudflare) -> GLM-4.7-Flash -> Gemini 3.5 / 2.5 Flash |
-| Preparer | Nemotron 3 Ultra (NIM) | Nemotron 3 Ultra (Ollama) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
+| Generator | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Gemini 2.5 Flash -> Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NVIDIA NIM) |
+| Fixer | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NIM) |
+| Preparer | Nemotron 3 Ultra (Ollama Cloud) | Nemotron 3 Ultra (NIM) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
 | Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
+
+Codestral sits ahead of NIM's Nemotron because, across the 9 benchmark subjects, NIM
+averaged 30-60s per call (up to 150s) for a pass rate close to Codestral's 2-4s calls.
 
 The Generator order comes from `bench/model_bakeoff.py` (one round per model on identical
 cached scenarios; results in `bench/results/model_bakeoff.md`):
@@ -152,9 +161,41 @@ provider's rate-limit headers. The router skips a model when:
 - its daily cap is used up (tracked in `.autocover/usage.sqlite` per provider quota day;
   Gemini resets at midnight Pacific), or the provider has answered with a *daily-quota*
   429, which is never retried, or
-- its limits would make a call wait longer than `max_queue_wait_s`.
+- its limits would make a call wait longer than `max_queue_wait_s` (rate buckets,
+  reservations by calls already queued, and the queue for the provider's concurrency
+  slots). If *every* model would, the call queues on the one with the shortest expected
+  wait.
 
 `autocover usage` shows today's usage against each cap.
+
+## Time budget
+
+Free tiers fail slowly more often than they fail fast: queues grow, a provider degrades to
+a minute or two per call, daily quotas run out mid-run. So the budget is enforced inside
+the run, not only between rounds (`src/autocover/budget.py`):
+
+| Where | Rule |
+|---|---|
+| Planning | At most 20% of the budget; functions still unplanned get a generic scenario |
+| New round | Starts only if one as long as the last one still fits before the finalize reserve |
+| New fix cycle | Starts only if one as long as the last one still fits |
+| Generator / Fixer calls | Deadline = end of budget - finalize reserve - time to execute and mutation-check their tests |
+| Judge calls | Deadline = end of budget - finalize reserve; a test not judged in time is rejected |
+| Finalize reserve | Estimated: (suite run + reruns + one run per unkilled mutant, `max_parallel` at a time) x this run's typical sandbox time x 1.25 |
+
+The router enforces a deadline itself: it skips models whose expected wait would miss it,
+bounds queue waits and retry backoff by it, shortens the provider timeout to fit, and never
+counts a deadline cut against a model's circuit breaker.
+
+Problems the benchmark surfaced, each found in telemetry and fixed:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Timeouts" that were not timeouts | Docker's Windows named pipe ran out of instances under parallel runs | At most 4 concurrent Docker API calls, status polling instead of a held `wait`, retries on pipe errors |
+| Bursts of 429s | Concurrent callers all saw the same empty token bucket | Reservations, refunds of unused token estimates, queue-aware expected waits |
+| A run spent minutes on one slow model | Degraded provider (NIM: up to 230s per call) | A timeout moves to the next model; planning capped at 20% of the budget |
+| Cached replies made runs look fast | Benchmark reused the LLM cache | Fresh cache per benchmark run |
+| Run took 2x its budget (iterutils, 1804s) | Quotas ran dry, and the last model in the judge chain (one call at a time, ~15s each) got every overflow call: 79 queued | Least-wait fallback, deadlines on every LLM call, estimated finalize reserve |
 
 ## Quickstart
 
