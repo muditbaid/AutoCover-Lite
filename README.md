@@ -19,8 +19,49 @@ tests for a module. A test is kept only if:
 | 2. Happy path | Preparer → Generator → Executor graph with a line-coverage gate | ✅ done |
 | 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ✅ done |
 | 4. Scale & ops | Batched sandbox runs, budgets, flaky reruns, run reports | ✅ done |
-| 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ⏳ next |
-| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | |
+| 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ✅ done |
+| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | built (`action.yml`), not yet tried on a real PR |
+
+## Benchmark
+
+9 modules from pinned PyPI packages, with their own tests removed (3 basic, 3 medium, 3
+hard), 15 minutes per module. Full table and charts: [`bench/results/results.md`](bench/results/results.md).
+
+| Mean over 9 subjects | Single-prompt baseline | AutoCover-Lite |
+|---|---|---|
+| Line coverage | 80.9% | **92.8%** |
+| Branch coverage | 72.4% | **88.4%** |
+| Mutation score (identical 52-150 mutant pool) | 56.8% | **76.8%** |
+| LLM calls | 3 | 72 |
+| Wall time | 342s | 688s |
+
+AutoCover-Lite is ahead on all three metrics on every subject. The mutation score gains most
+(+20 points on average; +43 on dateutil, +36 on jmespath, +35 on slugify): the mutation
+gate and the Fixer turn tests that merely *run* code into tests that *check* it. It is
+weakest on the two largest modules: `tabulate` (886 statements in a few very long
+functions: 58% lines, 37% mutation) and `boltons.iterutils` (mutation 64.0% -> 64.7%, where
+planning hit its time cap and the Fixer had no time left).
+
+![Mutation score](bench/results/mutation_score.svg)
+
+How to read it fairly:
+
+- **Not compute-matched.** AutoCover-Lite makes ~24x more LLM calls and takes ~2x the wall
+  time. The baseline is the same model chain and test-writing rules in one call per
+  module (median of 3 samples, failing tests dropped).
+- **Same scorer for both.** Coverage comes from one plain run of each final suite, and
+  every mutant of the identical seeded pool is run against it (`bench/rescore.py`).
+  AutoCover-Lite's own mutation score, which reuses kills recorded during validation,
+  matched the independent re-score on 8 of 9 subjects (iterutils: one mutant apart).
+- **Measurement bug found, and fixed.** Per-test coverage counted physical lines
+  (continuation and docstring lines) instead of statements, which understated
+  AutoCover-Lite's own coverage numbers (dateutil: 57.9% reported, 100% real) and made
+  acceptance credit noisy. The numbers above are re-measured; the runs themselves (8 on
+  `48fedd5`, iterutils on the time-budget fixes) still accepted tests with the noisy
+  credit.
+- **Free tiers are shared state.** All subjects draw on one day's quotas, so later
+  subjects get more fallback models, and each subject ran once, so there is no variance
+  estimate.
 
 ## How a run works
 

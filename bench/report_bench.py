@@ -98,7 +98,7 @@ def coverage_at(curve: list[list[float]], seconds: float) -> float:
 
 def dumbbell_svg(rows: list[tuple[str, float, float]], title: str, unit: str = "%") -> str:
     """Baseline -> AutoCover-Lite per subject on a 0-100 axis."""
-    left, right, top, row_h = 190, 40, 70, 34
+    left, right, top, row_h = 190, 64, 70, 34  # right: room for a "100%" label past 100
     width = 760
     plot_w = width - left - right
     height = top + row_h * len(rows) + 50

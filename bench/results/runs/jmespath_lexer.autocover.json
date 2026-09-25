@@ -169,5 +169,16 @@
   "level": "medium",
   "tool": "autocover",
   "budget_min": 15.0,
-  "finished": "2026-09-24 20:21:27"
+  "finished": "2026-09-24 20:21:27",
+  "mutation_rescored": {
+    "killed": 63,
+    "total": 67,
+    "score_pct": 94.0
+  },
+  "coverage_rescored": {
+    "passed": true,
+    "line_pct": 100.0,
+    "branch_pct": 100.0,
+    "lines": "139/139"
+  }
 }
