@@ -44,6 +44,8 @@ planning hit its time cap and the Fixer had no time left).
 
 ![Mutation score](bench/results/mutation_score.svg)
 
+![Line coverage](bench/results/line_coverage.svg)
+
 How to read it fairly:
 
 - **Not compute-matched.** AutoCover-Lite makes ~24x more LLM calls and takes ~2x the wall
@@ -65,17 +67,7 @@ How to read it fairly:
 
 ## How a run works
 
-```mermaid
-flowchart TD
-    P[Preparer<br/>baseline run, plan scenarios] --> G[Generator<br/>one LLM call per function]
-    G --> E[Executor<br/>batched pytest in Docker]
-    E --> V[Validator<br/>rules, mutants, accept, judge]
-    V -- tests to repair, fix cycle fits --> F[Fixer<br/>repairs failed or weak tests]
-    F -- re-run --> E
-    V -- nothing to repair, or no time --> N[Plan next round<br/>rank functions with gaps]
-    N -- gaps left, round fits --> G
-    N -- no gaps, or no time --> Z[Finalize<br/>suite check, flaky rerun, mutation score]
-```
+![AutoCover-Lite agent pipeline](docs/diagrams/pipeline.svg)
 
 1. **Preparer.** Runs the existing tests plus an import probe to get a baseline, asks an LLM
    for happy / edge / error *scenarios* per function, and ranks functions by uncovered lines.
@@ -214,6 +206,8 @@ provider's rate-limit headers. The router skips a model when:
 Free tiers fail slowly more often than they fail fast: queues grow, a provider degrades to
 a minute or two per call, daily quotas run out mid-run. So the budget is enforced inside
 the run, not only between rounds (`src/autocover/budget.py`):
+
+![Time budget of one run](docs/diagrams/time_budget.svg)
 
 | Where | Rule |
 |---|---|

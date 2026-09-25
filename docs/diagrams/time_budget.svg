@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="190" viewBox="0 0 680 190" role="img">
+<title>Time budget of one run</title>
+<desc>Planning uses at most 20 percent of the budget. Rounds follow and start only if they fit. Generator and Fixer calls stop at their deadline, leaving time to check their tests. Judge calls stop later, right before the finalize reserve at the end of the budget. Not to scale.</desc>
+<style>
+  text { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
+  .th { font-size: 14px; font-weight: 500; }
+  .ts { font-size: 12px; fill: #5F5E5A; }
+  .tick { stroke: #888780; stroke-width: 1; }
+  .llm rect { fill: #EEEDFE; stroke: #534AB7; }
+  .llm .th { fill: #3C3489; } .llm .ts { fill: #534AB7; }
+  .box rect { fill: #E1F5EE; stroke: #0F6E56; }
+  .box .th { fill: #085041; } .box .ts { fill: #0F6E56; }
+  @media (prefers-color-scheme: dark) {
+    .ts { fill: #D3D1C7; }
+    .tick { stroke: #B4B2A9; }
+    .llm rect { fill: #3C3489; stroke: #AFA9EC; }
+    .llm .th { fill: #EEEDFE; } .llm .ts { fill: #CECBF6; }
+    .box rect { fill: #085041; stroke: #5DCAA5; }
+    .box .th { fill: #E1F5EE; } .box .ts { fill: #9FE1CB; }
+  }
+</style>
+<g class="llm"><rect x="40" y="40" width="110" height="56" rx="4" stroke-width="0.5"/><text class="th" x="95" y="58" text-anchor="middle" dominant-baseline="central">Plan</text><text class="ts" x="95" y="78" text-anchor="middle" dominant-baseline="central">20% of budget</text></g>
+<g class="llm"><rect x="150" y="40" width="230" height="56" rx="4" stroke-width="0.5"/><text class="th" x="265" y="58" text-anchor="middle" dominant-baseline="central">Rounds</text><text class="ts" x="265" y="78" text-anchor="middle" dominant-baseline="central">Start only if one fits</text></g>
+<g class="box"><rect x="380" y="40" width="120" height="56" rx="4" stroke-width="0.5"/><text class="th" x="440" y="58" text-anchor="middle" dominant-baseline="central">Last checks</text><text class="ts" x="440" y="78" text-anchor="middle" dominant-baseline="central">Run and mutate</text></g>
+<g class="box"><rect x="500" y="40" width="140" height="56" rx="4" stroke-width="0.5"/><text class="th" x="570" y="58" text-anchor="middle" dominant-baseline="central">Finalize</text><text class="ts" x="570" y="78" text-anchor="middle" dominant-baseline="central">Estimated reserve</text></g>
+<line x1="380" y1="100" x2="380" y2="118" class="tick"/>
+<line x1="500" y1="100" x2="500" y2="138" class="tick"/>
+<line x1="640" y1="100" x2="640" y2="118" class="tick"/>
+<text class="ts" x="380" y="130" text-anchor="middle">Generator, Fixer stop</text>
+<text class="ts" x="500" y="150" text-anchor="middle">Judge stops</text>
+<text class="ts" x="640" y="130" text-anchor="end">Budget ends</text>
+</svg>
