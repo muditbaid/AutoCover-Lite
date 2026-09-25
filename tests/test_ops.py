@@ -116,11 +116,13 @@ def test_slow_planner_cannot_eat_the_budget(tmp_path):
     class SlowPlanner(ScriptedLLM):
         async def __call__(self, *, model, messages, **kwargs):
             if "SCENARIO_PLANNER" in messages[0]["content"]:
-                await asyncio.sleep(30)  # a degraded provider
+                await asyncio.sleep(90)  # a degraded provider
             return await super().__call__(model=model, messages=messages, **kwargs)
 
     llm = SlowPlanner()
-    runtime = make_runtime(tmp_path, llm, budget_min=0.5)  # 30s budget
+    # 60s budget: planning is cut at 30s, leaving room for one round plus the finalize
+    # reserve even when sandbox runs are slow (the reserve scales with their duration).
+    runtime = make_runtime(tmp_path, llm, budget_min=1.0)
     runtime.config.run.max_rounds = 1
     runtime.config.mutation.enabled = False
     box = LocalSandbox(repo, runtime.config.sandbox, runtime.telemetry)

@@ -201,6 +201,39 @@ def test_batched_run_attributes_coverage_exactly_per_file(sandbox):
         assert part.coverage.all_lines == batch.coverage.all_lines
 
 
+MULTILINE = '''\
+def describe(n):
+    """Describe n.
+
+    A docstring spanning several lines.
+    """
+    parts = [
+        "number",
+        str(n),
+    ]
+    return " ".join(
+        parts
+    )
+'''
+
+
+def test_per_test_coverage_counts_statements_not_physical_lines(tmp_path):
+    # Raw coverage data records continuation lines of multi-line statements and
+    # docstrings; per-test coverage must count the same statements the report counts,
+    # or the tracker's line percentages get a wrong denominator.
+    (tmp_path / "multi.py").write_text(MULTILINE, encoding="utf-8")
+    box = LocalSandbox(tmp_path, SandboxConfig(backend="local", timeout_s=60,
+                                               workdir=str(tmp_path / "ws")))
+    box.prepare()
+    test = "from multi import describe\n\ndef test_d():\n    assert describe(1) == 'number 1'\n"
+    plain = box.run(RunRequest(target="multi.py", tests={"test_m.py": test}))
+    batch = box.run(RunRequest(target="multi.py", tests={"test_m.py": test}, per_test=True))
+    part = batch.for_file("test_m.py").coverage
+    body = plain.coverage.executed_lines - {1}  # line 1 (`def`) runs at import time
+    assert part.executed_lines == body
+    assert part.all_lines == plain.coverage.all_lines
+
+
 def _import_lines(sandbox):
     """Module-level lines run at import time belong to no test in a batched run."""
     probe = sandbox.run(RunRequest(target=TARGET, tests={

@@ -77,6 +77,7 @@ async def bench_autocover(subject: dict, args) -> dict:
         "llm_tokens": sum(e["prompt_tokens"] + e["completion_tokens"] for e in llm),
         "models": sorted({e["model"] for e in llm}),
         "wall_s": round(time.time() - t0, 1),
+        "coverage_counting": "statements",  # per-test coverage mapped to statements
     })
     return summary
 

@@ -131,6 +131,10 @@ class RunResult:
                 branches |= test_branches
         coverage = None
         if self.coverage is not None:
+            # Never credit a line or branch the module's report does not count: they
+            # would inflate the universe the coverage percentages are measured against.
+            lines &= self.coverage.all_lines
+            branches &= self.coverage.all_branches
             coverage = CoverageData(
                 executed_lines=frozenset(lines),
                 missing_lines=self.coverage.all_lines - lines,

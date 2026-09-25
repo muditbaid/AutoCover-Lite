@@ -135,26 +135,44 @@ def _coverage(cov, include, scratch):
 
 
 def _per_test(cov, include, overall):
-    """Lines and branches executed by each test (keyed by pytest node id)."""
+    """Lines and branches executed by each test (keyed by pytest node id).
+
+    Raw coverage data records every physical line that ran, including continuation lines
+    of multi-line statements and docstrings; the overall report maps them to statements.
+    Per-test data gets the same mapping, so both count the same units."""
     data = cov.get_data()
     wanted = os.path.normcase(os.path.abspath(include))
     target = next((f for f in data.measured_files()
                    if os.path.normcase(os.path.abspath(f)) == wanted), None)
     if target is None:
         return {}
+    statements = set(overall.get("executed_lines", [])) | set(overall.get("missing_lines", []))
     branch_set = {tuple(b) for b in overall.get("executed_branches", [])}
+    translate_lines, translate_arcs = _translators(cov, target)
     out = {}
     for context in sorted(data.measured_contexts()):
         if not context:
             continue  # import-time lines and anything outside a test
         data.set_query_contexts(["^" + re.escape(context) + "$"])
-        arcs = data.arcs(target) or []
+        lines = translate_lines(data.lines(target) or [])
+        arcs = translate_arcs(data.arcs(target) or [])
         out[context] = {
-            "lines": sorted(data.lines(target) or []),
+            "lines": sorted(n for n in lines if n in statements),
             "branches": sorted([list(a) for a in arcs if tuple(a) in branch_set]),
         }
     data.set_query_contexts(None)
     return out
+
+
+def _translators(cov, target):
+    """coverage.py's raw-line -> statement mapping (identity if unavailable)."""
+    try:
+        from coverage.python import PythonFileReporter
+
+        reporter = PythonFileReporter(target, coverage=cov)
+        return reporter.translate_lines, reporter.translate_arcs
+    except Exception:  # an unexpected coverage version: fall back to raw data
+        return set, list
 
 
 if __name__ == "__main__":

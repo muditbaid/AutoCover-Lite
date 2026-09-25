@@ -60,7 +60,10 @@ def metrics(result: dict | None) -> dict:
         own = (result.get("mutation") or {}).get("score_pct", 0.0)
         # Prefer the independent re-score (bench/rescore.py): same scorer as the baseline.
         rescored = (result.get("mutation_rescored") or {}).get("score_pct")
-        return {"ok": True, "line": final["line_pct"], "branch": final["branch_pct"],
+        # Coverage too: runs before the per-test statement fix under-reported it.
+        cov = result.get("coverage_rescored") or final
+        return {"ok": True, "line": cov["line_pct"], "branch": cov["branch_pct"],
+                "line_own": final["line_pct"],
                 "mutation": rescored if rescored is not None else own, "mutation_own": own,
                 "rescored": rescored is not None,
                 "tests": result["tests_in_suite"], "calls": result.get("llm_calls", 0),
@@ -71,6 +74,18 @@ def metrics(result: dict | None) -> dict:
             "generated": result["tests_generated"], "calls": result["llm_calls"],
             "tokens": result["llm_tokens"], "wall": result["wall_s"],
             "extra": f"median of {len(result.get('samples', [1]))} samples"}
+
+
+def pair(b: float, a: float) -> str:
+    """`b -> a` with the higher value in bold (neither on a tie)."""
+    fb, fa = (f"**{b}**", str(a)) if b > a else (str(b), f"**{a}**") if a > b else (b, a)
+    return f"{fb} -> {fa}"
+
+
+def curve_valid(result: dict | None) -> bool:
+    """In-run coverage curves are only comparable from runs that counted per-test
+    coverage in statements (earlier runs also counted continuation/docstring lines)."""
+    return bool(result) and result.get("coverage_counting") == "statements"
 
 
 def coverage_at(curve: list[list[float]], seconds: float) -> float:
@@ -188,14 +203,16 @@ def main() -> None:
         if b["ok"] and a["ok"]:
             dumb_mut.append((name, b["mutation"], a["mutation"]))
             dumb_line.append((name, b["line"], a["line"]))
-            panels.append((name, tools["autocover"].get("curve", []), b["line"], a["line"]))
+            if curve_valid(tools["autocover"]):
+                panels.append((name, tools["autocover"]["curve"], b["line"], a["line"]))
 
     (OUT / "mutation_score.svg").write_text(
         dumbbell_svg(dumb_mut, "Mutation score (share of planted bugs caught)"), encoding="utf-8")
     (OUT / "line_coverage.svg").write_text(
         dumbbell_svg(dumb_line, "Line coverage"), encoding="utf-8")
-    (OUT / "coverage_over_time.svg").write_text(curves_svg(panels, budget_min * 60),
-                                               encoding="utf-8")
+    if panels:
+        (OUT / "coverage_over_time.svg").write_text(curves_svg(panels, budget_min * 60),
+                                                   encoding="utf-8")
 
     both = [(b, a) for _, _, b, a, _ in rows if b["ok"] and a["ok"]]
 
@@ -221,8 +238,10 @@ def main() -> None:
                f"{mean([a['calls'] for _, a in both])} |",
                f"| Wall time | {mean([b['wall'] for b, _ in both])}s | "
                f"{mean([a['wall'] for _, a in both])}s |", ""]
-    md += ["![Mutation score](mutation_score.svg)\n", "![Line coverage](line_coverage.svg)\n",
-           "![Coverage over time](coverage_over_time.svg)\n", "## Per subject\n",
+    md += ["![Mutation score](mutation_score.svg)\n", "![Line coverage](line_coverage.svg)\n"]
+    if panels:
+        md.append("![Coverage over time](coverage_over_time.svg)\n")
+    md += ["## Per subject\n",
            "| Subject | Level | Lines B -> A | Branches B -> A | Mutation B -> A | "
            "Tests B (passing/generated) | Tests A | LLM calls B / A | Time B / A | Notes |",
            "|---|---|---|---|---|---|---|---|---|---|"]
@@ -231,19 +250,24 @@ def main() -> None:
             md.append(f"| {name} | {level} | - | - | - | - | - | - | - | "
                       f"baseline: {b.get('error', 'ok')}; autocover: {a.get('error', 'ok')} |")
             continue
-        md.append(f"| {name} | {level} | {b['line']} -> **{a['line']}** | "
-                  f"{b['branch']} -> **{a['branch']}** | {b['mutation']} -> **{a['mutation']}** | "
+        md.append(f"| {name} | {level} | {pair(b['line'], a['line'])} | "
+                  f"{pair(b['branch'], a['branch'])} | {pair(b['mutation'], a['mutation'])} | "
                   f"{b['tests']}/{b.get('generated', '?')} | {a['tests']} | "
                   f"{b['calls']} / {a['calls']} | {b['wall']:.0f}s / {a['wall']:.0f}s | "
                   f"{a['extra']} |")
-    md += ["", "## AutoCover-Lite coverage within shorter budgets\n",
-           "Read off each run's coverage-over-time curve (the paper's Figure 2 method).\n",
-           "| Subject | 5 min | 10 min | 15 min | Final |", "|---|---|---|---|---|"]
-    for name, _, _, a, raw in rows:
-        if a["ok"] and raw:
-            curve = raw.get("curve", [])
+    timed = [(name, a, raw) for name, _, _, a, raw in rows if a["ok"] and curve_valid(raw)]
+    md += ["", "## AutoCover-Lite coverage within shorter budgets\n"]
+    if timed:
+        md += ["Read off each run's coverage-over-time curve (the paper's Figure 2 method).\n",
+               "| Subject | 5 min | 10 min | 15 min | Final |", "|---|---|---|---|---|"]
+        for name, a, raw in timed:
+            curve = raw["curve"]
             md.append(f"| {name} | {coverage_at(curve, 300)}% | {coverage_at(curve, 600)}% | "
                       f"{coverage_at(curve, 900)}% | {a['line']}% |")
+    if len(timed) < len(rows):
+        md.append("\nNot shown for runs made before per-test coverage was counted in "
+                  "statements: their in-run curves also counted continuation and docstring "
+                  "lines, so they are not comparable with the final numbers.")
     md += ["", "## How to read this\n",
            "- **Baseline**: the same Generator model chain and test-writing rules, one call "
            "for the whole module, failing tests dropped; the median of 3 samples is shown.",
@@ -251,6 +275,9 @@ def main() -> None:
            "(`mutation.max_mutants_per_function` / `max_mutants_total`), with every mutant run "
            "against the final suite (`bench/rescore.py` re-scores AutoCover-Lite this way "
            "instead of reusing kills recorded during validation).",
+           "- **Coverage**: both tools are measured from one plain run of the final suite "
+           "(`coverage_rescored` for AutoCover-Lite runs recorded before the per-test "
+           "statement fix, whose own percentages under-counted).",
            "- **Caveats**: one AutoCover-Lite run per subject; free-tier models answer "
            "differently depending on quotas and load (see the models used in "
            "`bench/results/runs/*.json`); subjects are pinned wheel versions with their own "
