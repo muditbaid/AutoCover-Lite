@@ -107,3 +107,24 @@ def test_replacement_that_covers_less_keeps_the_weak_test():
         executed_lines=frozenset({6, 7, 8, 9}), missing_lines=frozenset()))
     _accept_one(ctx, wider, weak.code, "mutants")
     assert weak.status == "superseded"
+
+
+def test_slow_planner_cannot_eat_the_budget(tmp_path):
+    repo = tmp_path / "repo"
+    shutil.copytree(EXAMPLE, repo)
+
+    class SlowPlanner(ScriptedLLM):
+        async def __call__(self, *, model, messages, **kwargs):
+            if "SCENARIO_PLANNER" in messages[0]["content"]:
+                await asyncio.sleep(30)  # a degraded provider
+            return await super().__call__(model=model, messages=messages, **kwargs)
+
+    llm = SlowPlanner()
+    runtime = make_runtime(tmp_path, llm, budget_min=0.5)  # 30s budget
+    runtime.config.run.max_rounds = 1
+    runtime.config.mutation.enabled = False
+    box = LocalSandbox(repo, runtime.config.sandbox, runtime.telemetry)
+    summary = asyncio.run(run_autocover(runtime, repo, "ticket_price.py", sandbox=box,
+                                        write=False))
+    assert any(e.get("event") == "planning_budget_exceeded" for e in runtime.telemetry.events)
+    assert summary["rounds"] == 1 and summary["tests_in_suite"] > 0  # still generated tests

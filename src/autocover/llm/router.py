@@ -87,6 +87,13 @@ def is_daily_quota_error(exc: BaseException) -> bool:
     return looks_429 and bool(_DAILY_QUOTA.search(text))
 
 
+def is_timeout(exc: BaseException) -> bool:
+    """The model did not answer in time: usually overloaded, so try another model."""
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    return (isinstance(exc, (asyncio.TimeoutError, TimeoutError)) or status == 408
+            or "Timeout" in type(exc).__name__)
+
+
 def is_retryable(exc: BaseException) -> bool:
     status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
     if isinstance(status, int) and status in RETRYABLE_STATUS:
@@ -335,6 +342,12 @@ class LLMRouter:
                     if is_daily_quota_error(exc):
                         self._exhausted.add((self._day(model), model))
                         self.telemetry.event("llm", "daily_quota_exhausted", model=model)
+                        raise
+                    if is_timeout(exc):
+                        # Retrying an overloaded model costs another full timeout; the
+                        # next model in the chain is the better bet.
+                        self.breaker.record_failure(model)
+                        self.telemetry.event("llm", "timeout", model=model)
                         raise
                     if is_retryable(exc) and attempt < attempts - 1:
                         self.telemetry.event("llm", "retry", model=model, attempt=attempt + 1,

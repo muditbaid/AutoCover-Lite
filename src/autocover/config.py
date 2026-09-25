@@ -90,6 +90,7 @@ class RunConfig(BaseModel):
     budget_min: float = 10           # wall-clock budget for a run
     max_scenarios_per_function: int = 6
     preparer_batch: int = 6          # functions planned per Preparer call
+    preparer_budget_share: float = 0.2  # max share of budget_min spent on planning
     max_functions_first_round: int = 60  # round 1 is a breadth pass over every function
     max_functions_per_round: int = 12  # later rounds: the biggest remaining gaps
     preparer_max_tokens: int = 4096

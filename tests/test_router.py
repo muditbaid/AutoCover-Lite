@@ -348,3 +348,11 @@ def test_cloudflare_neuron_allocation_counts_as_daily_quota():
     exc = CloudflareError("4006: you have used up your daily free allocation of 10,000 "
                           "neurons, please upgrade to Cloudflare's Workers Paid plan")
     assert is_daily_quota_error(exc)
+
+
+def test_timeout_moves_to_the_next_model_without_retrying():
+    router, fake, clock = make_router({"a/one": [TimeoutError("slow"), "late"], "b/two": ["b"]},
+                                      retries=3)
+    resp = run(router.complete("gen", MESSAGES))
+    assert resp.model == "b/two" and fake.calls == ["a/one", "b/two"]
+    assert clock.now == 0  # no backoff sleeps spent on the slow model

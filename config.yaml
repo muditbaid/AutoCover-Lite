@@ -23,8 +23,8 @@ llm:
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
     preparer:                         # few calls per run, so reasoning quality matters most
+      - ollama_chat/nemotron-3-ultra  # same model as NIM; answered in 10-20s when NIM took 230s
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
-      - ollama_chat/nemotron-3-ultra
       - gemini/gemini-3.5-flash
       - groq/openai/gpt-oss-120b
     judge:                            # many short calls: needs request/token headroom
@@ -110,6 +110,7 @@ run:
   budget_min: 10
   max_scenarios_per_function: 6
   preparer_batch: 6         # functions planned per Preparer call (large modules)
+  preparer_budget_share: 0.2  # planning never takes more than 20% of the budget
   max_functions_first_round: 60  # round 1: a breadth pass over every function
   max_functions_per_round: 12    # later rounds: the functions with the biggest gaps
   preparer_max_tokens: 4096

@@ -32,7 +32,7 @@ from autocover.tools.sandbox import RunRequest
 from autocover.tools.splicer import list_tests, remove_tests
 
 MAX_SUITE_REPAIRS = 2
-FINALIZE_RESERVE_S = 45  # suite check, flaky rerun and mutation score
+FINALIZE_RESERVE_S = 45  # suite check, flaky rerun and mutation score (cap: 10% of budget)
 SUITE_FILE = "test_autocover_suite.py"
 
 
@@ -98,7 +98,8 @@ def stop_reason(ctx: RunContext, state: RunState) -> str | None:
     # Start another round only if one more round (as long as the last one) and the final
     # suite checks still fit: the deadline is otherwise only seen between rounds, and a
     # round on a large module can take minutes.
-    if ctx.time_left() <= ctx.last_round_s + FINALIZE_RESERVE_S:
+    reserve = min(FINALIZE_RESERVE_S, ctx.config.run.budget_min * 60 * 0.1)
+    if ctx.time_left() <= ctx.last_round_s + reserve:
         return "time budget"
     if not ctx.budget_left():
         return "LLM budget"

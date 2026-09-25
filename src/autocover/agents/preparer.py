@@ -30,8 +30,7 @@ async def prepare(ctx: RunContext, state: RunState) -> RunState:
         functions = _functions(ctx)
         size = max(1, ctx.config.run.preparer_batch)
         groups = [functions[i:i + size] for i in range(0, len(functions), size)]
-        planned = await asyncio.gather(*(_scenarios_for_group(ctx, g) for g in groups))
-        scenarios = {q: sc for part in planned for q, sc in part.items()}
+        scenarios = await _plan_within_budget(ctx, groups)
         ctx.scenarios = scenarios
         targets = plan_targets(ctx, scenarios)
         span.update(functions=len(functions),
@@ -69,6 +68,35 @@ async def _baseline(ctx: RunContext, suite: str) -> None:
         ctx.telemetry.event("preparer", "baseline_failures", details=result.diagnostics(800))
     ctx.tracker.add(result.coverage)
     ctx.baseline = ctx.tracker.summary()
+
+
+async def _plan_within_budget(ctx: RunContext,
+                              groups: list[list[FunctionInfo]]) -> dict[str, list[Scenario]]:
+    """Plan all groups in parallel, but never spend more than a share of the run's budget
+    on planning: groups still unplanned then get a generic scenario (the Generator still
+    sees each function's uncovered lines, so nothing is skipped)."""
+    budget_s = ctx.config.run.budget_min * 60
+    limit = max(min(60.0, budget_s / 2), budget_s * ctx.config.run.preparer_budget_share)
+    tasks = {asyncio.create_task(_scenarios_for_group(ctx, g)): g for g in groups}
+    done, pending = await asyncio.wait(tasks, timeout=limit)
+    for task in pending:
+        task.cancel()
+    scenarios: dict[str, list[Scenario]] = {}
+    for task, group in tasks.items():
+        if task in done and task.exception() is None:
+            scenarios.update(task.result())
+        else:
+            for fn in group:
+                scenarios[fn.qualname] = [_basic_scenario(fn.qualname)]
+    if pending:
+        ctx.telemetry.event("preparer", "planning_budget_exceeded", groups=len(pending),
+                            limit_s=round(limit))
+    return {fn.qualname: scenarios[fn.qualname] for g in groups for fn in g}
+
+
+def _basic_scenario(qualname: str) -> Scenario:
+    return Scenario(id="basic", function=qualname, kind="happy",
+                    description="typical valid input -> expected return value")
 
 
 async def _scenarios_for_group(ctx: RunContext,
@@ -111,8 +139,7 @@ async def _scenarios_for(ctx: RunContext, fn: FunctionInfo) -> list[Scenario]:
         ctx.telemetry.event("preparer", "scenarios_failed", function=fn.qualname,
                             error=str(exc)[:300])
         # Still generate: the writer gets the uncovered lines instead of scenarios.
-        return [Scenario(id="basic", function=fn.qualname, kind="happy",
-                         description="typical valid input -> expected return value")]
+        return [_basic_scenario(fn.qualname)]
 
 
 def parse_scenarios(text: str, function: str, limit: int) -> list[Scenario]:
