@@ -192,13 +192,64 @@ def test_daily_cap_skips_model_and_persists(tmp_path):
     assert run(router3.complete("gen", MESSAGES)).model == "a/one"
 
 
-def test_tpm_throttle_skips_to_next_model_instead_of_waiting():
-    # 1,200 tokens/min; each call estimates ~1,024+ tokens, so the 2nd call would wait ~50s.
+def test_concurrent_callers_see_each_others_reservations_and_spill_over():
+    # 1,200 tokens/min; each call estimates ~1,024 tokens. Fired together, all callers see
+    # a full bucket - unless reservations count. The first takes a/one, the rest spill.
+    router, fake, clock = make_limited_router({"a/one": ModelLimits(tpm=1200)})
+    gate = asyncio.Event()
+
+    async def in_flight(*, model, messages, **kwargs):  # calls overlap, like real requests
+        await gate.wait()
+        return {"choices": [{"message": {"content": model}}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 5}}
+
+    router._completion_fn = in_flight
+
+    async def burst():
+        tasks = [asyncio.create_task(router.complete("gen", MESSAGES, use_cache=False))
+                 for _ in range(4)]
+        await asyncio.sleep(0)
+        gate.set()
+        return await asyncio.gather(*tasks)
+
+    models = [r.model for r in run(burst())]
+    assert models.count("a/one") == 1 and models.count("b/two") == 3
+    assert clock.now == 0  # nobody queued behind the TPM limit
+
+
+def test_unused_token_estimate_is_refunded():
+    # The estimate reserves ~1,024 tokens, the call uses 8: the bucket gets the rest back,
+    # so a second, sequential call can use the same model without waiting.
     router, fake, clock = make_limited_router({"a/one": ModelLimits(tpm=1200)})
     assert run(router.complete("gen", MESSAGES)).model == "a/one"
-    assert run(router.complete("gen", MESSAGES, use_cache=False)).model == "b/two"
-    assert clock.now == 0  # skipped, never slept
-    assert router.expected_wait("a/one", 1024) > 15
+    assert run(router.complete("gen", MESSAGES, use_cache=False)).model == "a/one"
+    assert clock.now == 0 and router.expected_wait("a/one", 1024) == 0
+
+
+def test_concurrency_queue_counts_toward_expected_wait():
+    cfg = LLMConfig(roles={"gen": ["a/one", "b/two"]}, max_queue_wait_s=15, retries=0,
+                    providers={"a": ProviderLimits(rpm=None, max_concurrency=1),
+                               "b": ProviderLimits(rpm=None, max_concurrency=4)})
+    gate = asyncio.Event()
+
+    async def slow(*, model, messages, **kwargs):
+        if model == "a/one":
+            await gate.wait()
+        return {"choices": [{"message": {"content": model}}], "usage": {}}
+
+    router = LLMRouter(cfg, completion_fn=slow, require_keys=False)
+    router._latency["a/one"] = 10.0  # observed ~10s per call
+
+    async def scenario():
+        tasks = [asyncio.create_task(router.complete("gen", MESSAGES, use_cache=False))
+                 for _ in range(4)]
+        await asyncio.sleep(0)
+        gate.set()
+        return await asyncio.gather(*tasks)
+
+    models = [r.model for r in run(scenario())]
+    # a/one runs one call at a time at ~10s each: 2 ahead is ~20s > 15s, so callers spill.
+    assert models.count("a/one") == 2 and models.count("b/two") == 2
 
 
 def test_last_model_in_chain_waits_rather_than_failing():

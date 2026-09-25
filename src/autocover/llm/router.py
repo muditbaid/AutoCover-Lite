@@ -34,6 +34,7 @@ from autocover.llm.cache import ResponseCache, UsageLedger, cache_key
 from autocover.telemetry import Telemetry
 
 CompletionFn = Callable[..., Awaitable[Any]]
+DEFAULT_LATENCY_S = 10.0  # assumed call latency before a model has been observed
 
 RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 RETRYABLE_NAMES = ("RateLimit", "Timeout", "ServiceUnavailable", "APIConnection", "InternalServer")
@@ -112,6 +113,7 @@ class TokenBucket:
         self.rate = per_minute / 60.0
         self.capacity = capacity if capacity is not None else max(1.0, min(per_minute, 5.0))
         self.tokens = self.capacity
+        self.reserved = 0.0  # committed by callers that have not acquired yet
         self._clock, self._sleep = clock, sleep
         self._last = clock()
         self._lock = asyncio.Lock()
@@ -122,10 +124,18 @@ class TokenBucket:
         self._last = now
 
     def wait_time(self, amount: float = 1.0) -> float:
-        """Seconds until `amount` units would be available (0 if available now)."""
+        """Seconds until `amount` units would be available after everything already
+        reserved by queued callers (0 if available now)."""
         self._refill()
         amount = min(amount, self.capacity)
-        return max(0.0, (amount - self.tokens) / self.rate)
+        return max(0.0, (amount + self.reserved - self.tokens) / self.rate)
+
+    def refund(self, amount: float) -> None:
+        """Give back units that were estimated but not used (e.g. unused completion
+        tokens)."""
+        if amount > 0:
+            self._refill()
+            self.tokens = min(self.capacity, self.tokens + amount)
 
     async def acquire(self, amount: float = 1.0) -> None:
         amount = min(amount, self.capacity)  # an oversized request waits for a full bucket
@@ -196,6 +206,9 @@ class LLMRouter:
             config.circuit_breaker.failure_threshold, config.circuit_breaker.cooldown_s, clock
         )
         self._semaphores: dict[str, asyncio.Semaphore] = {}
+        self._queued: dict[str, int] = {}     # provider -> committed callers not yet running
+        self._running: dict[str, int] = {}    # provider -> calls in flight
+        self._latency: dict[str, float] = {}  # model -> moving average latency (s)
         self._buckets: dict[tuple[str, str], TokenBucket] = {}  # (scope, name) -> bucket
 
     # -- public API ---------------------------------------------------------------
@@ -254,8 +267,17 @@ class LLMRouter:
                 self.telemetry.event("llm", "skip_throttled", role=role, model=model,
                                      wait_s=round(wait, 1))
                 continue
+            # Commit to this model: reserve its bucket units and join its queue, so
+            # concurrent callers see the real backlog (and spill over to fallbacks)
+            # instead of all seeing an empty bucket at the same instant.
+            reservation = self._limiters(model, est_tokens)
+            for bucket, amount in reservation:
+                bucket.reserved += amount
+            provider = provider_of(model)
+            self._queued[provider] = self._queued.get(provider, 0) + 1
             try:
-                resp = await self._call_with_retries(model, messages, params, est_tokens)
+                resp = await self._call_with_retries(model, messages, params, est_tokens,
+                                                     reservation)
             except Exception as exc:  # noqa: BLE001 - any provider error moves down the chain
                 errors.append(f"{model}: {type(exc).__name__}: {str(exc)[:200]}")
                 self.telemetry.event("llm", "model_failed", role=role, model=model,
@@ -277,41 +299,68 @@ class LLMRouter:
 
     async def _call_with_retries(
         self, model: str, messages: list[dict[str, Any]], params: dict[str, Any],
-        est_tokens: int,
+        est_tokens: int, reservation: list[tuple[TokenBucket, float]] | None = None,
     ) -> LLMResponse:
         provider = provider_of(model)
         attempts = self.config.retries + 1
-        for attempt in range(attempts):
-            try:
-                async with self._semaphore(provider):
-                    for bucket, amount in self._limiters(model, est_tokens):
-                        await bucket.acquire(amount)
-                    self.usage.record(self._day(model), model)  # providers count every attempt
-                    start = self._clock()
-                    raw = await self._invoke(model, messages, params)
-                    latency = self._clock() - start
-            except Exception as exc:
-                if is_daily_quota_error(exc):
-                    self._exhausted.add((self._day(model), model))
-                    self.telemetry.event("llm", "daily_quota_exhausted", model=model)
+        pending = list(reservation or [])
+        queued = reservation is not None
+
+        def settle() -> None:  # drop our reservation / queue slot once, when we start
+            nonlocal pending, queued
+            for bucket, amount in pending:
+                bucket.reserved = max(0.0, bucket.reserved - amount)
+            pending = []
+            if queued:
+                self._queued[provider] = max(0, self._queued.get(provider, 0) - 1)
+                queued = False
+
+        try:
+            for attempt in range(attempts):
+                try:
+                    async with self._semaphore(provider):
+                        limiters = self._limiters(model, est_tokens)
+                        for bucket, amount in limiters:
+                            await bucket.acquire(amount)
+                        settle()
+                        self._running[provider] = self._running.get(provider, 0) + 1
+                        self.usage.record(self._day(model), model)  # every attempt counts
+                        start = self._clock()
+                        try:
+                            raw = await self._invoke(model, messages, params)
+                        finally:
+                            self._running[provider] -= 1
+                        latency = self._clock() - start
+                except Exception as exc:
+                    if is_daily_quota_error(exc):
+                        self._exhausted.add((self._day(model), model))
+                        self.telemetry.event("llm", "daily_quota_exhausted", model=model)
+                        raise
+                    if is_retryable(exc) and attempt < attempts - 1:
+                        self.telemetry.event("llm", "retry", model=model, attempt=attempt + 1,
+                                             error=type(exc).__name__)
+                        await self._sleep(self._backoff(attempt))
+                        continue
+                    self.breaker.record_failure(model)
                     raise
-                if is_retryable(exc) and attempt < attempts - 1:
-                    self.telemetry.event("llm", "retry", model=model, attempt=attempt + 1,
-                                         error=type(exc).__name__)
-                    await self._sleep(self._backoff(attempt))
-                    continue
-                self.breaker.record_failure(model)
-                raise
-            self.breaker.record_success(model)
-            text, usage = _unpack(raw)
-            self.usage.record(self._day(model), model, requests=0,
-                              tokens=usage["prompt_tokens"] + usage["completion_tokens"])
-            return LLMResponse(
-                text=text, model=model, latency_s=latency,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-            )
-        raise AssertionError("unreachable")
+                self.breaker.record_success(model)
+                text, usage = _unpack(raw)
+                used = usage["prompt_tokens"] + usage["completion_tokens"]
+                for bucket, amount in limiters:
+                    if amount > 1 and used:  # token bucket: refund the unused estimate
+                        bucket.refund(amount - used)
+                previous = self._latency.get(model)
+                self._latency[model] = (latency if previous is None
+                                        else 0.7 * previous + 0.3 * latency)
+                self.usage.record(self._day(model), model, requests=0, tokens=used)
+                return LLMResponse(
+                    text=text, model=model, latency_s=latency,
+                    prompt_tokens=usage.get("prompt_tokens", 0),
+                    completion_tokens=usage.get("completion_tokens", 0),
+                )
+            raise AssertionError("unreachable")
+        finally:
+            settle()
 
     async def _invoke(self, model: str, messages: list[dict[str, Any]], params: dict[str, Any]):
         kwargs: dict[str, Any] = {
@@ -362,7 +411,15 @@ class LLMRouter:
         return limiters
 
     def expected_wait(self, model: str, est_tokens: int) -> float:
-        return max((b.wait_time(a) for b, a in self._limiters(model, est_tokens)), default=0.0)
+        """Rate-limit wait (including units reserved by queued callers) plus the wait for
+        a concurrency slot behind the calls already queued or running."""
+        buckets = max((b.wait_time(a) for b, a in self._limiters(model, est_tokens)),
+                      default=0.0)
+        provider = provider_of(model)
+        limit = max(1, self.config.limits_for(provider).max_concurrency)
+        ahead = self._queued.get(provider, 0) + self._running.get(provider, 0)
+        slots = max(0, ahead - limit + 1) / limit * self._latency.get(model, DEFAULT_LATENCY_S)
+        return max(buckets, slots)
 
     def _day(self, model: str) -> str:
         """Current quota day for `model`, in its provider's reset time zone."""
