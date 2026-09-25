@@ -13,6 +13,7 @@ effects can never make another look broken.
 from __future__ import annotations
 
 import asyncio
+import time
 
 from autocover.state import Candidate, RunContext, RunState
 from autocover.tools.sandbox import RunRequest, RunResult
@@ -20,6 +21,7 @@ from autocover.tools.sandbox import RunRequest, RunResult
 
 async def execute(ctx: RunContext, state: RunState) -> RunState:
     pending = state.get("pending", [])
+    started = time.monotonic()
     with ctx.telemetry.span("executor", "run", round=state.get("round", 0),
                             candidates=len(pending)) as span:
         results = await run_candidates(ctx, pending)
@@ -40,6 +42,7 @@ async def execute(ctx: RunContext, state: RunState) -> RunState:
                 cand.diagnostics = result.diagnostics(limit=1500)
         span.update(passed=sum(c.status == "passed" for c in pending),
                     confirmed_failures=len(suspects))
+    ctx.last_execute_s = time.monotonic() - started
     return {"pending": [], "executed": pending}
 
 

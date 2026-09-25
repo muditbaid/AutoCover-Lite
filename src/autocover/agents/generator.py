@@ -15,6 +15,7 @@ import time
 
 import libcst
 
+from autocover.budget import llm_deadline
 from autocover.llm.parsing import extract_code
 from autocover.llm.prompts import stem_of, writer_messages
 from autocover.llm.router import AllModelsFailed
@@ -55,7 +56,8 @@ async def _generate_for(ctx: RunContext, state: RunState, qualname: str,
                                state.get("feedback", {}).get(qualname, ""), survivors)
     try:
         resp = await ctx.router.complete("generator", messages,
-                                         max_tokens=ctx.config.run.generator_max_tokens)
+                                         max_tokens=ctx.config.run.generator_max_tokens,
+                                         deadline=llm_deadline(ctx, "generator"))
     except AllModelsFailed as exc:
         ctx.telemetry.event("generator", "llm_failed", function=qualname, error=str(exc)[:300])
         return []

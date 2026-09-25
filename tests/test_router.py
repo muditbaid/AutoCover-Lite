@@ -252,13 +252,58 @@ def test_concurrency_queue_counts_toward_expected_wait():
     assert models.count("a/one") == 2 and models.count("b/two") == 2
 
 
-def test_last_model_in_chain_waits_rather_than_failing():
+def test_when_every_model_is_throttled_the_shortest_wait_wins():
+    # a/one frees up in 60s, b/two (the last model) only in 120s: the call waits for
+    # a/one instead of queueing on the last model of the chain, and still never fails.
     router, fake, clock = make_limited_router(
-        {"a/one": ModelLimits(rpm=1), "b/two": ModelLimits(rpm=1)}, max_wait=5)
+        {"a/one": ModelLimits(rpm=1), "b/two": ModelLimits(rpm=0.5)}, max_wait=5)
     for _ in range(3):
         run(router.complete("gen", MESSAGES, use_cache=False))
-    assert fake.calls == ["a/one", "b/two", "b/two"]  # a/one skipped once; b/two waited
+    assert fake.calls == ["a/one", "b/two", "a/one"]
     assert clock.now == pytest.approx(60, rel=0.01)
+
+
+def test_deadline_skips_models_whose_wait_would_miss_it():
+    router, fake, clock = make_limited_router(
+        {"a/one": ModelLimits(rpm=1), "b/two": ModelLimits(rpm=1)}, max_wait=5)
+    run(router.complete("gen", MESSAGES, use_cache=False))  # a/one
+    run(router.complete("gen", MESSAGES, use_cache=False))  # b/two
+    with pytest.raises(AllModelsFailed, match="would miss the deadline"):
+        run(router.complete("gen", MESSAGES, use_cache=False, deadline=clock.now + 30))
+    assert fake.calls == ["a/one", "b/two"] and clock.now == 0  # nobody waited
+
+
+def test_passed_deadline_fails_without_calling_any_model():
+    router, fake, clock = make_router({"a/one": ["a"], "b/two": ["b"]})
+    clock.now = 100
+    with pytest.raises(AllModelsFailed, match="deadline reached"):
+        run(router.complete("gen", MESSAGES, deadline=99))
+    assert fake.calls == []
+
+
+def test_deadline_stops_retry_backoff_and_spares_the_circuit_breaker():
+    # a/one answers 429; backing off (~1s) would cross the deadline, so the call ends
+    # there instead of retrying or trying b/two, and a/one is not blamed for it.
+    router, fake, clock = make_router({"a/one": [ProviderError(429), "ok"], "b/two": ["b"]},
+                                      retries=3, threshold=1)
+    with pytest.raises(AllModelsFailed, match="deadline reached"):
+        run(router.complete("gen", MESSAGES, deadline=0.4))
+    assert fake.calls == ["a/one"] and not router.breaker.is_open("a/one")
+
+
+def test_provider_timeout_is_shortened_to_the_deadline():
+    seen = {}
+
+    async def record(*, model, messages, timeout, **kwargs):
+        seen["timeout"] = timeout
+        return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    router, _, clock = make_router({})
+    router._completion_fn = record
+    run(router.complete("gen", MESSAGES, deadline=clock.now + 20))
+    assert seen["timeout"] == pytest.approx(20)
+    run(router.complete("gen", MESSAGES, use_cache=False))
+    assert seen["timeout"] == router.config.timeout_s
 
 
 def test_usage_ledger_records_requests_and_tokens():

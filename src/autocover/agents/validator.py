@@ -15,15 +15,15 @@ For every executed candidate:
 from __future__ import annotations
 
 import asyncio
-import random
+import time
 
 from autocover.agents.executor import run_candidates
-from autocover.config import MutationConfig
+from autocover.budget import llm_deadline
 from autocover.llm.parsing import extract_json
 from autocover.llm.prompts import judge_messages
-from autocover.llm.router import AllModelsFailed
+from autocover.llm.router import AllModelsFailed, DeadlineExceeded
 from autocover.state import Candidate, RunContext, RunState
-from autocover.tools.mutator import Mutant, generate_mutants
+from autocover.tools.mutator import Mutant
 from autocover.tools.rules import check_test_source, describe
 from autocover.tools.splicer import remove_tests, splice_tests
 
@@ -53,11 +53,14 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
                 clean.append(cand)
 
         weak: list[Candidate] = []
+        check_started = time.monotonic()
         if ctx.config.mutation.enabled:
             await measure_kills(ctx, clean)
             weak = [c for c in clean if c.mutants_run and not c.killed]
             for cand in weak:
                 cand.reason = f"weak oracle: kills 0 of {cand.mutants_run} mutants"
+        ctx.check_s = max(ctx.check_s,
+                          ctx.last_execute_s + time.monotonic() - check_started)
 
         suite = await _accept(ctx, clean, suite)
         # Weak oracles: a weak test that adds coverage stays in the suite (its survivors
@@ -90,23 +93,6 @@ async def validate(ctx: RunContext, state: RunState) -> RunState:
 # -- mutation ----------------------------------------------------------------------------
 
 
-def build_mutant_pool(source: str, cfg: MutationConfig) -> list[Mutant]:
-    """The module's mutant pool: per-function cap, then a seeded total cap. Deterministic,
-    so different tools (e.g. the benchmark baseline) are scored on identical mutants."""
-    pool = generate_mutants(source, max_per_function=cfg.max_mutants_per_function,
-                            seed=cfg.seed)
-    if cfg.max_mutants_total and len(pool) > cfg.max_mutants_total:
-        keep = set(random.Random(cfg.seed).sample(range(len(pool)), cfg.max_mutants_total))
-        pool = [m for i, m in enumerate(pool) if i in keep]
-    return pool
-
-
-def mutant_pool(ctx: RunContext) -> list[Mutant]:
-    if ctx.mutant_pool is None:
-        ctx.mutant_pool = build_mutant_pool(ctx.module.source, ctx.config.mutation)
-    return ctx.mutant_pool
-
-
 async def measure_kills(ctx: RunContext, cands: list[Candidate]) -> None:
     """Which pooled mutants each candidate kills.
 
@@ -118,7 +104,7 @@ async def measure_kills(ctx: RunContext, cands: list[Candidate]) -> None:
     applicable: dict[str, list[Mutant]] = {}
     for cand in cands:
         executed = ctx.results[cand.id].coverage.executed_lines
-        mutants = [m for m in mutant_pool(ctx) if m.lineno in executed]
+        mutants = [m for m in ctx.mutants() if m.lineno in executed]
         mutants.sort(key=lambda m: m.function != cand.function)  # own function first
         applicable[cand.id] = mutants[:cap]
         ctx.tested_mutants |= {m.id for m in applicable[cand.id]}
@@ -185,11 +171,28 @@ async def _accept(ctx: RunContext, clean: list[Candidate], suite: str) -> str:
         key = (cand.function, cand.scenario_id)
         if cand.scenario_id and key not in ctx.covered_scenarios and key not in claims:
             claims[key] = cand
-    verdicts = await asyncio.gather(*(_judge_accepts(ctx, c) for c in claims.values()))
-    confirmed = {c.id for c, ok in zip(claims.values(), verdicts, strict=True) if ok}
+    # Judging must not eat the time finalize needs: the router drops judge calls that
+    # would end past the judge deadline (free-tier queues can be long), and this wait is
+    # the backstop. Unjudged candidates are rejected.
+    tasks = {asyncio.create_task(_judge_accepts(ctx, c)): c for c in claims.values()}
+    confirmed: set[str] = set()
+    unjudged: set[str] = set()
+    if tasks:
+        budget = llm_deadline(ctx, "judge") - time.monotonic()
+        done, pending = await asyncio.wait(tasks, timeout=max(1.0, budget))
+        for task in pending:
+            task.cancel()
+        verdicts = {tasks[t].id: t.result() for t in done if t.exception() is None}
+        confirmed = {cid for cid, covers in verdicts.items() if covers}
+        unjudged = {c.id for c in tasks.values()
+                    if c.id not in verdicts or verdicts[c.id] is None}
+        if unjudged:
+            ctx.telemetry.event("validator", "judging_cut_by_deadline", unjudged=len(unjudged))
     for cand in remaining:
         if cand.id in confirmed:
             suite = _accept_one(ctx, cand, suite, "scenario")
+        elif cand.id in unjudged:
+            cand.status, cand.reason = "rejected", "not judged (time budget)"
         else:
             cand.status, cand.reason = "rejected", "no new coverage, mutant kills or scenario"
     return suite
@@ -219,7 +222,9 @@ def _accept_one(ctx: RunContext, cand: Candidate, suite: str, by: str) -> str:
     return splice_tests(suite, cand.code).source
 
 
-async def _judge_accepts(ctx: RunContext, cand: Candidate) -> bool:
+async def _judge_accepts(ctx: RunContext, cand: Candidate) -> bool | None:
+    """Whether the judge confirms the candidate's scenario; None if no judge answered in
+    time."""
     if not (ctx.config.run.judge_scenarios and cand.scenario_id) or \
             (cand.function, cand.scenario_id) in ctx.covered_scenarios or \
             not ctx.budget_left():
@@ -231,11 +236,12 @@ async def _judge_accepts(ctx: RunContext, cand: Candidate) -> bool:
     fn = ctx.module.function(cand.function)
     try:
         resp = await ctx.router.complete("judge", judge_messages(fn, scenario, cand.code),
-                                         json_mode=True, max_tokens=1024)
+                                         json_mode=True, max_tokens=1024,
+                                         deadline=llm_deadline(ctx, "judge"))
         verdict = extract_json(resp.text)
     except (AllModelsFailed, ValueError) as exc:
         ctx.telemetry.event("validator", "judge_failed", id=cand.id, error=str(exc)[:200])
-        return False
+        return None if isinstance(exc, DeadlineExceeded) else False
     verdict = verdict if isinstance(verdict, dict) else {}
     covers = verdict.get("covers") is True
     ctx.telemetry.event("validator", "judge", id=cand.id, scenario=scenario.id, covers=covers,

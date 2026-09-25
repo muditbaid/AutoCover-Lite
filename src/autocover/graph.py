@@ -9,6 +9,9 @@
 * plan_next: functions with uncovered lines, then functions with untested scenarios.
 * finalize: lint the merged suite, drop tests that fail in combination, measure the
   suite's mutation score, summarise.
+
+Time budget (see budget.py): rounds and fix cycles start only if they fit before the
+finalize reserve, and every LLM call carries a deadline the router never waits past.
 """
 
 from __future__ import annotations
@@ -25,14 +28,14 @@ from autocover.agents.executor import execute
 from autocover.agents.fixer import fix
 from autocover.agents.generator import generate
 from autocover.agents.preparer import plan_targets, prepare
-from autocover.agents.validator import mutant_pool, validate
+from autocover.agents.validator import validate
+from autocover.budget import finalize_reserve_s
 from autocover.state import RunContext, RunState
 from autocover.tools.coverage_runner import CoverageTracker
 from autocover.tools.sandbox import RunRequest
 from autocover.tools.splicer import list_tests, remove_tests
 
 MAX_SUITE_REPAIRS = 2
-FINALIZE_RESERVE_S = 45  # suite check, flaky rerun and mutation score (cap: 10% of budget)
 SUITE_FILE = "test_autocover_suite.py"
 
 
@@ -49,9 +52,14 @@ def build_graph(ctx: RunContext):
         return await execute(ctx, state)
 
     async def validate_node(state: RunState) -> RunState:
-        return await validate(ctx, state)
+        update = await validate(ctx, state)
+        if ctx.fix_started:  # this validation ends a fix cycle
+            ctx.last_fix_s = time.monotonic() - ctx.fix_started
+            ctx.fix_started = 0.0
+        return update
 
     async def fix_node(state: RunState) -> RunState:
+        ctx.fix_started = time.monotonic()
         return await fix(ctx, state)
 
     async def plan_next_node(state: RunState) -> RunState:
@@ -63,8 +71,11 @@ def build_graph(ctx: RunContext):
         return await finalize(ctx, state)
 
     def after_validate(state: RunState) -> str:
-        if state.get("to_fix") and ctx.time_left() > 0:
-            return "fix"  # fix() itself freezes everything when the LLM budget is gone
+        # Another fix cycle only if one as long as the last still fits before finalize;
+        # fix() itself freezes everything when the LLM budget is gone.
+        if state.get("to_fix") and \
+                ctx.time_left() > finalize_reserve_s(ctx) + ctx.last_fix_s:
+            return "fix"
         return "plan_next"
 
     def should_generate(state: RunState) -> str:
@@ -98,8 +109,7 @@ def stop_reason(ctx: RunContext, state: RunState) -> str | None:
     # Start another round only if one more round (as long as the last one) and the final
     # suite checks still fit: the deadline is otherwise only seen between rounds, and a
     # round on a large module can take minutes.
-    reserve = min(FINALIZE_RESERVE_S, ctx.config.run.budget_min * 60 * 0.1)
-    if ctx.time_left() <= ctx.last_round_s + reserve:
+    if ctx.time_left() <= ctx.last_round_s + finalize_reserve_s(ctx):
         return "time budget"
     if not ctx.budget_left():
         return "LLM budget"
@@ -196,7 +206,7 @@ async def suite_mutation_score(ctx: RunContext, suite: str, history: list) -> di
     names = set(list_tests(suite))
     if not names:
         return None
-    pool = mutant_pool(ctx)
+    pool = ctx.mutants()
     known = {k for c in history if c.status == "accepted" and c.test_name in names
              for k in c.killed}
     unknown = [m for m in pool if m.id not in known]

@@ -14,14 +14,16 @@ llm:
       - gemini/gemini-3.5-flash       # 100% pass, 7s, but 18/day
       - gemini/gemini-2.5-flash       # 100% pass, 17s, separate 18/day
       - cloudflare/@cf/nvidia/nemotron-3-120b-a12b   # 75%, 11s, 25/day
-      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
+      # Codestral before NIM: in the 9-subject benchmark NIM's Nemotron averaged 30-60s
+      # per call (up to 150s) for a pass rate close to Codestral's 2-4s calls.
       - mistral/codestral-2508        # 53%, 5s, high volume
-    fixer:                            # same bake-off order as the Generator
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
+    fixer:                            # same order as the Generator
       - ollama_chat/gpt-oss:120b
       - gemini/gemini-3.5-flash
       - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
-      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
     preparer:                         # few calls per run, so reasoning quality matters most
       - ollama_chat/nemotron-3-ultra  # same model as NIM; answered in 10-20s when NIM took 230s
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
@@ -79,7 +81,7 @@ llm:
   #   Cerebras: gpt-oss-120b, qwen-3.8-27b ("payment required"); older models archived
   #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"
   #   (and each 503 retry still counts against that version's 20/day quota)
-  max_queue_wait_s: 15   # longer expected wait -> try the next model instead
+  max_queue_wait_s: 15   # longer expected wait -> try the next model (all longer: shortest wins)
   temperature: 0.2
   timeout_s: 120
   retries: 3

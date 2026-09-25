@@ -6,11 +6,17 @@ the router walks the chain and, per model:
 * skips it if its provider has no API key, its circuit breaker is open, or its
   requests-per-day cap is used up (counted in a persistent usage ledger);
 * serves an exact-match reply from the SQLite cache when possible;
-* skips it if its per-model RPM / TPM buckets (or the provider-wide RPM bucket) would
-  make the call wait longer than `max_queue_wait_s`, unless it is the last option;
+* defers it if its per-model RPM / TPM buckets (or the provider-wide RPM bucket, or the
+  queue for the provider's concurrency slots) would make the call wait longer than
+  `max_queue_wait_s`; when every model is deferred, the one with the shortest expected
+  wait is used (not blindly the last one, whose queue then grows without bound);
 * otherwise waits on those buckets and the provider's concurrency semaphore, and
-  retries retryable errors (429 / 5xx / timeouts) with jittered exponential backoff,
-  then moves to the next model.
+  retries retryable errors (429 / 5xx) with jittered exponential backoff; a timeout or a
+  failed call moves to the next model.
+
+With a `deadline` (a time on the router's clock), no model is started, waited for or
+retried past it: a model whose expected wait would miss it is skipped, the provider call
+timeout is shortened to fit, and reaching it ends the call with `AllModelsFailed`.
 
 This mirrors AutoCover's multi-level fallbacks, adaptive concurrency and circuit breakers
 (paper section 5.1), scaled down to free-tier quotas.
@@ -26,7 +32,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, NoReturn
 from zoneinfo import ZoneInfo
 
 from autocover.config import LLMConfig
@@ -56,6 +62,15 @@ PROVIDER_KEY_ENV = {
 
 class AllModelsFailed(RuntimeError):
     """Every model in a role's chain was skipped or failed."""
+
+
+class DeadlineExceeded(AllModelsFailed):
+    """No model could answer before the caller's deadline (more time might have helped)."""
+
+
+class DeadlineReached(TimeoutError):
+    """The caller's deadline passed while waiting for, or during, a call. Not the model's
+    fault, so it never counts against the model's circuit breaker."""
 
 
 @dataclass
@@ -245,13 +260,18 @@ class LLMRouter:
         json_mode: bool = False,
         max_tokens: int | None = None,
         use_cache: bool = True,
+        deadline: float | None = None,
     ) -> LLMResponse:
         params = {"temperature": self.config.temperature, "json_mode": json_mode,
                   "max_tokens": max_tokens}
         errors: list[str] = []
         chain = self.chain(role)
+        est_tokens = estimate_tokens(messages, max_tokens)
+        deferred: list[tuple[int, str, str]] = []  # (index, model, cache key)
+        missed = False  # some model was skipped only because of the deadline
         for index, model in enumerate(chain):
-            is_last = index == len(chain) - 1
+            if (left := self._left(deadline)) is not None and left <= 0:
+                self._deadline_failure(role, errors)
             if not self.available(model):
                 errors.append(f"{model}: no API key")
                 continue
@@ -267,46 +287,91 @@ class LLMRouter:
                 resp = LLMResponse(**hit, cached=True, fallbacks=index)
                 self._emit(role, resp)
                 return resp
-            est_tokens = estimate_tokens(messages, max_tokens)
             wait = self.expected_wait(model, est_tokens)
-            if wait > self.config.max_queue_wait_s and not is_last:
+            if left is not None and wait >= left:
+                errors.append(f"{model}: would miss the deadline (~{wait:.0f}s wait)")
+                self.telemetry.event("llm", "skip_deadline", role=role, model=model,
+                                     wait_s=round(wait, 1))
+                missed = True
+                continue
+            if wait > self.config.max_queue_wait_s:
                 errors.append(f"{model}: throttled (~{wait:.0f}s wait)")
                 self.telemetry.event("llm", "skip_throttled", role=role, model=model,
                                      wait_s=round(wait, 1))
+                deferred.append((index, model, key))
                 continue
-            # Commit to this model: reserve its bucket units and join its queue, so
-            # concurrent callers see the real backlog (and spill over to fallbacks)
-            # instead of all seeing an empty bucket at the same instant.
-            reservation = self._limiters(model, est_tokens)
-            for bucket, amount in reservation:
-                bucket.reserved += amount
-            provider = provider_of(model)
-            self._queued[provider] = self._queued.get(provider, 0) + 1
-            try:
-                resp = await self._call_with_retries(model, messages, params, est_tokens,
-                                                     reservation)
-            except Exception as exc:  # noqa: BLE001 - any provider error moves down the chain
-                errors.append(f"{model}: {type(exc).__name__}: {str(exc)[:200]}")
-                self.telemetry.event("llm", "model_failed", role=role, model=model,
-                                     error=type(exc).__name__)
+            resp = await self._attempt(role, index, model, key, messages, params,
+                                       est_tokens, deadline, errors)
+            if resp is not None:
+                return resp
+        # Every usable model is throttled: queue on the one expected to answer first.
+        while deferred:
+            wait, index, model, key = min(
+                (self.expected_wait(m, est_tokens), i, m, k) for i, m, k in deferred)
+            deferred.remove((index, model, key))
+            if (left := self._left(deadline)) is not None and wait >= left:
+                errors.append(f"{model}: would miss the deadline (~{wait:.0f}s wait)")
+                missed = True
                 continue
-            resp.fallbacks = index
-            if self.cache:
-                self.cache.put(key, model, {
-                    "text": resp.text, "model": resp.model,
-                    "prompt_tokens": resp.prompt_tokens,
-                    "completion_tokens": resp.completion_tokens,
-                    "latency_s": resp.latency_s,
-                })
-            self._emit(role, resp)
-            return resp
+            self.telemetry.event("llm", "queue_least_wait", role=role, model=model,
+                                 wait_s=round(wait, 1))
+            resp = await self._attempt(role, index, model, key, messages, params,
+                                       est_tokens, deadline, errors)
+            if resp is not None:
+                return resp
+        if missed:
+            self._deadline_failure(role, errors)
         raise AllModelsFailed(f"role {role!r}: " + "; ".join(errors))
 
     # -- internals ------------------------------------------------------------------
 
+    def _left(self, deadline: float | None) -> float | None:
+        return None if deadline is None else deadline - self._clock()
+
+    def _deadline_failure(self, role: str, errors: list[str]) -> NoReturn:
+        self.telemetry.event("llm", "deadline_reached", role=role)
+        raise DeadlineExceeded(f"role {role!r}: deadline reached; " + "; ".join(errors))
+
+    async def _attempt(
+        self, role: str, index: int, model: str, key: str, messages: list[dict[str, Any]],
+        params: dict[str, Any], est_tokens: int, deadline: float | None, errors: list[str],
+    ) -> LLMResponse | None:
+        """Call `model` (with retries): its response, or None after recording why it
+        failed. Reaching the deadline raises AllModelsFailed: no other model can help."""
+        # Commit to this model: reserve its bucket units and join its queue, so
+        # concurrent callers see the real backlog (and spill over to fallbacks)
+        # instead of all seeing an empty bucket at the same instant.
+        reservation = self._limiters(model, est_tokens)
+        for bucket, amount in reservation:
+            bucket.reserved += amount
+        provider = provider_of(model)
+        self._queued[provider] = self._queued.get(provider, 0) + 1
+        try:
+            resp = await self._call_with_retries(model, messages, params, est_tokens,
+                                                 reservation, deadline)
+        except DeadlineReached:
+            errors.append(f"{model}: deadline reached")
+            self._deadline_failure(role, errors)
+        except Exception as exc:  # noqa: BLE001 - any provider error moves down the chain
+            errors.append(f"{model}: {type(exc).__name__}: {str(exc)[:200]}")
+            self.telemetry.event("llm", "model_failed", role=role, model=model,
+                                 error=type(exc).__name__)
+            return None
+        resp.fallbacks = index
+        if self.cache:
+            self.cache.put(key, model, {
+                "text": resp.text, "model": resp.model,
+                "prompt_tokens": resp.prompt_tokens,
+                "completion_tokens": resp.completion_tokens,
+                "latency_s": resp.latency_s,
+            })
+        self._emit(role, resp)
+        return resp
+
     async def _call_with_retries(
         self, model: str, messages: list[dict[str, Any]], params: dict[str, Any],
         est_tokens: int, reservation: list[tuple[TokenBucket, float]] | None = None,
+        deadline: float | None = None,
     ) -> LLMResponse:
         provider = provider_of(model)
         attempts = self.config.retries + 1
@@ -324,8 +389,13 @@ class LLMRouter:
 
         try:
             for attempt in range(attempts):
+                left = self._left(deadline)
+                if left is not None and left <= 0:
+                    raise DeadlineReached(model)
+                # The scope bounds the queue waits (semaphore, buckets) and the call itself.
+                scope = asyncio.timeout(left)
                 try:
-                    async with self._semaphore(provider):
+                    async with scope, self._semaphore(provider):
                         limiters = self._limiters(model, est_tokens)
                         for bucket, amount in limiters:
                             await bucket.acquire(amount)
@@ -333,12 +403,17 @@ class LLMRouter:
                         self._running[provider] = self._running.get(provider, 0) + 1
                         self.usage.record(self._day(model), model)  # every attempt counts
                         start = self._clock()
+                        timeout = self.config.timeout_s
+                        if (left := self._left(deadline)) is not None:
+                            timeout = max(1.0, min(timeout, left))
                         try:
-                            raw = await self._invoke(model, messages, params)
+                            raw = await self._invoke(model, messages, params, timeout)
                         finally:
                             self._running[provider] -= 1
                         latency = self._clock() - start
                 except Exception as exc:
+                    if scope.expired():
+                        raise DeadlineReached(model) from exc
                     if is_daily_quota_error(exc):
                         self._exhausted.add((self._day(model), model))
                         self.telemetry.event("llm", "daily_quota_exhausted", model=model)
@@ -350,9 +425,12 @@ class LLMRouter:
                         self.telemetry.event("llm", "timeout", model=model)
                         raise
                     if is_retryable(exc) and attempt < attempts - 1:
+                        pause = self._backoff(attempt)
+                        if (left := self._left(deadline)) is not None and pause >= left:
+                            raise DeadlineReached(model) from exc
                         self.telemetry.event("llm", "retry", model=model, attempt=attempt + 1,
                                              error=type(exc).__name__)
-                        await self._sleep(self._backoff(attempt))
+                        await self._sleep(pause)
                         continue
                     self.breaker.record_failure(model)
                     raise
@@ -375,12 +453,13 @@ class LLMRouter:
         finally:
             settle()
 
-    async def _invoke(self, model: str, messages: list[dict[str, Any]], params: dict[str, Any]):
+    async def _invoke(self, model: str, messages: list[dict[str, Any]], params: dict[str, Any],
+                      timeout: float | None = None):
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": params["temperature"],
-            "timeout": self.config.timeout_s,
+            "timeout": timeout or self.config.timeout_s,
         }
         if params["max_tokens"]:
             kwargs["max_tokens"] = params["max_tokens"]

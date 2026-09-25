@@ -18,6 +18,7 @@ from autocover.llm.router import LLMRouter
 from autocover.telemetry import Telemetry
 from autocover.tools.context import ModuleContext
 from autocover.tools.coverage_runner import CoverageTracker
+from autocover.tools.mutator import Mutant, build_mutant_pool
 from autocover.tools.sandbox import Sandbox
 
 
@@ -105,7 +106,17 @@ class RunContext:
     telemetry_start: int = 0  # index of this run's first telemetry event
     round_started: float = 0.0  # monotonic time the current generation round began
     last_round_s: float = 0.0   # duration of the last full round (generate..validate/fix)
+    last_execute_s: float = 0.0  # duration of the last Executor step
+    check_s: float = 0.0        # longest execute + mutation check of a batch so far
+    fix_started: float = 0.0    # monotonic time the current fix cycle began (0 = none)
+    last_fix_s: float = 0.0     # duration of the last fix cycle (fix..validate)
     _counter: int = 0
+
+    def mutants(self) -> list[Mutant]:
+        """The module's (capped) mutant pool, built on first use."""
+        if self.mutant_pool is None:
+            self.mutant_pool = build_mutant_pool(self.module.source, self.config.mutation)
+        return self.mutant_pool
 
     def llm_used(self) -> tuple[int, int]:
         """(calls, tokens) of non-cached LLM completions in this run."""

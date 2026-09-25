@@ -128,3 +128,24 @@ def test_slow_planner_cannot_eat_the_budget(tmp_path):
                                         write=False))
     assert any(e.get("event") == "planning_budget_exceeded" for e in runtime.telemetry.events)
     assert summary["rounds"] == 1 and summary["tests_in_suite"] > 0  # still generated tests
+
+
+def test_scenario_judging_stops_at_the_deadline(tmp_path):
+    repo = tmp_path / "repo"
+    shutil.copytree(EXAMPLE, repo)
+
+    class SlowJudge(ScriptedLLM):
+        async def __call__(self, *, model, messages, **kwargs):
+            if "SCENARIO_JUDGE" in messages[0]["content"]:
+                await asyncio.sleep(60)  # quota exhausted: last-resort model queue
+            return await super().__call__(model=model, messages=messages, **kwargs)
+
+    runtime = make_runtime(tmp_path, SlowJudge(), budget_min=0.75)  # 45s budget
+    runtime.config.run.max_rounds = 1
+    runtime.config.run.max_fix_attempts = 0
+    runtime.config.mutation.enabled = False
+    box = LocalSandbox(repo, runtime.config.sandbox, runtime.telemetry)
+    summary = asyncio.run(run_autocover(runtime, repo, "ticket_price.py", sandbox=box,
+                                        write=False, functions=["ticket_price"]))
+    assert any(e.get("event") == "judging_cut_by_deadline" for e in runtime.telemetry.events)
+    assert summary["duration_s"] < 60 and summary["tests_in_suite"] > 0

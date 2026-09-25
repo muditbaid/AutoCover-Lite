@@ -44,7 +44,7 @@ class LLMConfig(BaseModel):
     providers: dict[str, ProviderLimits] = Field(default_factory=dict)
     models: dict[str, ModelLimits] = Field(default_factory=dict)
     # If a model's limits would make a call wait longer than this, try the next model in
-    # the chain instead (the last model in a chain always waits).
+    # the chain instead; if every model would, queue on the one with the shortest wait.
     max_queue_wait_s: float = 15
     temperature: float = 0.2
     timeout_s: float = 120

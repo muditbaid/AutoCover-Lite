@@ -16,6 +16,8 @@ import ast
 import random
 from dataclasses import dataclass
 
+from autocover.config import MutationConfig
+
 BINOP_SWAP: dict[type, type] = {
     ast.Add: ast.Sub, ast.Sub: ast.Add, ast.Mult: ast.Div, ast.Div: ast.Mult,
     ast.FloorDiv: ast.Mult, ast.Mod: ast.FloorDiv, ast.Pow: ast.Mult,
@@ -101,6 +103,17 @@ def generate_mutants(
                 description=site.description, source=mutated,
             ))
     return mutants
+
+
+def build_mutant_pool(source: str, cfg: MutationConfig) -> list[Mutant]:
+    """The module's mutant pool: per-function cap, then a seeded total cap. Deterministic,
+    so different tools (e.g. the benchmark baseline) are scored on identical mutants."""
+    pool = generate_mutants(source, max_per_function=cfg.max_mutants_per_function,
+                            seed=cfg.seed)
+    if cfg.max_mutants_total and len(pool) > cfg.max_mutants_total:
+        keep = set(random.Random(cfg.seed).sample(range(len(pool)), cfg.max_mutants_total))
+        pool = [m for i, m in enumerate(pool) if i in keep]
+    return pool
 
 
 def apply_site(source: str, site: Site) -> str | None:

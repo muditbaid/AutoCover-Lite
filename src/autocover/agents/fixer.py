@@ -17,6 +17,7 @@ import hashlib
 import libcst
 
 from autocover.agents.generator import normalize_code
+from autocover.budget import llm_deadline
 from autocover.llm.parsing import extract_code
 from autocover.llm.prompts import fixer_messages
 from autocover.llm.router import AllModelsFailed
@@ -42,7 +43,8 @@ async def _fix_one(ctx: RunContext, cand: Candidate) -> Candidate | None:
     messages = fixer_messages(ctx.module, fn, cand.code, cand.test_name, cand.diagnostics)
     try:
         resp = await ctx.router.complete("fixer", messages,
-                                         max_tokens=ctx.config.run.generator_max_tokens)
+                                         max_tokens=ctx.config.run.generator_max_tokens,
+                                         deadline=llm_deadline(ctx, "fixer"))
     except AllModelsFailed as exc:
         return _freeze(ctx, cand, f"fixer unavailable: {str(exc)[:120]}")
     code = extract_code(resp.text)

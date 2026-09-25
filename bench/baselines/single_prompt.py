@@ -13,12 +13,12 @@ import time
 
 import libcst
 
-from autocover.agents.validator import build_mutant_pool
 from autocover.llm.parsing import extract_code
 from autocover.llm.prompts import TEST_RULES
 from autocover.llm.router import AllModelsFailed
 from autocover.runtime import Runtime
 from autocover.tools.context import build_module_context
+from autocover.tools.mutator import build_mutant_pool
 from autocover.tools.sandbox import RunRequest, Sandbox
 from autocover.tools.splicer import list_tests, remove_tests
 
