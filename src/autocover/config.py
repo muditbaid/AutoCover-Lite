@@ -27,6 +27,9 @@ class ModelLimits(BaseModel):
     rpm: float | None = None  # requests per minute
     tpm: float | None = None  # tokens per minute (prompt + completion)
     rpd: int | None = None    # requests per day (provider's quota day)
+    # Requests per day of `rpd` held for these roles (e.g. {preparer: 12}); other roles
+    # share what is left. Use it to keep a scarce strong model for high-leverage roles.
+    reserve: dict[str, int] = Field(default_factory=dict)
 
 
 class CircuitBreakerConfig(BaseModel):
@@ -46,6 +49,9 @@ class LLMConfig(BaseModel):
     # If a model's limits would make a call wait longer than this, try the next model in
     # the chain instead; if every model would, queue on the one with the shortest wait.
     max_queue_wait_s: float = 15
+    # Split each capped model's daily quota evenly over this many runs, so the first run
+    # of the day cannot use it all up (e.g. the 9 runs of a benchmark). None = no split.
+    runs_per_day: int | None = None
     temperature: float = 0.2
     timeout_s: float = 120
     retries: int = 3

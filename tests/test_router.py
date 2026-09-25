@@ -401,3 +401,84 @@ def test_timeout_moves_to_the_next_model_without_retrying():
     resp = run(router.complete("gen", MESSAGES))
     assert resp.model == "b/two" and fake.calls == ["a/one", "b/two"]
     assert clock.now == 0  # no backoff sleeps spent on the slow model
+
+
+def make_quota_router(limits: ModelLimits, *, runs_per_day=None, usage=None):
+    """Roles `bulk` and `plan` both prefer the scarce model s/strong over b/bulk."""
+    cfg = LLMConfig(roles={"bulk": ["s/strong", "b/bulk"], "plan": ["s/strong", "b/bulk"]},
+                    providers={"s": ProviderLimits(rpm=None, max_concurrency=4),
+                               "b": ProviderLimits(rpm=None, max_concurrency=4)},
+                    models={"s/strong": limits}, retries=0, runs_per_day=runs_per_day)
+    fake = FakeCompletion({"s/strong": ["s"] * 50, "b/bulk": ["b"] * 50})
+    router = LLMRouter(cfg, usage=usage or UsageLedger(":memory:"), completion_fn=fake,
+                       require_keys=False, today=lambda _tz: "2026-09-25")
+    return router, fake
+
+
+def models_used(router, role, n):
+    return [run(router.complete(role, MESSAGES, use_cache=False)).model for _ in range(n)]
+
+
+def test_reserved_quota_is_kept_for_its_role():
+    # 5/day, 3 held for `plan`: bulk callers get the 2 shared requests, then fall back,
+    # and `plan` still gets its 3 even though bulk ran first.
+    router, _ = make_quota_router(ModelLimits(rpd=5, reserve={"plan": 3}))
+    assert models_used(router, "bulk", 3) == ["s/strong", "s/strong", "b/bulk"]
+    assert models_used(router, "plan", 4) == ["s/strong"] * 3 + ["b/bulk"]
+    assert router.usage.role_requests("2026-09-25", "s/strong") == {"bulk": 2, "plan": 3}
+
+
+def test_a_reserved_role_also_uses_the_shared_pool():
+    router, _ = make_quota_router(ModelLimits(rpd=5, reserve={"plan": 2}))
+    assert models_used(router, "plan", 6) == ["s/strong"] * 5 + ["b/bulk"]
+    assert models_used(router, "bulk", 1) == ["b/bulk"]  # nothing left to share
+
+
+def test_runs_per_day_splits_the_daily_cap_across_runs(tmp_path):
+    ledger = tmp_path / "usage.sqlite"
+    first, _ = make_quota_router(ModelLimits(rpd=6), runs_per_day=3,
+                                 usage=UsageLedger(ledger))
+    assert models_used(first, "bulk", 3) == ["s/strong", "s/strong", "b/bulk"]  # 2 per run
+    second, _ = make_quota_router(ModelLimits(rpd=6), runs_per_day=3,
+                                  usage=UsageLedger(ledger))  # the next run, same day
+    assert models_used(second, "bulk", 3) == ["s/strong", "s/strong", "b/bulk"]
+
+
+def test_overloaded_capped_model_is_not_retried():
+    # A 503 on a model with a daily cap moves on at once: each retry would spend quota.
+    router, fake = make_quota_router(ModelLimits(rpd=18))
+    fake.script["s/strong"] = [ProviderError(503), "late"]
+    assert run(router.complete("bulk", MESSAGES)).model == "b/bulk"
+    assert fake.calls == ["s/strong", "b/bulk"]
+    assert router.usage.requests("2026-09-25", "s/strong") == 1
+
+
+def test_overloaded_uncapped_model_is_still_retried():
+    router, fake, _ = make_router({"a/one": [ProviderError(503), "ok"], "b/two": []})
+    assert run(router.complete("gen", MESSAGES)).model == "a/one"
+    assert fake.calls == ["a/one", "a/one"]
+
+
+def test_each_run_gets_its_slice_of_every_reservation():
+    # 18/day split 12/6 over 9 runs: 2 per run for `plan`, 1 for `bulk`, so `plan`
+    # calling first cannot take the run's whole share.
+    router, _ = make_quota_router(ModelLimits(rpd=18, reserve={"plan": 12, "bulk": 6}),
+                                  runs_per_day=9)
+    assert models_used(router, "plan", 3) == ["s/strong", "s/strong", "b/bulk"]
+    assert models_used(router, "bulk", 2) == ["s/strong", "b/bulk"]
+
+
+def test_last_repair_attempt_escalates_to_fixer_final():
+    from types import SimpleNamespace
+
+    from autocover.agents.fixer import fixer_role
+    from autocover.config import RunConfig
+
+    def ctx(roles):
+        return SimpleNamespace(config=SimpleNamespace(run=RunConfig(max_fix_attempts=2)),
+                               router=LLMRouter(LLMConfig(roles=roles), require_keys=False))
+
+    both = ctx({"fixer": ["b/bulk"], "fixer_final": ["s/strong"]})
+    assert fixer_role(both, SimpleNamespace(attempt=0)) == "fixer"
+    assert fixer_role(both, SimpleNamespace(attempt=1)) == "fixer_final"  # last allowed
+    assert fixer_role(ctx({"fixer": ["b/bulk"]}), SimpleNamespace(attempt=1)) == "fixer"

@@ -1,6 +1,6 @@
 # Benchmark: AutoCover-Lite vs single-prompt baseline
 
-Generated 2026-09-25 12:38 from `bench/results/runs/`. 9 of 9 subjects have results for both tools; AutoCover-Lite budget 15 min per subject.
+Generated 2026-09-25 16:34 from `bench/results/runs/`. 9 of 9 subjects have results for both tools; AutoCover-Lite budget 15 min per subject.
 
 ## Headline (mean over subjects)
 
@@ -35,6 +35,22 @@ Generated 2026-09-25 12:38 from `bench/results/runs/`. 9 of 9 subjects have resu
 
 
 Not shown for runs made before per-test coverage was counted in statements: their in-run curves also counted continuation and docstring lines, so they are not comparable with the final numbers.
+
+## Models used by AutoCover-Lite (calls per role)
+
+| Subject | Preparer | Generator | Fixer | Fixer (last attempt) | Judge |
+|---|---|---|---|---|---|
+| humanize_number | ollama:nemotron-3-ultra 2 | ollama:gpt-oss:120b 7, gemini:gemini-2.5-flash 5, nim:nemotron-3-super-120b 5, mistral:codestral-2508 1 | ollama:gpt-oss:120b 12, nim:nemotron-3-super-120b 2 | - | mistral:ministral-14b-2512 6, gemini:gemini-3.5-flash-lite 5, cloudflare:gpt-oss-20b 5, ollama:gpt-oss:20b 2, groq:gpt-oss-20b 1, zai:glm-4.5-flash 1 |
+| inflection | nim:nemotron-3-ultra 3, ollama:nemotron-3-ultra 2 | ollama:gpt-oss:120b 7, gemini:gemini-2.5-flash 6, nim:nemotron-3-super-120b 5 | ollama:gpt-oss:120b 7 | - | groq:gpt-oss-20b 11, mistral:ministral-14b-2512 10, cloudflare:gpt-oss-20b 5, gemini:gemini-3.5-flash-lite 5, ollama:gpt-oss:20b 2 |
+| slugify | ollama:nemotron-3-ultra 1 | ollama:gpt-oss:120b 5 | nim:nemotron-3-super-120b 17, ollama:gpt-oss:120b 9, mistral:codestral-2508 5 | - | - |
+| boltons_strutils | groq:gpt-oss-120b 5, nim:nemotron-3-ultra 4, ollama:nemotron-3-ultra 3 | mistral:codestral-2508 32, nim:nemotron-3-super-120b 7, ollama:gpt-oss:120b 2 | mistral:codestral-2508 33, nim:nemotron-3-super-120b 6, ollama:gpt-oss:120b 2 | - | mistral:ministral-14b-2512 10, zai:glm-4.5-flash 9, gemini:gemini-3.5-flash-lite 5, cloudflare:gpt-oss-20b 5, groq:gpt-oss-20b 4, ollama:gpt-oss:20b 2 |
+| jmespath_lexer | ollama:nemotron-3-ultra 1 | ollama:gpt-oss:120b 4 | nim:nemotron-3-super-120b 11, ollama:gpt-oss:120b 10, mistral:codestral-2508 7 | - | mistral:ministral-14b-2512 1 |
+| semver_version | ollama:nemotron-3-ultra 2, groq:gpt-oss-120b 1 | mistral:codestral-2508 28, nim:nemotron-3-super-120b 7, ollama:gpt-oss:120b 2 | mistral:codestral-2508 17, nim:nemotron-3-super-120b 5, ollama:gpt-oss:120b 4 | - | mistral:ministral-14b-2512 8, zai:glm-4.5-flash 7, gemini:gemini-3.5-flash-lite 5, cloudflare:gpt-oss-20b 5, groq:gpt-oss-20b 2, ollama:gpt-oss:20b 2 |
+| boltons_iterutils | groq:gpt-oss-120b 6, nim:nemotron-3-ultra 5, ollama:nemotron-3-ultra 2 | nim:nemotron-3-super-120b 19, mistral:codestral-2508 15, gemini:gemini-2.5-flash 9, ollama:gpt-oss:120b 6 | - | - | mistral:ministral-14b-2512 8, gemini:gemini-3.5-flash-lite 7, cloudflare:gpt-oss-20b 7, groq:gpt-oss-20b 4, ollama:gpt-oss:20b 3, zai:glm-4.5-flash 3 |
+| dateutil_relativedelta | nim:nemotron-3-ultra 5, groq:gpt-oss-120b 2, ollama:nemotron-3-ultra 1 | mistral:codestral-2508 12, nim:nemotron-3-super-120b 11, ollama:gpt-oss:120b 5 | mistral:codestral-2508 27, nim:nemotron-3-super-120b 14, ollama:gpt-oss:120b 5 | - | mistral:ministral-14b-2512 4, groq:gpt-oss-20b 2 |
+| tabulate | nim:nemotron-3-ultra 1 | ollama:gpt-oss:120b 4, nim:nemotron-3-super-120b 3 | nim:nemotron-3-super-120b 21, mistral:codestral-2508 8, ollama:gpt-oss:120b 8 | - | mistral:ministral-14b-2512 8, groq:gpt-oss-20b 4 |
+
+Runs recorded before the role-aware quota strategy used no `fixer_final` chain.
 
 ## How to read this
 

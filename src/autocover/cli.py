@@ -210,7 +210,7 @@ def usage(config: Path = ConfigOpt) -> None:
     models = sorted({m for chain in cfg.llm.roles.values() for m in chain})
     typer.echo("usage for the current quota day of each provider\n")
     typer.echo(f"{'model':<48} {'day':<11} {'requests':>8} {'rpd cap':>8} {'tokens':>9}  "
-               "rpm/tpm")
+               "rpm/tpm  by role (used/reserved)")
     for model in models:
         tz = cfg.llm.limits_for(provider_of(model)).quota_timezone
         day = datetime.now(ZoneInfo(tz)).date().isoformat()
@@ -219,7 +219,12 @@ def usage(config: Path = ConfigOpt) -> None:
         cap = str(lim.rpd) if lim.rpd else "-"
         flag = "  CAP REACHED" if lim.rpd and req >= lim.rpd else ""
         rate = "/".join(f"{v:g}" if v else "-" for v in (lim.rpm, lim.tpm))
-        typer.echo(f"{model:<48} {day:<11} {req:>8} {cap:>8} {tok:>9}  {rate}{flag}")
+        by_role = ledger.role_requests(day, model)
+        roles = ", ".join(
+            f"{r} {by_role.get(r, 0)}" + (f"/{lim.reserve[r]}" if r in lim.reserve else "")
+            for r in sorted(set(by_role) | set(lim.reserve)))
+        typer.echo(f"{model:<48} {day:<11} {req:>8} {cap:>8} {tok:>9}  {rate:<8} "
+                   f"{roles}{flag}")
     ledger.close()
 
 

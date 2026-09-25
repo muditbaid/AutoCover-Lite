@@ -7,27 +7,42 @@ llm:
   # "-latest" aliases): aliases move without notice, and free-tier quotas are metered per
   # model version, so a silent alias change would also change the limits.
   roles:
+    # Quota strategy: scarce strong models go where one call matters most. The benchmark
+    # showed bulk Generator calls using up Gemini's 18/day before the Preparer or the
+    # Fixer could use them, leaving 73% of generation and repair on the weakest models.
+    # So Gemini Flash serves only the Preparer (~5 calls per run, shapes the whole run)
+    # and the last repair attempt (`fixer_final`), with its daily cap reserved between
+    # them (see `reserve` below); bulk roles use high-volume models.
     # Same model on two providers (e.g. Nemotron 3 Super on NVIDIA NIM and Ollama Cloud)
     # means two independent quotas for one quality level.
-    generator:                        # ordered by bench/results/model_bakeoff.md
-      - ollama_chat/gpt-oss:120b      # 100% pass, 9s
-      - gemini/gemini-3.5-flash       # 100% pass, 7s, but 18/day
-      - gemini/gemini-2.5-flash       # 100% pass, 17s, separate 18/day
+    generator:                        # bulk: ~50 parallel calls in round 1
+      - ollama_chat/gpt-oss:120b      # 100% pass, 9s (bench/results/model_bakeoff.md)
       - cloudflare/@cf/nvidia/nemotron-3-120b-a12b   # 75%, 11s, 25/day
       # Codestral before NIM: in the 9-subject benchmark NIM's Nemotron averaged 30-60s
       # per call (up to 150s) for a pass rate close to Codestral's 2-4s calls.
       - mistral/codestral-2508        # 53%, 5s, high volume
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
-    fixer:                            # same order as the Generator
+    fixer:                            # first repair attempts: bulk, same order
       - ollama_chat/gpt-oss:120b
-      - gemini/gemini-3.5-flash
+      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
+      - mistral/codestral-2508
+      - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+    fixer_final:                      # the last attempt before a test is frozen
+      - gemini/gemini-2.5-flash       # 100% pass; 6/day reserved for this role
+      - gemini/gemini-3.5-flash       # 100% pass; 12/day reserved for this role
+      - ollama_chat/gpt-oss:120b
       - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
       - mistral/codestral-2508
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
     preparer:                         # few calls per run, so reasoning quality matters most
+      # Gemini first: fast (7-17s) where Nemotron Ultra took 50-120s per call and cut
+      # planning short on 3 of 9 benchmark subjects. 2.5 before 3.5: on 2026-09-25 3.5
+      # Flash answered only 503 "high demand". Not yet compared on planning quality (a
+      # Preparer bake-off is pending).
+      - gemini/gemini-2.5-flash       # 12/day reserved for this role
+      - gemini/gemini-3.5-flash       # 6/day reserved for this role
       - ollama_chat/nemotron-3-ultra  # same model as NIM; answered in 10-20s when NIM took 230s
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
-      - gemini/gemini-3.5-flash
       - groq/openai/gpt-oss-120b
     judge:                            # many short calls: needs request/token headroom
       - groq/openai/gpt-oss-20b
@@ -46,9 +61,12 @@ llm:
     mistral/codestral-2508: { rpm: 110, tpm: 560000 }             # 125 RPM, 625K TPM
     mistral/ministral-14b-2512: { rpm: 27, tpm: 840000 }          # 30 RPM, 937K TPM
     # Gemini free tier: every Flash version has its own 5 RPM / 250K TPM / 20 RPD quota;
-    # Flash-Lite 15 RPM / 250K TPM / 500 RPD. 20/day is why Flash is only a last resort.
-    gemini/gemini-3.5-flash: { rpm: 4, tpm: 225000, rpd: 18 }
-    gemini/gemini-2.5-flash: { rpm: 4, tpm: 225000, rpd: 18 }
+    # Flash-Lite 15 RPM / 250K TPM / 500 RPD.
+    # Each Flash version's 18/day is split between the two roles that use it (nothing
+    # left to share), so neither can starve the other.
+    # A 503 on a capped model is not retried: each attempt spends this quota too.
+    gemini/gemini-2.5-flash: { rpm: 4, tpm: 225000, rpd: 18, reserve: { preparer: 12, fixer_final: 6 } }
+    gemini/gemini-3.5-flash: { rpm: 4, tpm: 225000, rpd: 18, reserve: { fixer_final: 12, preparer: 6 } }
     gemini/gemini-3.5-flash-lite: { rpm: 13, tpm: 225000, rpd: 450 }
     # NVIDIA NIM meters the whole account (see providers.nvidia_nim), not each model.
     openrouter/nvidia/nemotron-3-super-120b-a12b:free: { rpd: 45 }  # key: 50/day total
@@ -81,6 +99,7 @@ llm:
   #   Cerebras: gpt-oss-120b, qwen-3.8-27b ("payment required"); older models archived
   #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"
   #   (and each 503 retry still counts against that version's 20/day quota)
+  runs_per_day: null       # e.g. 9: each run gets 1/9 of every daily cap (the benchmark sets it)
   max_queue_wait_s: 15   # longer expected wait -> try the next model (all longer: shortest wins)
   temperature: 0.2
   timeout_s: 120

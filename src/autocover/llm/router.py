@@ -3,8 +3,10 @@
 Each agent role maps to an ordered fallback chain of LiteLLM model ids. For every call
 the router walks the chain and, per model:
 
-* skips it if its provider has no API key, its circuit breaker is open, or its
-  requests-per-day cap is used up (counted in a persistent usage ledger);
+* skips it if its provider has no API key, its circuit breaker is open, its
+  requests-per-day cap is used up (counted in a persistent usage ledger), this run's
+  share of that cap is used up (`runs_per_day`), or what is left is reserved for other
+  roles (`reserve`);
 * serves an exact-match reply from the SQLite cache when possible;
 * defers it if its per-model RPM / TPM buckets (or the provider-wide RPM bucket, or the
   queue for the provider's concurrency slots) would make the call wait longer than
@@ -25,6 +27,7 @@ This mirrors AutoCover's multi-level fallbacks, adaptive concurrency and circuit
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import random
 import re
@@ -107,6 +110,12 @@ def is_timeout(exc: BaseException) -> bool:
     status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
     return (isinstance(exc, (asyncio.TimeoutError, TimeoutError)) or status == 408
             or "Timeout" in type(exc).__name__)
+
+
+def is_overloaded(exc: BaseException) -> bool:
+    """The provider is out of capacity for this model right now (503 / 529)."""
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    return status in (503, 529) or "ServiceUnavailable" in type(exc).__name__
 
 
 def is_retryable(exc: BaseException) -> bool:
@@ -219,6 +228,7 @@ class LLMRouter:
         self.usage = usage or UsageLedger(":memory:")
         self._today = today or (lambda tz: datetime.now(ZoneInfo(tz)).date().isoformat())
         self._exhausted: set[tuple[str, str]] = set()  # (quota day, model) told "daily quota"
+        self._run_requests: dict[tuple[str, str], int] = {}  # (model, role) -> this run
         self.telemetry = telemetry or Telemetry()
         self._completion_fn = completion_fn
         self._require_keys = require_keys
@@ -234,6 +244,9 @@ class LLMRouter:
         self._buckets: dict[tuple[str, str], TokenBucket] = {}  # (scope, name) -> bucket
 
     # -- public API ---------------------------------------------------------------
+
+    def has_role(self, role: str) -> bool:
+        return bool(self.config.roles.get(role))
 
     def chain(self, role: str) -> list[str]:
         try:
@@ -278,9 +291,10 @@ class LLMRouter:
             if self.breaker.is_open(model):
                 errors.append(f"{model}: circuit open")
                 continue
-            if self._daily_cap_reached(model):
-                errors.append(f"{model}: daily request cap reached")
-                self.telemetry.event("llm", "skip_daily_cap", role=role, model=model)
+            if blocked := self._quota_block(model, role):
+                reason, event = blocked
+                errors.append(f"{model}: {reason}")
+                self.telemetry.event("llm", event, role=role, model=model)
                 continue
             key = cache_key(model, messages, params)
             if use_cache and self.cache and (hit := self.cache.get(key)):
@@ -348,7 +362,7 @@ class LLMRouter:
         self._queued[provider] = self._queued.get(provider, 0) + 1
         try:
             resp = await self._call_with_retries(model, messages, params, est_tokens,
-                                                 reservation, deadline)
+                                                 reservation, deadline, role=role)
         except DeadlineReached:
             errors.append(f"{model}: deadline reached")
             self._deadline_failure(role, errors)
@@ -371,7 +385,7 @@ class LLMRouter:
     async def _call_with_retries(
         self, model: str, messages: list[dict[str, Any]], params: dict[str, Any],
         est_tokens: int, reservation: list[tuple[TokenBucket, float]] | None = None,
-        deadline: float | None = None,
+        deadline: float | None = None, role: str | None = None,
     ) -> LLMResponse:
         provider = provider_of(model)
         attempts = self.config.retries + 1
@@ -401,7 +415,10 @@ class LLMRouter:
                             await bucket.acquire(amount)
                         settle()
                         self._running[provider] = self._running.get(provider, 0) + 1
-                        self.usage.record(self._day(model), model)  # every attempt counts
+                        # Every attempt counts, as it does for the provider.
+                        self.usage.record(self._day(model), model, role=role)
+                        key = (model, role or "")
+                        self._run_requests[key] = self._run_requests.get(key, 0) + 1
                         start = self._clock()
                         timeout = self.config.timeout_s
                         if (left := self._left(deadline)) is not None:
@@ -423,6 +440,12 @@ class LLMRouter:
                         # next model in the chain is the better bet.
                         self.breaker.record_failure(model)
                         self.telemetry.event("llm", "timeout", model=model)
+                        raise
+                    if is_overloaded(exc) and self.config.model_limits(model).rpd:
+                        # Every attempt spends daily quota (Gemini's 503 "high demand"
+                        # retries used up a whole day's 18 requests without one answer).
+                        self.breaker.record_failure(model)
+                        self.telemetry.event("llm", "overloaded", model=model)
                         raise
                     if is_retryable(exc) and attempt < attempts - 1:
                         pause = self._backoff(attempt)
@@ -517,12 +540,31 @@ class LLMRouter:
         """Current quota day for `model`, in its provider's reset time zone."""
         return self._today(self.config.limits_for(provider_of(model)).quota_timezone)
 
-    def _daily_cap_reached(self, model: str) -> bool:
+    def _quota_block(self, model: str, role: str) -> tuple[str, str] | None:
+        """Why `role` may not call `model` now, as (reason, telemetry event), or None.
+
+        Checked against today's ledger, and with `runs_per_day` also against this run's
+        slice of the day (the cap and each reservation divided by the number of runs)."""
         day = self._day(model)
         if (day, model) in self._exhausted:
-            return True
-        rpd = self.config.model_limits(model).rpd
-        return rpd is not None and self.usage.requests(day, model) >= rpd
+            return "daily request cap reached", "skip_daily_cap"
+        limits = self.config.model_limits(model)
+        if limits.rpd is None:
+            return None
+        daily = _share_block(limits.rpd, limits.reserve, self.usage.requests(day, model),
+                             self.usage.role_requests(day, model), role)
+        if daily == "cap":
+            return "daily request cap reached", "skip_daily_cap"
+        if daily == "reserved":
+            return "rest of the daily cap is reserved for other roles", "skip_reserved"
+        if runs := self.config.runs_per_day:
+            reserve = {r: math.ceil(n / runs) for r, n in limits.reserve.items()}
+            cap = max(math.ceil(limits.rpd / runs), sum(reserve.values()))
+            by_role = {r: n for (m, r), n in self._run_requests.items() if m == model}
+            if _share_block(cap, reserve, sum(by_role.values()), by_role, role):
+                return f"this run's share of the daily cap is used ({runs} runs/day)", \
+                    "skip_run_share"
+        return None
 
     def _bucket(self, scope: str, name: str, per_minute: float,
                 capacity: float | None = None) -> TokenBucket:
@@ -538,6 +580,22 @@ class LLMRouter:
             fallbacks=resp.fallbacks, prompt_tokens=resp.prompt_tokens,
             completion_tokens=resp.completion_tokens, latency_s=round(resp.latency_s, 3),
         )
+
+
+def _share_block(cap: int, reserve: dict[str, int], used: int, by_role: dict[str, int],
+                 role: str) -> str | None:
+    """"cap" if `cap` requests are used, "reserved" if `role` may not use the rest, else
+    None. A role with a reservation spends it first, then the shared pool (cap minus all
+    reservations); roles without one only use the shared pool. Requests not attributed
+    to a role count against the shared pool."""
+    if used >= cap:
+        return "cap"
+    if reserve and by_role.get(role, 0) >= reserve.get(role, 0):
+        pool = cap - sum(reserve.values())
+        spent = used - sum(min(n, reserve.get(r, 0)) for r, n in by_role.items())
+        if spent >= pool:
+            return "reserved"
+    return None
 
 
 def estimate_tokens(messages: list[dict[str, Any]], max_tokens: int | None) -> int:

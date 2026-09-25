@@ -38,6 +38,9 @@ def bench_config(args):
     cfg.run.budget_min = args.budget_min
     cfg.run.max_rounds = args.max_rounds
     cfg.run.max_llm_calls = args.max_llm_calls
+    # One benchmark day = one AutoCover-Lite run per subject: each gets an equal slice of
+    # every daily cap, so the first subjects cannot use up the strong models.
+    cfg.llm.runs_per_day = getattr(args, "runs_per_day", None)
     cfg.telemetry.jsonl_path = str(ROOT / ".autocover" / "bench_telemetry.jsonl")
     cfg.telemetry.runs_dir = str(ROOT / ".autocover" / "bench_runs")
     cfg.llm.cache.path = str(ROOT / ".autocover" / "llm_cache.sqlite")
@@ -71,7 +74,13 @@ async def bench_autocover(subject: dict, args) -> dict:
     events = [e for e in runtime.telemetry.events if e.get("ts", 0) >= t0]
     llm = [e for e in events if e.get("stage") == "llm" and e.get("event") == "completion"
            and not e.get("cached")]
+    by_role: dict[str, dict[str, int]] = {}
+    for e in llm:
+        role = by_role.setdefault(e["role"], {})
+        role[e["model"]] = role.get(e["model"], 0) + 1
     summary.update({
+        "llm_by_role": by_role,  # role -> model -> calls
+        "runs_per_day": cfg.llm.runs_per_day,
         "curve": coverage_curve(events, t0),
         "llm_calls": len(llm),
         "llm_tokens": sum(e["prompt_tokens"] + e["completion_tokens"] for e in llm),
@@ -109,8 +118,12 @@ async def main() -> None:
     parser.add_argument("--max-rounds", type=int, default=10)
     parser.add_argument("--max-llm-calls", type=int, default=200)
     parser.add_argument("--baseline-samples", type=int, default=3)
+    parser.add_argument("--runs-per-day", type=int, default=len(load_subjects(None)),
+                        help="split daily LLM caps over this many runs (default: one per "
+                             "subject); 0 = no split")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    args.runs_per_day = args.runs_per_day or None
     load_dotenv(ROOT / ".env")
     RESULTS.mkdir(parents=True, exist_ok=True)
     for subject in load_subjects(args.subjects):

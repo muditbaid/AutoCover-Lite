@@ -187,5 +187,18 @@
     "line_pct": 100.0,
     "branch_pct": 95.5,
     "lines": "128/128"
+  },
+  "llm_by_role": {
+    "preparer": {
+      "ollama_chat/nemotron-3-ultra": 1
+    },
+    "generator": {
+      "ollama_chat/gpt-oss:120b": 5
+    },
+    "fixer": {
+      "mistral/codestral-2508": 5,
+      "ollama_chat/gpt-oss:120b": 9,
+      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 17
+    }
   }
 }

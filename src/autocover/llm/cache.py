@@ -55,7 +55,8 @@ class ResponseCache:
 
 
 class UsageLedger:
-    """Requests sent per (UTC day, model), persisted so daily caps survive restarts.
+    """Requests sent per (quota day, model), and per role, persisted so daily caps and
+    role reservations survive restarts.
 
     Every HTTP attempt counts (including failed ones), because providers count them too.
     """
@@ -72,16 +73,37 @@ class UsageLedger:
                 " day TEXT, model TEXT, requests INTEGER, tokens INTEGER,"
                 " PRIMARY KEY (day, model))"
             )
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS role_usage ("
+                " day TEXT, model TEXT, role TEXT, requests INTEGER,"
+                " PRIMARY KEY (day, model, role))"
+            )
             self._conn.commit()
 
-    def record(self, day: str, model: str, requests: int = 1, tokens: int = 0) -> None:
+    def record(self, day: str, model: str, requests: int = 1, tokens: int = 0,
+               role: str | None = None) -> None:
         with self._lock:
             self._conn.execute(
                 "INSERT INTO usage VALUES (?, ?, ?, ?) ON CONFLICT(day, model) DO UPDATE SET"
                 " requests = requests + excluded.requests, tokens = tokens + excluded.tokens",
                 (day, model, requests, tokens),
             )
+            if role and requests:
+                self._conn.execute(
+                    "INSERT INTO role_usage VALUES (?, ?, ?, ?) ON CONFLICT(day, model, role)"
+                    " DO UPDATE SET requests = requests + excluded.requests",
+                    (day, model, role, requests),
+                )
             self._conn.commit()
+
+    def role_requests(self, day: str, model: str) -> dict[str, int]:
+        """Requests to `model` on `day`, per role (requests recorded without a role are
+        not included)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT role, requests FROM role_usage WHERE day = ? AND model = ?", (day, model)
+            ).fetchall()
+        return dict(rows)
 
     def requests(self, day: str, model: str) -> int:
         with self._lock:

@@ -13,8 +13,13 @@ def test_missing_file_gives_defaults(tmp_path):
 
 def test_repo_config_parses_roles_and_limits():
     cfg = load_config(ROOT / "config.yaml")
-    assert set(cfg.llm.roles) == {"generator", "fixer", "preparer", "judge"}
+    assert set(cfg.llm.roles) == {"generator", "fixer", "fixer_final", "preparer", "judge"}
     assert all(cfg.llm.roles.values())
+    # Reservations fit in their model's daily cap and name roles that exist.
+    for model, limits in cfg.llm.models.items():
+        if limits.reserve:
+            assert limits.rpd and sum(limits.reserve.values()) <= limits.rpd, model
+            assert set(limits.reserve) <= set(cfg.llm.roles), model
     # Versions are pinned: no floating "-latest" aliases in any chain.
     assert not any("latest" in m for chain in cfg.llm.roles.values() for m in chain)
     # Groq's measured free-tier limits are per model; NIM's RPM is account-wide.

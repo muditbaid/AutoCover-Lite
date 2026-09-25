@@ -3,7 +3,8 @@
 Input is a candidate the Validator sent back, with the reason: pytest diagnostics, rule
 violations (with the registry's fix instructions), or the mutants its assertions let
 survive. The repaired test is a new candidate (attempt + 1, parent_id = original) that goes
-back through the Executor and the Validator. A repair identical to a version already tried
+back through the Executor and the Validator. The last allowed attempt uses the stronger
+`fixer_final` model chain. A repair identical to a version already tried
 freezes the test instead of looping; so does running out of attempts. Harmful repairs never
 reach the suite: every repaired test is re-validated on its own, and the finalize step
 re-checks the merged suite.
@@ -41,10 +42,11 @@ async def fix(ctx: RunContext, state: RunState) -> RunState:
 async def _fix_one(ctx: RunContext, cand: Candidate) -> Candidate | None:
     fn = ctx.module.function(cand.function)
     messages = fixer_messages(ctx.module, fn, cand.code, cand.test_name, cand.diagnostics)
+    role = fixer_role(ctx, cand)
     try:
-        resp = await ctx.router.complete("fixer", messages,
+        resp = await ctx.router.complete(role, messages,
                                          max_tokens=ctx.config.run.generator_max_tokens,
-                                         deadline=llm_deadline(ctx, "fixer"))
+                                         deadline=llm_deadline(ctx, role))
     except AllModelsFailed as exc:
         return _freeze(ctx, cand, f"fixer unavailable: {str(exc)[:120]}")
     code = extract_code(resp.text)
@@ -64,6 +66,13 @@ async def _fix_one(ctx: RunContext, cand: Candidate) -> Candidate | None:
         scenario_id=cand.scenario_id, code=source, round=cand.round, model=resp.model,
         attempt=cand.attempt + 1, parent_id=cand.id,
         replaces=cand.test_name if cand.status == "accepted" else cand.replaces)
+
+
+def fixer_role(ctx: RunContext, cand: Candidate) -> str:
+    """The last repair before a test is frozen goes to the `fixer_final` chain (strong
+    models whose scarce quota is reserved for it), when one is configured."""
+    last = cand.attempt + 1 >= ctx.config.run.max_fix_attempts
+    return "fixer_final" if last and ctx.router.has_role("fixer_final") else "fixer"
 
 
 def _freeze(ctx: RunContext, cand: Candidate, why: str) -> None:

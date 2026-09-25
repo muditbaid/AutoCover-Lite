@@ -76,6 +76,16 @@ def metrics(result: dict | None) -> dict:
             "extra": f"median of {len(result.get('samples', [1]))} samples"}
 
 
+PROVIDER_LABEL = {"ollama_chat": "ollama", "nvidia_nim": "nim"}
+
+
+def model_label(model: str) -> str:
+    """`provider:model` without version suffixes, e.g. `groq:gpt-oss-20b`."""
+    provider, _, rest = model.partition("/")
+    name = rest.rsplit("/", 1)[-1].split("-a12b")[0].split("-550b")[0].split("-120b-")[0]
+    return f"{PROVIDER_LABEL.get(provider, provider)}:{name}"
+
+
 def pair(b: float, a: float) -> str:
     """`b -> a` with the higher value in bold (neither on a tie)."""
     fb, fa = (f"**{b}**", str(a)) if b > a else (str(b), f"**{a}**") if a > b else (b, a)
@@ -268,6 +278,19 @@ def main() -> None:
         md.append("\nNot shown for runs made before per-test coverage was counted in "
                   "statements: their in-run curves also counted continuation and docstring "
                   "lines, so they are not comparable with the final numbers.")
+    mixed = [(name, raw["llm_by_role"]) for name, _, _, a, raw in rows
+             if a["ok"] and raw and raw.get("llm_by_role")]
+    if mixed:
+        md += ["", "## Models used by AutoCover-Lite (calls per role)\n",
+               "| Subject | Preparer | Generator | Fixer | Fixer (last attempt) | Judge |",
+               "|---|---|---|---|---|---|"]
+        for name, by_role in mixed:
+            cells = [", ".join(f"{model_label(m)} {n}" for m, n in sorted(
+                by_role.get(role, {}).items(), key=lambda kv: -kv[1])) or "-"
+                for role in ("preparer", "generator", "fixer", "fixer_final", "judge")]
+            md.append(f"| {name} | " + " | ".join(cells) + " |")
+        md.append("\nRuns recorded before the role-aware quota strategy used no "
+                  "`fixer_final` chain.")
     md += ["", "## How to read this\n",
            "- **Baseline**: the same Generator model chain and test-writing rules, one call "
            "for the whole module, failing tests dropped; the median of 3 samples is shown.",

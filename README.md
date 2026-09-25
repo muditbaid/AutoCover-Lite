@@ -160,9 +160,10 @@ in `config.yaml`):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
-| Generator | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Gemini 2.5 Flash -> Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NVIDIA NIM) |
-| Fixer | GPT-OSS 120B (Ollama Cloud) | Gemini 3.5 Flash -> Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NIM) |
-| Preparer | Nemotron 3 Ultra (Ollama Cloud) | Nemotron 3 Ultra (NIM) -> Gemini 3.5 Flash -> GPT-OSS 120B (Groq) |
+| Preparer | Gemini 2.5 Flash | Gemini 3.5 Flash -> Nemotron 3 Ultra (Ollama Cloud) -> Nemotron 3 Ultra (NIM) -> GPT-OSS 120B (Groq) |
+| Generator | GPT-OSS 120B (Ollama Cloud) | Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NVIDIA NIM) |
+| Fixer, first attempts | GPT-OSS 120B (Ollama Cloud) | same as the Generator |
+| Fixer, last attempt (`fixer_final`) | Gemini 2.5 Flash | Gemini 3.5 Flash -> then the Generator chain |
 | Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
 
 Codestral sits ahead of NIM's Nemotron because, across the 9 benchmark subjects, NIM
@@ -181,9 +182,38 @@ cached scenarios; results in `bench/results/model_bakeoff.md`):
 That's one small module, so treat it as a first signal. Milestone 5 reruns it on 9 subjects.
 
 The same model on several providers (Nemotron 3 Super on NVIDIA NIM, Ollama Cloud and
-Cloudflare) gives independent quotas at one quality level. Gemini Flash sits late in every chain because the free tier
-allows only **20 requests per day per Flash version**. NVIDIA NIM has no daily cap (~40 RPM
-for the account).
+Cloudflare) gives independent quotas at one quality level. NVIDIA NIM has no daily cap
+(~40 RPM for the account).
+
+### Quota strategy: strong models where one call matters most
+
+The strongest free models are also the scarcest: each Gemini Flash version allows **20
+requests per day**. The benchmark showed what happens when every role simply tries them
+first: bulk Generator calls (about 50 in parallel in round 1) used them up, retries on 503
+"high demand" answers spent the rest, and **73% of all generation and repair calls ran on
+the two weakest models** while the Preparer, the stage that shapes the whole run, never
+reached Gemini. Now:
+
+| Role | Calls per run | Leverage | Models |
+|---|---|---|---|
+| Preparer | ~5 | Highest: the plan drives every round | Gemini Flash first (reserved share) |
+| Generator | ~50 | Medium: every test is validated and repaired | High-volume models |
+| Fixer, first attempts | many | Medium | High-volume models |
+| Fixer, last attempt | few | High: the last chance before a test is frozen | Gemini Flash first (reserved share) |
+| Judge | many, short | Low | Small fast models |
+
+- **Reservations** (`models.<id>.reserve` in `config.yaml`): part of a model's daily cap
+  held for named roles; other roles share what is left. Both Gemini Flash versions are
+  split between the Preparer and the Fixer's last attempt, with nothing left to share.
+  The usage ledger records every request per role.
+- **Per-run slices** (`llm.runs_per_day`): each run gets an equal slice of every daily
+  cap and of every reservation, so the first run of the day cannot use up the strong
+  models. The benchmark sets it to one run per subject.
+- **No retries that spend quota:** a 503 from a model with a daily cap moves on to the
+  next model at once.
+- `autocover usage` shows today's requests per model and per role against caps and
+  reservations; benchmark results record calls per role and model (see
+  [`results.md`](bench/results/results.md)).
 
 Free tiers can use your prompts for training (Mistral's free plan requires opting in, and
 Google does outside the EU/UK), so only point this tool at code you are allowed to share.

@@ -239,5 +239,26 @@
     "line_pct": 98.8,
     "branch_pct": 95.5,
     "lines": "80/81"
+  },
+  "llm_by_role": {
+    "preparer": {
+      "ollama_chat/nemotron-3-ultra": 2,
+      "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": 3
+    },
+    "generator": {
+      "ollama_chat/gpt-oss:120b": 7,
+      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 5,
+      "gemini/gemini-2.5-flash": 6
+    },
+    "judge": {
+      "groq/openai/gpt-oss-20b": 11,
+      "mistral/ministral-14b-2512": 10,
+      "cloudflare/@cf/openai/gpt-oss-20b": 5,
+      "gemini/gemini-3.5-flash-lite": 5,
+      "ollama_chat/gpt-oss:20b": 2
+    },
+    "fixer": {
+      "ollama_chat/gpt-oss:120b": 7
+    }
   }
 }
