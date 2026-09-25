@@ -1,0 +1,173 @@
+{
+  "target": "jmespath/lexer.py",
+  "test_path": "tests/test_lexer_autocover.py",
+  "rounds": 4,
+  "baseline": {
+    "line_pct": 13.7,
+    "branch_pct": 0.0,
+    "lines_covered": 19,
+    "lines_total": 139,
+    "branches_covered": 0,
+    "branches_total": 58
+  },
+  "final": {
+    "line_pct": 82.7,
+    "branch_pct": 100.0,
+    "lines_covered": 139,
+    "lines_total": 168,
+    "branches_covered": 58,
+    "branches_total": 58
+  },
+  "mutation": {
+    "killed": 63,
+    "total": 67,
+    "score_pct": 94.0,
+    "reused_kills": 34,
+    "survivors": [
+      "line 160 (Lexer._consume_literal): '`' -> ''",
+      "line 195 (Lexer._consume_raw_string_literal): - -> +",
+      "line 23 (None): '}' -> ''",
+      "line 22 (None): 'lbrace' -> ''"
+    ]
+  },
+  "tests_in_suite": 22,
+  "candidates": 64,
+  "accepted": 22,
+  "accepted_by": {
+    "coverage": 20,
+    "scenario": 1,
+    "mutants": 1
+  },
+  "accepted_after_fix": 12,
+  "sent_to_fixer": 23,
+  "rejected_no_signal": 13,
+  "frozen": 6,
+  "superseded": 0,
+  "weak_kept": 0,
+  "failed": 23,
+  "rule_violations": {},
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "no gaps left",
+  "llm_budget": {
+    "calls": 34,
+    "tokens": 172760,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 6,
+  "scenarios_covered": 6,
+  "llm": {
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 1,
+      "tokens": 2398,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 14,
+      "tokens": 77185,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 1,
+      "tokens": 1253,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 7,
+      "tokens": 20150,
+      "roles": [
+        "fixer"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 11,
+      "tokens": 71774,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import warnings\n\nimport pytest\nfrom jmespath.exceptions import EmptyExpressionError, LexerError\nfrom jmespath.lexer import EmptyExpressionError, Lexer, LexerError\n\n\ndef _collect_tokens(expr):\n    \"\"\"Utility to collect all tokens from Lexer.tokenize.\"\"\"\n    lexer = Lexer()\n    return list(lexer.tokenize(expr))\n\n\ndef test_Lexer_tokenize__numbers_positive_negative():\n    \"\"\"Positive and negative integer literals are tokenized with correct int values.\"\"\"\n    expr = \"123 -45 0\"\n    tokens = _collect_tokens(expr)\n\n    expected = [\n        {\"type\": \"number\", \"value\": 123, \"start\": 0, \"end\": 3},\n        {\"type\": \"number\", \"value\": -45, \"start\": 4, \"end\": 7},\n        {\"type\": \"number\", \"value\": 0, \"start\": 8, \"end\": 9},\n        {\"type\": \"eof\", \"value\": \"\", \"start\": 9, \"end\": 9},\n    ]\n\n    assert tokens == expected\n\n\ndef test_Lexer_tokenize__bracket_variants():\n    \"\"\"Test distinct handling of '[', '[]', and '[?' token patterns.\"\"\"\n    # Flatten token\n    flatten = _collect_tokens(\"[]\")\n    assert flatten == [\n        {\"type\": \"flatten\", \"value\": \"[]\", \"start\": 0, \"end\": 2},\n        {\"type\": \"eof\", \"value\": \"\", \"start\": 2, \"end\": 2},\n    ]\n\n    # Filter token\n    filter_tok = _collect_tokens(\"[?\")\n    assert filter_tok == [\n        {\"type\": \"filter\", \"value\": \"[?\", \"start\": 0, \"end\": 2},\n        {\"type\": \"eof\", \"value\": \"\", \"start\": 2, \"end\": 2},\n    ]\n\n    # Lone left bracket token\n    lbracket = _collect_tokens(\"[\")\n    assert lbracket == [\n        {\"type\": \"lbracket\", \"value\": \"[\", \"start\": 0, \"end\": 1},\n        {\"type\": \"eof\", \"value\": \"\", \"start\": 1, \"end\": 1},\n    ]\n\n\ndef test_Lexer_tokenize__unknown_token_error():\n    \"\"\"Encountering an invalid character should raise LexerError with correct info.\"\"\"\n    lexer = Lexer()\n    with pytest.raises(LexerError) as excinfo:\n        list(lexer.tokenize(\"#\"))\n    err = excinfo.value\n    # The error should report position 0 and the offending character '#'.\n    assert err.lexer_position == 0\n    assert err.lexer_value == \"#\"\n    assert \"Unknown token\" in err.message\n\n\ndef test_Lexer_tokenize__empty_expression():\n    \"\"\"Empty string should raise EmptyExpressionError (initialization guard).\"\"\"\n    lexer = Lexer()\n    with pytest.raises(EmptyExpressionError):\n        list(lexer.tokenize(\"\"))\n\n\ndef test_Lexer_tokenize__simple_tokens_and_identifiers():\n    \"\"\"\n    Expression with simple tokens and unquoted identifiers yields the correct\n    sequence with proper start/end positions.\n    \"\"\"\n    expr = \".foo,bar:baz (qux)*@\"\n    tokens = _collect_tokens(expr)\n\n    expected = [\n        {\"type\": \"dot\", \"value\": \".\", \"start\": 0, \"end\": 1},\n        {\"type\": \"unquoted_identifier\", \"value\": \"foo\", \"start\": 1, \"end\": 4},\n        {\"type\": \"comma\", \"value\": \",\", \"start\": 4, \"end\": 5},\n        {\"type\": \"unquoted_identifier\", \"value\": \"bar\", \"start\": 5, \"end\": 8},\n        {\"type\": \"colon\", \"value\": \":\", \"start\": 8, \"end\": 9},\n        {\"type\": \"unquoted_identifier\", \"value\": \"baz\", \"start\": 9, \"end\": 12},\n        {\"type\": \"lparen\", \"value\": \"(\", \"start\": 13, \"end\": 14},\n        {\"type\": \"unquoted_identifier\", \"value\": \"qux\", \"start\": 14, \"end\": 17},\n        {\"type\": \"rparen\", \"value\": \")\", \"start\": 17, \"end\": 18},\n        {\"type\": \"star\", \"value\": \"*\", \"start\": 18, \"end\": 19},\n        {\"type\": \"current\", \"value\": \"@\", \"start\": 19, \"end\": 20},\n        {\"type\": \"eof\", \"value\": \"\", \"start\": 20, \"end\": 20},\n    ]\n\n    assert tokens == expected\n\n\ndef test_Lexer_tokenize__whitespace_only():\n    \"\"\"Whitespace-only expression yields only EOF token.\"\"\"\n    expr = \"   \\t\\n\"  # three spaces, a tab, and a newline \u2192 length 5\n    tokens = _collect_tokens(expr)\n    assert len(tokens) == 1\n    eof = tokens[0]\n    assert eof[\"type\"] == \"eof\"\n    # start and end should equal the length of the expression (5 characters)\n    assert eof[\"start\"] == len(expr)\n    assert eof[\"end\"] == len(expr)\n    assert eof[\"value\"] == \"\"\n\n\ndef collect_tokens(expr):\n    \"\"\"Utility to collect all tokens from the lexer.\"\"\"\n    return list(Lexer().tokenize(expr))\n\n\ndef first_token(expr):\n    \"\"\"Return the first token (excluding eof) from the lexer.\"\"\"\n    tokens = collect_tokens(expr)\n    return tokens[0] if tokens else None\n\n\ndef test_tokenize__quoted_identifier_invalid_json():\n    # This string is syntactically a JSON string but contains an invalid escape,\n    # causing json.loads to raise a ValueError.\n    expr = r'\"invalid\\z\"'\n    with pytest.raises(LexerError) as exc:\n        list(Lexer().tokenize(expr))\n    assert exc.value.lexer_position == 0\n    assert \"Invalid\" in exc.value.message or \"Invalid\" in str(exc.value)\n\n\ndef test_tokenize__single_equal_error():\n    with pytest.raises(LexerError) as exc:\n        list(Lexer().tokenize(\"=\"))\n    # position should be 0 (since we never advanced)\n    assert exc.value.lexer_position == 0\n    assert exc.value.lexer_value == \"=\"\n    assert \"Unknown token\" in exc.value.message\n\n\ndef test_tokenize__negative_number_invalid():\n    with pytest.raises(LexerError) as exc:\n        list(Lexer().tokenize(\"-\"))\n    assert exc.value.lexer_position == 0\n    assert exc.value.lexer_value == \"-\"\n    assert \"Unknown token\" in exc.value.message\n\n\ndef test_consume_until_unclosed_delimiter():\n    lexer = Lexer()\n    # Directly invoke the private method to hit the unclosed\u2011delimiter path.\n    lexer._initialize_for_expression(\"`unclosed\")\n    with pytest.raises(LexerError) as exc:\n        lexer._consume_until(\"`\")\n    assert exc.value.lexer_position == 0\n    assert \"Unclosed `\" in exc.value.message\n\n\ndef test_tokenize__backtick_literal_deprecated_string():\n    with warnings.catch_warnings(record=True) as w:\n        warnings.simplefilter(\"always\")\n        token = first_token(\"`foo`\")\n        # a deprecation warning should be emitted\n        assert any(\n            issubclass(warn.category, PendingDeprecationWarning)\n            for warn in w\n        )\n    assert token == {\n        \"type\": \"literal\",\n        \"value\": \"foo\",\n        \"start\": 0,\n        \"end\": 4,\n    }\n\n\ndef test_tokenize__pipe_double():\n    token = first_token(\"||\")\n    assert token == {\n        \"type\": \"or\",\n        \"value\": \"||\",\n        \"start\": 0,\n        \"end\": 1,\n    }\n\n\ndef test_tokenize__raw_string_literal():\n    expr = \"'hello\\\\'world'\"\n    token = first_token(expr)\n    # The lexer reports the token length as the position after the opening quote\n    # up to (but not including) the final closing quote, i.e. len(expr) - 1.\n    expected_end = len(expr) - 1\n    assert token == {\n        \"type\": \"literal\",\n        \"value\": \"hello'world\",\n        \"start\": 0,\n        \"end\": expected_end,\n    }\n    # eof token present\n    assert collect_tokens(expr)[-1][\"type\"] == \"eof\"\n\n\ndef test_tokenize__ampersand_single():\n    token = first_token(\"&\")\n    assert token == {\n        \"type\": \"expref\",\n        \"value\": \"&\",\n        \"start\": 0,\n        \"end\": 0,\n    }\n\n\ndef test_tokenize__equality_operator():\n    token = first_token(\"==\")\n    assert token == {\n        \"type\": \"eq\",\n        \"value\": \"==\",\n        \"start\": 0,\n        \"end\": 1,\n    }\n\n\ndef test_tokenize__match_or_else_gte():\n    token = first_token(\">=\")\n    assert token == {\n        \"type\": \"gte\",\n        \"value\": \">=\",\n        \"start\": 0,\n        \"end\": 1,\n    }\n\n\ndef test_tokenize__quoted_identifier_valid():\n    token = first_token('\"name\"')\n    assert token == {\n        \"type\": \"quoted_identifier\",\n        \"value\": \"name\",\n        \"start\": 0,\n        \"end\": 5,\n    }\n\n\ndef collect_tokens_2(expr):\n    \"\"\"Helper to collect all tokens from Lexer.tokenize.\"\"\"\n    lexer = Lexer()\n    return list(lexer.tokenize(expr))\n\ndef test_tokenize__invalid_backtick_literal_error():\n    lexer = Lexer()\n    # Backtick literal containing an unmatched double quote cannot be parsed as JSON\n    expr = '`\"bad`'\n    with pytest.raises(LexerError) as excinfo:\n        list(lexer.tokenize(expr))\n    err = excinfo.value\n    # Lexer should report the start of the literal (position 0)\n    assert err.lexer_position == 0\n    # lexer_value should contain the whole remaining expression starting with backtick\n    assert err.lexer_value.startswith('`')\n    assert \"Bad token\" in err.message\n\n\ndef collect_tokens_3(expr):\n    \"\"\"Helper to collect all tokens from Lexer.tokenize.\"\"\"\n    lexer = Lexer()\n    return list(lexer.tokenize(expr))\n\ndef test_tokenize__lt_operator():\n    tokens = collect_tokens_3(\"<\")\n    # Expect a single 'lt' token followed by eof\n    assert tokens[0] == {\n        'type': 'lt',\n        'value': '<',\n        'start': 0,\n        'end': 0,  # end position as defined by Lexer implementation\n    }\n    assert tokens[1] == {\n        'type': 'eof',\n        'value': '',\n        'start': 1,\n        'end': 1,\n    }\n\n\ndef collect_tokens_4(expr):\n    \"\"\"Helper to collect all tokens from Lexer.tokenize.\"\"\"\n    lexer = Lexer()\n    return list(lexer.tokenize(expr))\n\ndef test_tokenize__not_operator():\n    tokens = collect_tokens_4(\"!\")\n    # Expect a single 'not' token followed by eof\n    assert tokens[0] == {\n        'type': 'not',\n        'value': '!',\n        'start': 0,\n        'end': 0,  # The lexer reports end equal to start for a solitary '!' token\n    }\n    assert tokens[1] == {\n        'type': 'eof',\n        'value': '',\n        'start': 1,\n        'end': 1,\n    }\n\n\ndef _tokens(expr):\n    \"\"\"Utility to collect all tokens from the lexer.\"\"\"\n    return list(Lexer().tokenize(expr))\n\n\ndef test_tokenize__single_equals_error_position():\n    \"\"\"\n    A solitary '=' should raise LexerError with the position set to the\n    index of the '=' character (self._position - 1 in the lexer).\n    \"\"\"\n    expr = \"a = b\"\n    lexer = Lexer()\n    with pytest.raises(LexerError) as excinfo:\n        list(lexer.tokenize(expr))\n    err = excinfo.value\n    # The '=' character is at index 2.\n    assert err.lexer_position == 2\n    assert err.lexer_value == \"=\"\n    assert \"Unknown token\" in err.message\n\n\ndef test_tokenize__not_equal_operator():\n    \"\"\"\n    Ensure the '!=' operator yields a token with type 'ne',\n    value '!=', and that the start/end positions follow the\n    implementation (end = start + 1).\n    \"\"\"\n    expr = \"a != b\"\n    toks = _tokens(expr)\n\n    # Expected sequence: identifier, ne, identifier, eof\n    assert toks[0][\"type\"] == \"unquoted_identifier\"\n    assert toks[0][\"value\"] == \"a\"\n    assert toks[0][\"start\"] == 0\n    assert toks[0][\"end\"] == 1\n\n    ne_tok = toks[1]\n    assert ne_tok[\"type\"] == \"ne\"\n    assert ne_tok[\"value\"] == \"!=\"\n    # Position of '!' is index 2 in the string.\n    assert ne_tok[\"start\"] == 2\n    # The lexer sets end to start + 1 (as per current implementation).\n    assert ne_tok[\"end\"] == 3\n\n    # The next identifier token should start after the space following '!='.\n    assert toks[2][\"type\"] == \"unquoted_identifier\"\n    assert toks[2][\"value\"] == \"b\"\n    assert toks[2][\"start\"] == 5\n    assert toks[2][\"end\"] == 6\n\n    # EOF token.\n    assert toks[-1][\"type\"] == \"eof\"",
+  "duration_s": 639.7,
+  "run_id": "b70abc253941",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      96.1,
+      54.4,
+      55.2
+    ],
+    [
+      118.1,
+      60.0,
+      62.1
+    ],
+    [
+      165.5,
+      79.2,
+      81.0
+    ],
+    [
+      370.7,
+      97.0,
+      94.8
+    ],
+    [
+      387.4,
+      97.0,
+      94.8
+    ],
+    [
+      406.4,
+      97.0,
+      94.8
+    ],
+    [
+      527.5,
+      99.4,
+      98.3
+    ],
+    [
+      544.7,
+      99.4,
+      98.3
+    ],
+    [
+      573.1,
+      100.0,
+      100.0
+    ],
+    [
+      612.3,
+      100.0,
+      100.0
+    ]
+  ],
+  "llm_calls": 34,
+  "llm_tokens": 172760,
+  "models": [
+    "mistral/codestral-2508",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/nemotron-3-ultra"
+  ],
+  "wall_s": 639.8,
+  "subject": "jmespath_lexer",
+  "level": "medium",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 20:21:27"
+}

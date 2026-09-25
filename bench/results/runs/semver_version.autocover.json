@@ -1,0 +1,207 @@
+{
+  "target": "semver/version.py",
+  "test_path": "tests/test_version_autocover.py",
+  "rounds": 1,
+  "baseline": {
+    "line_pct": 30.1,
+    "branch_pct": 0.0,
+    "lines_covered": 87,
+    "lines_total": 289,
+    "branches_covered": 0,
+    "branches_total": 96
+  },
+  "final": {
+    "line_pct": 84.8,
+    "branch_pct": 89.6,
+    "lines_covered": 273,
+    "lines_total": 322,
+    "branches_covered": 86,
+    "branches_total": 96
+  },
+  "mutation": {
+    "killed": 118,
+    "total": 150,
+    "score_pct": 78.7,
+    "reused_kills": 109,
+    "survivors": [
+      "line 57 (_comparator): return value -> None",
+      "line 47 (_comparator): 'Version' -> ''",
+      "line 65 (_comparator): return value -> None",
+      "line 40 (None): 'T_cmp' -> ''",
+      "line 294 (Version._increment_string): + -> -",
+      "line 295 (Version._increment_string): 1 -> 2",
+      "line 296 (Version._increment_string): + -> -",
+      "line 294 (Version._increment_string): 1 -> 2",
+      "line 296 (Version._increment_string): - -> +",
+      "line 299 (Version.bump_major): 'Version' -> ''",
+      "line 313 (Version.bump_minor): 'Version' -> ''",
+      "line 339 (Version.bump_patch): return value -> None",
+      "line 327 (Version.bump_patch): 'Version' -> ''",
+      "line 339 (Version.bump_patch): + -> -",
+      "line 339 (Version.bump_patch): 1 -> 2",
+      "line 345 (Version.bump_prerelease): 'Version' -> ''",
+      "line 407 (Version.bump_build): == -> !=",
+      "line 407 (Version.bump_build): '' -> 'XX'",
+      "line 408 (Version.bump_build): '0' -> ''",
+      "line 409 (Version.bump_build): is -> is not"
+    ]
+  },
+  "tests_in_suite": 81,
+  "candidates": 157,
+  "accepted": 81,
+  "accepted_by": {
+    "scenario": 28,
+    "coverage": 49,
+    "mutants": 4
+  },
+  "accepted_after_fix": 8,
+  "sent_to_fixer": 16,
+  "rejected_no_signal": 48,
+  "frozen": 12,
+  "superseded": 0,
+  "weak_kept": 0,
+  "failed": 9,
+  "rule_violations": {
+    "private_attribute_assertion": 13,
+    "literal_oracle": 22
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 95,
+    "tokens": 132017,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 64,
+  "scenarios_covered": 52,
+  "llm": {
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 2,
+      "tokens": 8141,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "groq/openai/gpt-oss-120b": {
+      "calls": 1,
+      "tokens": 4483,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 45,
+      "tokens": 43326,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 6,
+      "tokens": 13807,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 12,
+      "tokens": 44886,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 2,
+      "tokens": 1650,
+      "roles": [
+        "judge"
+      ]
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "calls": 5,
+      "tokens": 1665,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 8,
+      "tokens": 3961,
+      "roles": [
+        "judge"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-20b": {
+      "calls": 5,
+      "tokens": 2143,
+      "roles": [
+        "judge"
+      ]
+    },
+    "ollama_chat/gpt-oss:20b": {
+      "calls": 2,
+      "tokens": 1401,
+      "roles": [
+        "judge"
+      ]
+    },
+    "zai/glm-4.5-flash": {
+      "calls": 7,
+      "tokens": 6554,
+      "roles": [
+        "judge"
+      ]
+    }
+  },
+  "suite": "import pytest\nfrom semver.version import Version\n\n\n# Compare two versions that both have prerelease tags (covers lines 457\u2011466)\ndef test_Version_compare__both_prerelease():\n    v1 = Version.parse(\"1.0.0-alpha.1\")\n    v2 = Version.parse(\"1.0.0-alpha.beta\")\n    # numeric identifier < alphanumeric identifier\n    assert v1.compare(v2) == -1\n    assert v2.compare(v1) == 1\n\n    v3 = Version.parse(\"1.0.0-1\")\n    v4 = Version.parse(\"1.0.0-2\")\n    assert v3.compare(v4) == -1\n    assert v4.compare(v3) == 1\n\n    v5 = Version.parse(\"1.0.0-rc.1\")\n    v6 = Version.parse(\"1.0.0-rc.1\")\n    assert v5.compare(v6) == 0\n\n\ndef test_Version_next_version__cover_prerelease_else_token_same():\n    v = Version(1, 2, 3, prerelease='rc.5')\n    nv = v.next_version('prerelease', prerelease_token='rc')\n    assert nv.major == 1\n    assert nv.minor == 2\n    assert nv.patch == 3\n    assert nv.prerelease == 'rc.6'\n    assert nv.build is None\n\n\ndef test_Version_is_compatible__cover_3():\n    # Test case where both versions have major version 0 and are equal\n    version1 = Version(0, 1, 0)\n    version2 = Version(0, 1, 0)\n    assert version1.is_compatible(version2) is True\n\n\ndef test_Version_match__match_implicit_equal():\n    assert Version(4, 0, 4).match(\"4.0.4\") is True\n\n\ndef test_Version_replace__replace_unknown_key_error():\n    v = Version(1, 2, 3)\n    with pytest.raises(TypeError) as exc:\n        v.replace(foo=1)\n    msg = str(exc.value)\n    assert \"replace() got 1 unexpected keyword argument(s): foo\" in msg\n\n\ndef test_Version_bump_prerelease__cover_bump_when_empty():\n    \"\"\"\n    With bump_when_empty=True and no existing prerelease,\n    the patch version is incremented and prerelease set to default.\n    \"\"\"\n    v = Version(1, 2, 3)  # no prerelease\n    new_v = v.bump_prerelease(bump_when_empty=True)\n    assert str(v) == \"1.2.3\"\n    # Patch should be increased by 1, prerelease default \"rc.1\"\n    assert str(new_v) == \"1.2.4-rc.1\"\n\n\ndef test_Version___le____cover_1():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 3)\n    assert v1 <= v2\n\n\ndef test_Version_parse__parse_optional_minor_patch():\n    result = Version.parse('2', optional_minor_and_patch=True)\n    assert result.major == 2\n    assert result.minor == 0\n    assert result.patch == 0\n    assert result.prerelease is None\n    assert result.build is None\n\n\ndef test_Version_next_version__cover_prerelease_false_bump_minor():\n    v = Version(1, 2, 3, prerelease='alpha')\n    nv = v.next_version('minor')\n    assert nv.major == 1\n    assert nv.minor == 3\n    assert nv.patch == 0\n    assert nv.prerelease is None\n    assert nv.build is None\n\n\ndef test_Version_is_valid__is_valid_false():\n    assert Version.is_valid('1.2') is False\n\n\ndef test_Version___getitem____basic():\n    \"\"\"Typical valid input -> expected return value.\"\"\"\n    v = Version(1, 2, 3)\n    assert v[0] == 1\n    assert v[1] == 2\n    assert v[2] == 3\n    assert v[0:2] == (1, 2)\n    assert v[1:3] == (2, 3)\n\n    v2 = Version(1, 2, 3, prerelease=\"alpha\", build=\"build1\")\n    assert v2[0] == 1\n    assert v2[1] == 2\n    assert v2[2] == 3\n    assert v2[3] == \"alpha\"\n    assert v2[4] == \"build1\"\n    assert v2[3:5] == (\"alpha\", \"build1\")\n    assert v2[2:4] == (3, \"alpha\")\n\n\n# Test that compare accepts dict, tuple and list inputs (covers lines 438\u2011443)\ndef test_Version_compare__other_as_dict_tuple_list():\n    base = Version(2, 1, 3)\n\n    # dict input\n    other_dict = {\"major\": 2, \"minor\": 1, \"patch\": 4}\n    assert base.compare(other_dict) == -1  # 2.1.3 < 2.1.4\n\n    # tuple input\n    other_tuple = (2, 1, 2)\n    assert base.compare(other_tuple) == 1   # 2.1.3 > 2.1.2\n\n    # list input\n    other_list = [2, 1, 3]\n    assert base.compare(other_list) == 0   # equal\n\n\ndef test_Version___repr____basic():\n    version = Version(1, 2, 3, prerelease='alpha', build='beta')\n    assert repr(version) == \"Version(major=1, minor=2, patch=3, prerelease='alpha', build='beta')\"\n\n\ndef test_Version___str____cover_2():\n    version = Version(1, 2, 3, build=\"build123\")\n    assert str(version) == \"1.2.3+build123\"\n\n\n# Compare when one version has no prerelease (covers lines 456\u2011464)\ndef test_Version_compare__prerelease_absent_vs_present():\n    v_no_pr = Version(1, 0, 0)                     # no prerelease\n    v_with_pr = Version(1, 0, 0, prerelease=\"alpha\")\n    # A version without prerelease has higher precedence\n    assert v_no_pr.compare(v_with_pr) == 1\n    assert v_with_pr.compare(v_no_pr) == -1\n\n\ndef test_Version_bump_major__cover_2():\n    version = Version(3, 4, 5)\n    bumped_version = version.bump_major()\n    assert bumped_version._major == 4\n\n\ndef test_Version___ge____basic():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 3)\n    assert v1 >= v2\n\n\n# Test that an unsupported type raises TypeError (covers line 444\u2011445)\ndef test_Version_compare__type_error():\n    v = Version(1, 0, 0)\n    with pytest.raises(TypeError) as excinfo:\n        v.compare(3.14)  # float is not an accepted type\n    assert \"Expected str, bytes, dict, tuple, list\" in str(excinfo.value)\n\n\ndef test_Version_match__match_not_equal_true():\n    assert Version(1, 2, 3).match(\"!=1.2.4\") is True\n\n\ndef test_Version___init____error_negative_version_part():\n    with pytest.raises(ValueError) as excinfo:\n        Version(-1, 0, 0)\n    msg = str(excinfo.value)\n    assert \"is negative. A version can only be positive.\" in msg\n    assert \"'major'\" in msg\n\n\ndef test_Version_is_compatible__cover_2():\n    # Test case where both versions have major version 0 and are not equal\n    version1 = Version(0, 1, 0)\n    version2 = Version(0, 2, 0)\n    assert version1.is_compatible(version2) is False\n\n\ndef test_Version_bump_prerelease__basic():\n    \"\"\"\n    Happy path: version already has a numeric prerelease segment.\n    Expect the numeric part to be incremented, other components unchanged.\n    \"\"\"\n    v = Version(1, 2, 3, \"rc.4\")\n    new_v = v.bump_prerelease()  # default token=\"rc\", bump_when_empty=False\n    # Original must stay unchanged\n    assert str(v) == \"1.2.3-rc.4\"\n    # New version should have prerelease incremented\n    assert str(new_v) == \"1.2.3-rc.5\"\n\n\ndef test_Version_bump_prerelease__cover_token_empty():\n    \"\"\"\n    When no prerelease exists and token is an empty string,\n    the prerelease should become \"1\".\n    \"\"\"\n    v = Version(2, 0, 0)  # no prerelease\n    new_v = v.bump_prerelease(token=\"\")\n    assert str(v) == \"2.0.0\"\n    assert str(new_v) == \"2.0.0-1\"\n\n\ndef test_Version___getitem__cover_negative():\n    \"\"\"Negative indices raise IndexError.\"\"\"\n    v = Version(1, 2, 3)\n    with pytest.raises(IndexError) as exc:\n        v[-1]\n    assert str(exc.value) == \"Version index cannot be negative\"\n\n    with pytest.raises(IndexError) as exc:\n        v[-2:1]\n    assert str(exc.value) == \"Version index cannot be negative\"\n\n    with pytest.raises(IndexError) as exc:\n        v[1:-2]\n    assert str(exc.value) == \"Version index cannot be negative\"\n\n\ndef test_Version_is_valid__is_valid_true():\n    assert Version.is_valid('1.2.3') is True\n\n\ndef test_Version_finalize_version__finalize_removes_metadata():\n    version = Version.parse('1.2.3-rc.5+build.1')\n    finalized_version = version.finalize_version()\n    assert str(finalized_version) == '1.2.3'\n    assert finalized_version.major == 1\n    assert finalized_version.minor == 2\n    assert finalized_version.patch == 3\n\n\ndef test_Version___ne____cover_1():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 3)\n    assert not (v1 != v2)\n\n\ndef test_Version_bump_prerelease__cover_token_none():\n    \"\"\"\n    When token is None, the default prerelease token \"rc\" is used.\n    \"\"\"\n    v = Version(3, 1, 4)  # no prerelease\n    new_v = v.bump_prerelease(token=None)\n    assert str(v) == \"3.1.4\"\n    assert str(new_v) == \"3.1.4-rc.1\"\n\n\ndef test_Version_bump_prerelease__cover_non_numeric_prerelease():\n    \"\"\"\n    If the existing prerelease does not end with a number,\n    '.0' is appended.\n    \"\"\"\n    v = Version(4, 5, 6, \"alpha\")\n    new_v = v.bump_prerelease()\n    assert str(v) == \"4.5.6-alpha\"\n    assert str(new_v) == \"4.5.6-alpha.0\"\n\n\ndef test_Version_parse__parse_bytes_input():\n    result = Version.parse(b'1.2.3')\n    assert result.major == 1\n    assert result.minor == 2\n    assert result.patch == 3\n    assert result.prerelease is None\n    assert result.build is None\n\n\ndef test_Version_next_version__cover_invalid_part():\n    v = Version(1, 0, 0)\n    try:\n        v.next_version('foo')\n        assert False, \"Expected ValueError\"\n    except ValueError as e:\n        assert \"Invalid part\" in str(e)\n\n\ndef test_Version_next_version__cover_prerelease_else_token_diff():\n    v = Version(1, 2, 3, prerelease='beta.2')\n    nv = v.next_version('prerelease', prerelease_token='rc')\n    assert nv.major == 1\n    assert nv.minor == 2\n    assert nv.patch == 3\n    assert nv.prerelease == 'rc.1'\n    assert nv.build is None\n\n\ndef test_Version_match__match_less_false():\n    assert Version(1, 0, 0).match(\"<1.0.0\") is False\n\n\ndef test_Version_patch_setter__set_patch_raises_attribute_error():\n    version = Version(1, 2, 3)\n    with pytest.raises(AttributeError) as excinfo:\n        version.patch = 4\n    assert str(excinfo.value) == \"attribute 'patch' is readonly\"\n\n\ndef test_Version_prerelease_setter__set_prerelease_raises_attribute_error():\n    version = Version(1, 0, 0)\n    with pytest.raises(AttributeError) as excinfo:\n        version.prerelease = \"alpha\"\n    assert str(excinfo.value) == \"attribute 'prerelease' is readonly\"\n\n\ndef test_Version_build_setter__set_build_raises_attribute_error():\n    version = Version(1, 2, 3)\n    with pytest.raises(AttributeError) as excinfo:\n        version.build = \"test\"\n    assert str(excinfo.value) == \"attribute 'build' is readonly\"\n\n\ndef test_Version___eq____cover_1():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 4)\n    assert not v1 == v2\n\n\ndef test_Version___lt____basic():\n    v1 = Version(1, 0, 0)\n    v2 = Version(2, 0, 0)\n    assert v1 < v2\n\n\ndef test_Version___getitem__cover_undefined():\n    \"\"\"Requesting undefined parts raises IndexError.\"\"\"\n    v = Version(1, 2, 3)  # prerelease=None, build=None\n\n    # Index beyond available parts\n    with pytest.raises(IndexError) as exc:\n        v[5]\n    assert str(exc.value) == \"Version part undefined\"\n\n    # Slice where all parts are None\n    with pytest.raises(IndexError) as exc:\n        v[3:5]  # prerelease, build\n    assert str(exc.value) == \"Version part undefined\"\n\n    # Single None part\n    with pytest.raises(IndexError) as exc:\n        v[3:4]\n    assert str(exc.value) == \"Version part undefined\"\n    with pytest.raises(IndexError) as exc:\n        v[4:5]\n    assert str(exc.value) == \"Version part undefined\"\n\n\ndef test_Version_is_compatible__cover_1():\n    # Test case where other is not a Version instance\n    version = Version(1, 0, 0)\n    with pytest.raises(TypeError):\n        version.is_compatible(\"not a version\")\n\n\ndef test_Version_parse__parse_wrong_type_error():\n    with pytest.raises(TypeError, match=r\"not expecting type '<class 'int'>'\"):\n        Version.parse(123)\n\n\ndef test_Version_next_version__cover_prerelease_true():\n    v = Version(1, 2, 3, prerelease='alpha')\n    nv = v.next_version('patch')\n    assert nv.major == 1\n    assert nv.minor == 2\n    assert nv.patch == 3\n    assert nv.prerelease is None\n    assert nv.build is None\n\n\ndef test_Version_match__match_greater_equal_true():\n    assert Version(2, 0, 0).match(\">=1.0.0\") is True\n\n\ndef test_Version___iter____basic():\n    version = Version(1, 2, 3, prerelease='alpha', build='build1')\n    iterator = iter(version)\n    assert next(iterator) == 1\n    assert next(iterator) == 2\n    assert next(iterator) == 3\n    assert next(iterator) == 'alpha'\n    assert next(iterator) == 'build1'\n    with pytest.raises(StopIteration):\n        next(iterator)\n\n\ndef test_Version___lt____cover_1():\n    v1 = Version(1, 0, 0)\n    v2 = Version(1, 0, 0)\n    assert not (v1 < v2)\n\n\ndef test_Version___le____cover_2():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 2)\n    assert not v1 <= v2\n\n\ndef test_Version___hash____cover_1():\n    version = Version(1, 2, 3)\n    assert hash(version) == hash((1, 2, 3, None))\n\n\ndef test_Version_next_version__basic():\n    v = Version(1, 2, 3)\n    nv = v.next_version('minor')\n    assert nv.major == 1\n    assert nv.minor == 3\n    assert nv.patch == 0\n    assert nv.prerelease is None\n    assert nv.build is None\n\n\n# Basic happy\u2011path test using string input (covers lines 437\u2011452)\ndef test_Version_compare__basic():\n    v1 = Version.parse(\"1.0.0\")\n    # compare with a string, expecting -1 because 1.0.0 < 2.0.0\n    assert v1.compare(\"2.0.0\") == -1\n    # reverse comparison should be positive\n    assert Version.parse(\"2.0.0\").compare(\"1.0.0\") == 1\n    # equality\n    assert Version.parse(\"2.0.0\").compare(\"2.0.0\") == 0\n\n\ndef test_Version_parse__parse_standard_string():\n    result = Version.parse('3.4.5-pre.2+build.4')\n    assert result.major == 3\n    assert result.minor == 4\n    assert result.patch == 5\n    assert result.prerelease == 'pre.2'\n    assert result.build == 'build.4'\n\n\ndef test_Version_parse__parse_invalid_format_error():\n    with pytest.raises(ValueError, match=r\"invalid is not valid SemVer string\"):\n        Version.parse('invalid')\n\n\ndef test_Version___init____happy_minimal():\n    v = Version(1)\n    assert v.major == 1\n    assert v.minor == 0\n    assert v.patch == 0\n    assert v.prerelease is None\n    assert v.build is None\n\n\ndef test_Version___init____happy_full_with_strings():\n    v = Version(1, 2, 3, 'alpha', 'build1')\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n    assert v.prerelease == 'alpha'\n    assert v.build == 'build1'\n\n\ndef test_Version___init____happy_prerelease_build_as_int():\n    v = Version(1, 2, 3, 1, 2)\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n    assert v.prerelease == '1'\n    assert v.build == '2'\n\n\ndef test_Version___init____edge_zero_version():\n    v = Version(0, 0, 0)\n    assert v.major == 0\n    assert v.minor == 0\n    assert v.patch == 0\n    assert v.prerelease is None\n    assert v.build is None\n\n\ndef test_Version___init____happy_empty_string_prerelease_build():\n    v = Version(1, 2, 3, '', '')\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n    assert v.prerelease == ''\n    assert v.build == ''\n\n\ndef test_Version___str____basic():\n    version = Version(1, 2, 3)\n    assert str(version) == \"1.2.3\"\n\n\ndef test_Version_is_valid__is_valid_type_error():\n    with pytest.raises(TypeError):\n        Version.is_valid(123)\n\n\ndef test_Version_is_compatible__basic():\n    # Test case where versions are compatible\n    version1 = Version(1, 1, 0)\n    version2 = Version(1, 2, 0)\n    assert version1.is_compatible(version2) is True\n\n\ndef test_Version_finalize_version__finalize_preserves_subclass():\n    class SubVersion(Version):\n        pass\n\n    version = SubVersion.parse('1.2.3-rc.5')\n    finalized_version = version.finalize_version()\n    assert isinstance(finalized_version, SubVersion)\n\n\ndef test_Version_major__happy_returns_major():\n    version = Version(5, 0, 0)\n    assert version.major == 5\n\n\ndef test_Version_minor__happy_returns_minor():\n    version = Version(0, 7, 0)\n    assert version.minor == 7\n\n\ndef test_Version_patch__happy_returns_patch():\n    version = Version(0, 0, 9)\n    assert version.patch == 9\n\n\ndef test_Version_prerelease__get_prerelease_when_none():\n    version = Version(1, 0, 0)\n    assert version.prerelease is None\n\n\ndef test_Version_prerelease__get_prerelease_when_set():\n    version = Version(1, 0, 0, prerelease=\"alpha\")\n    assert version.prerelease == \"alpha\"\n\n\ndef test_Version_build__get_build_when_none():\n    version = Version(1, 0, 0)\n    assert version.build is None\n\n\ndef test_Version_build__get_build_when_set():\n    version = Version(1, 0, 0, build=\"alpha\")\n    assert version.build == \"alpha\"\n\n\ndef test_Version_to_tuple__to_tuple_only_core():\n    version = Version(5, 3, 1)\n    assert version.to_tuple() == (5, 3, 1, None, None)\n\n\ndef test_Version_to_tuple__to_tuple_with_prerelease():\n    version = Version(5, 3, 1, prerelease='alpha')\n    assert version.to_tuple() == (5, 3, 1, 'alpha', None)\n\n\ndef test_Version_to_tuple__to_tuple_with_build():\n    version = Version(5, 3, 1, build='build1')\n    assert version.to_tuple() == (5, 3, 1, None, 'build1')\n\n\ndef test_Version_to_tuple__to_tuple_with_both():\n    version = Version(5, 3, 1, prerelease='alpha', build='build1')\n    assert version.to_tuple() == (5, 3, 1, 'alpha', 'build1')\n\n\ndef test_Version_to_dict__basic():\n    version = Version(3, 2, 1)\n    expected_dict = {'major': 3, 'minor': 2, 'patch': 1, 'prerelease': None, 'build': None}\n    assert version.to_dict() == expected_dict\n\n\ndef test_Version___le____basic():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 4)\n    assert v1 <= v2\n\n\ndef test_Version_bump_build__unparsable():\n    \"\"\"\n    When the existing build metadata contains no numeric part,\n    bump_build should append \".0\" to create a parsable build string.\n    \"\"\"\n    original = Version(3, 4, 5, prerelease=\"rc.1\", build=\"alpha\")\n    bumped = original.bump_build()\n\n    # The new version should have the build incremented to \"alpha.0\"\n    assert str(bumped) == \"3.4.5-rc.1+alpha.0\"\n    # The original version must remain unchanged\n    assert str(original) == \"3.4.5-rc.1+alpha\"\n\n\ndef test_Version_major_setter__error_readonly():\n    version = Version(1, 2, 3)\n    with pytest.raises(AttributeError, match=\"attribute 'major' is readonly\"):\n        version.major = 4\n\n\ndef test_Version___gt____cover_2():\n    v1 = Version(1, 2, 3)\n    v2 = Version(1, 2, 2)\n    assert v1 > v2\n\n\ndef test_Version_next_version__cover_prerelease_else_no_prerelease():\n    v = Version(1, 2, 3)\n    nv = v.next_version('prerelease', prerelease_token='rc')\n    assert nv.major == 1\n    assert nv.minor == 2\n    # When adding a prerelease to a version without one, the patch is bumped.\n    assert nv.patch == 4\n    assert nv.prerelease == 'rc.1'\n    assert nv.build is None\n\n\ndef test_Version_minor_setter__error_readonly():\n    version = Version(1, 2, 3)\n    with pytest.raises(AttributeError, match=\"attribute 'minor' is readonly\"):\n        version.minor = 4\n\n\ndef test_Version_replace__replace_single_part():\n    v = Version(1, 2, 3)\n    new_v = v.replace(minor=5)\n    assert new_v.major == 1\n    assert new_v.minor == 5\n    assert new_v.patch == 3\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n\n\ndef test_Version_replace__replace_multiple_parts():\n    v = Version(1, 2, 3)\n    new_v = v.replace(major=2, prerelease='rc')\n    assert new_v.major == 2\n    assert new_v.minor == 2\n    assert new_v.patch == 3\n    assert new_v.prerelease == 'rc'\n    assert new_v.build is None\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n    assert v.prerelease is None\n    assert v.build is None\n\n\ndef test_Version_replace__replace_prerelease_none():\n    v = Version(1, 2, 3, prerelease='alpha')\n    new_v = v.replace(prerelease=None)\n\n    assert new_v.major == 1\n    assert new_v.minor == 2\n    assert new_v.patch == 3\n    assert new_v.prerelease is None\n    assert new_v.build is None\n\n    # ensure original is unchanged\n    assert v.major == 1\n    assert v.minor == 2\n    assert v.patch == 3\n    assert v.prerelease == 'alpha'\n    assert v.build is None",
+  "duration_s": 741.3,
+  "run_id": "4b83a469353a",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      644.4,
+      90.7,
+      81.2
+    ],
+    [
+      683.1,
+      94.7,
+      85.4
+    ],
+    [
+      705.8,
+      94.7,
+      85.4
+    ]
+  ],
+  "llm_calls": 95,
+  "llm_tokens": 132017,
+  "models": [
+    "cloudflare/@cf/openai/gpt-oss-20b",
+    "gemini/gemini-3.5-flash-lite",
+    "groq/openai/gpt-oss-120b",
+    "groq/openai/gpt-oss-20b",
+    "mistral/codestral-2508",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/gpt-oss:20b",
+    "ollama_chat/nemotron-3-ultra",
+    "zai/glm-4.5-flash"
+  ],
+  "wall_s": 741.4,
+  "subject": "semver_version",
+  "level": "medium",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 20:10:47"
+}

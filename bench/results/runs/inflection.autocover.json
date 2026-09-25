@@ -1,0 +1,232 @@
+{
+  "target": "inflection/__init__.py",
+  "test_path": "tests/test___init___autocover.py",
+  "rounds": 10,
+  "baseline": {
+    "line_pct": 48.1,
+    "branch_pct": 9.1,
+    "lines_covered": 39,
+    "lines_total": 81,
+    "branches_covered": 2,
+    "branches_total": 22
+  },
+  "final": {
+    "line_pct": 90.9,
+    "branch_pct": 95.5,
+    "lines_covered": 80,
+    "lines_total": 88,
+    "branches_covered": 21,
+    "branches_total": 22
+  },
+  "mutation": {
+    "killed": 71,
+    "total": 79,
+    "score_pct": 89.9,
+    "reused_kills": 60,
+    "survivors": [
+      "line 46 (None): '\\\\1ix' -> ''",
+      "line 59 (None): '\\\\1ovie' -> ''",
+      "line 61 (None): '\\\\1y' -> ''",
+      "line 134 (_irregular): 0 -> 1",
+      "line 100 (_irregular): '[' -> ''",
+      "line 135 (_irregular): 1 -> 2",
+      "line 140 (_irregular): 0 -> 1",
+      "line 306 (pluralize): return value -> None"
+    ]
+  },
+  "tests_in_suite": 45,
+  "candidates": 66,
+  "accepted": 45,
+  "accepted_by": {
+    "coverage": 11,
+    "scenario": 29,
+    "mutants": 5
+  },
+  "accepted_after_fix": 0,
+  "sent_to_fixer": 7,
+  "rejected_no_signal": 14,
+  "frozen": 0,
+  "superseded": 0,
+  "weak_kept": 0,
+  "failed": 7,
+  "rule_violations": {},
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "max rounds",
+  "llm_budget": {
+    "calls": 63,
+    "tokens": 87634,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 42,
+  "scenarios_covered": 41,
+  "llm": {
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 2,
+      "tokens": 10329,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 3,
+      "tokens": 4777,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 14,
+      "tokens": 23613,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 5,
+      "tokens": 8150,
+      "roles": [
+        "generator"
+      ]
+    },
+    "gemini/gemini-2.5-flash": {
+      "calls": 6,
+      "tokens": 24313,
+      "roles": [
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 11,
+      "tokens": 6866,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 10,
+      "tokens": 4036,
+      "roles": [
+        "judge"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-20b": {
+      "calls": 5,
+      "tokens": 2466,
+      "roles": [
+        "judge"
+      ]
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "calls": 5,
+      "tokens": 2136,
+      "roles": [
+        "judge"
+      ]
+    },
+    "ollama_chat/gpt-oss:20b": {
+      "calls": 2,
+      "tokens": 948,
+      "roles": [
+        "judge"
+      ]
+    }
+  },
+  "suite": "\nimport pytest\nfrom inflection import (\n    camelize,\n    dasherize,\n    humanize,\n    ordinal,\n    ordinalize,\n    parameterize,\n    pluralize,\n    singularize,\n    tableize,\n    titleize,\n    transliterate,\n    underscore,\n)\n\n\ndef test_titleize__hyphenated_words():\n    assert titleize(\"x-men: the last stand\") == \"X Men: The Last Stand\"\n\n\ndef test_ordinalize__basic():\n    # Typical positive numbers\n    assert ordinalize(1) == \"1st\"\n    assert ordinalize(2) == \"2nd\"\n    assert ordinalize(3) == \"3rd\"\n    assert ordinalize(4) == \"4th\"\n    assert ordinalize(11) == \"11th\"  # teens exception\n    assert ordinalize(12) == \"12th\"\n    assert ordinalize(13) == \"13th\"\n    assert ordinalize(21) == \"21st\"\n    assert ordinalize(22) == \"22nd\"\n    assert ordinalize(23) == \"23rd\"\n    assert ordinalize(100) == \"100th\"\n    assert ordinalize(101) == \"101st\"\n    assert ordinalize(102) == \"102nd\"\n    assert ordinalize(103) == \"103rd\"\n    assert ordinalize(1002) == \"1002nd\"\n    assert ordinalize(1003) == \"1003rd\"\n    # Negative numbers\n    assert ordinalize(-11) == \"-11th\"\n    assert ordinalize(-1021) == \"-1021st\"\n    assert ordinalize(-1) == \"-1st\"\n    assert ordinalize(-2) == \"-2nd\"\n    assert ordinalize(-3) == \"-3rd\"\n    assert ordinalize(-4) == \"-4th\"\n\n\ndef test_parameterize__basic():\n    # Typical input with spaces and punctuation.\n    input_str = \"Donald E. Knuth\"\n    expected = \"donald-e-knuth\"\n    assert parameterize(input_str) == expected\n\n\ndef test_tableize__camel_case_model():\n    assert tableize('RawScaledScorer') == 'raw_scaled_scorers'\n\n\ndef test_singularize__regular_plural():\n    # Regular plural ending with 's'\n    assert singularize(\"posts\") == \"post\"\n\n\ndef test_camelize__cover_168():\n    \"\"\"\n    Test camelize with uppercase_first_letter set to False, expecting lowerCamelCase.\n    This covers lines 165 (else branch) and 168.\n    \"\"\"\n    assert camelize(\"device_type\", False) == \"deviceType\"\n    assert camelize(\"some_long_string\", False) == \"someLongString\"\n    assert camelize(\"another_example_string\", False) == \"anotherExampleString\"\n    assert camelize(\"singleword\", False) == \"singleword\"\n    assert camelize(\"single_word\", False) == \"singleWord\"\n\n\ndef test_dasherize__basic():\n    assert dasherize(\"puni_puni\") == \"puni-puni\"\n\n\ndef test_tableize__empty_string():\n    assert tableize('') == ''\n\n\ndef test_singularize__uncountable_noun():\n    # Uncountable nouns are returned unchanged\n    assert singularize(\"sheep\") == \"sheep\"\n\n\ndef test_singularize__already_singular():\n    # A word that is already singular should be returned unchanged\n    assert singularize(\"word\") == \"word\"\n\n\ndef test_humanize__cover_197():\n    \"\"\"\n    Covers line 197: word = re.sub(r\"_id$\", \"\", word)\n    Ensures the trailing '_id' is removed.\n    \"\"\"\n    word = \"author_id\"\n    # Expected: \"author\" -> \"Author\"\n    assert humanize(word) == \"Author\"\n\n\ndef test_underscore__hyphenated_words():\n    \"\"\"\n    Test a word with hyphens.\n    'some-word' -> 'some_word'\n    Covers: L415, L416\n    \"\"\"\n    assert underscore(\"some-word\") == \"some_word\"\n\n\ndef test_underscore__acronym_consecutive_uppercase():\n    \"\"\"\n    Test a word starting with an acronym (consecutive uppercase letters).\n    'IOError' -> 'io_error'\n    Covers: L413, L416\n    \"\"\"\n    assert underscore(\"IOError\") == \"io_error\"\n\n\ndef test_transliterate__accented_latin():\n    assert transliterate('\u00e4l\u00e4m\u00f6l\u00f6') == 'alamolo'\n\n\ndef test_singularize__irregular_plural():\n    # Irregular plural 'octopi' should become 'octopus'\n    assert singularize(\"octopi\") == \"octopus\"\n\n\ndef test_singularize__empty_string():\n    # Empty input should return empty output\n    assert singularize(\"\") == \"\"\n\n\ndef test_singularize__mixed_case_preservation():\n    # Mixed\u2011case input should preserve the case of the non\u2011matched part\n    assert singularize(\"CamelOctopi\") == \"CamelOctopus\"\n\n\n@pytest.mark.parametrize(\n    \"number, expected_suffix\",\n    [\n        # Docstring examples\n        (1, \"st\"),\n        (2, \"nd\"),\n        (1002, \"nd\"),\n        (1003, \"rd\"),\n        (-11, \"th\"),\n        (-1021, \"st\"),\n\n        # Additional cases for comprehensive coverage\n        # Covers 'rd' case explicitly (number % 10 == 3)\n        (3, \"rd\"),\n        # Covers default 'th' from get() (number % 10 == 4)\n        (4, \"th\"),\n        # Covers default 'th' from get() (number % 10 == 0)\n        (10, \"th\"),\n        # Covers number % 100 == 12\n        (12, \"th\"),\n        # Covers number % 100 == 13\n        (13, \"th\"),\n        # Covers default 'th' from get() for a larger number ending in 0\n        (100, \"th\"),\n        # Covers 'st' for a number > 100 not ending in 11\n        (101, \"st\"),\n        # Covers 'nd' for a number > 100 not ending in 12\n        (102, \"nd\"),\n        # Covers 'rd' for a number > 100 not ending in 13\n        (103, \"rd\"),\n        # Covers abs() with negative input ending in 1, not 11\n        (-1, \"st\"),\n        # Covers abs() with negative input ending in 2, not 12\n        (-2, \"nd\"),\n        # Covers abs() with negative input ending in 3, not 13\n        (-3, \"rd\"),\n        # Covers abs() with negative input ending in 4\n        (-4, \"th\"),\n        # Covers abs() with negative input ending in 0\n        (-10, \"th\"),\n        # Covers abs() with negative input ending in 12\n        (-12, \"th\"),\n        # Covers abs() with negative input ending in 13\n        (-13, \"th\"),\n        # Covers abs() with negative input ending in 100\n        (-100, \"th\"),\n        # Covers abs() with negative input ending in 101\n        (-101, \"st\"),\n    ],\n)\ndef test_ordinal__basic(number, expected_suffix):\n    \"\"\"\n    Test the ordinal function with a variety of typical valid integer inputs,\n    including positive, negative, and edge cases around 11, 12, 13, and 1, 2, 3.\n    This test also ensures coverage of all specified lines.\n    \"\"\"\n    assert ordinal(number) == expected_suffix\n\n\ndef test_underscore__camel_case():\n    \"\"\"\n    Test a standard camel case word.\n    'DeviceType' -> 'device_type'\n    Covers: L414, L416\n    \"\"\"\n    assert underscore(\"DeviceType\") == \"device_type\"\n\n\ndef test_underscore__already_snake_case():\n    \"\"\"\n    Test a word that is already in snake case.\n    'device_type' -> 'device_type'\n    Covers: L416\n    \"\"\"\n    assert underscore(\"device_type\") == \"device_type\"\n\n\ndef test_underscore__empty_string():\n    \"\"\"\n    Test an empty string.\n    '' -> ''\n    Covers: L416\n    \"\"\"\n    assert underscore(\"\") == \"\"\n\n\ndef test_underscore__numbers_in_camel_case():\n    \"\"\"\n    Test a camel case word containing numbers.\n    'Model2View' -> 'model2_view'\n    Covers: L414, L416\n    \"\"\"\n    assert underscore(\"Model2View\") == \"model2_view\"\n\n\ndef test_camelize__basic():\n    \"\"\"\n    Test camelize with a typical valid input, expecting UpperCamelCase by default.\n    This covers lines 165 (if branch) and 166.\n    \"\"\"\n    assert camelize(\"device_type\") == \"DeviceType\"\n    assert camelize(\"some_long_string\") == \"SomeLongString\"\n    assert camelize(\"another_example_string\") == \"AnotherExampleString\"\n\n\ndef test_transliterate__non_ascii_no_decomposition():\n    assert transliterate('\u03b1\u03b2\u03b3') == ''\n\n\ndef test_transliterate__empty_string():\n    assert transliterate('') == ''\n\n\ndef test_transliterate__already_ascii():\n    assert transliterate('hello') == 'hello'\n\n\ndef test_transliterate__mixed_ascii_and_non_ascii():\n    assert transliterate('caf\u00e9_123') == 'cafe_123'\n\n\ndef test_tableize__underscored_phrase():\n    assert tableize('egg_and_ham') == 'egg_and_hams'\n\n\ndef test_tableize__mixed_case_single_word():\n    assert tableize('fancyCategory') == 'fancy_categories'\n\n\ndef test_tableize__uncountable_camel_case():\n    assert tableize('Sheep') == 'sheep'\n\n\ndef test_tableize__already_plural_underscored():\n    assert tableize('posts') == 'posts'\n\n\ndef test_titleize__sentence_with_spaces():\n    assert titleize(\"man from the boondocks\") == \"Man From The Boondocks\"\n\n\ndef test_titleize__camel_case():\n    assert titleize(\"TheManWithoutAPast\") == \"The Man Without A Past\"\n\n\ndef test_titleize__underscored_phrase():\n    assert titleize(\"raiders_of_the_lost_ark\") == \"Raiders Of The Lost Ark\"\n\n\ndef test_titleize__empty_string():\n    assert titleize(\"\") == \"\"\n\n\ndef test_titleize__non_word_characters():\n    assert titleize(\"123_abc\") == \"123 Abc\"\n\n\ndef test_parameterize__strip_bug():\n    \"\"\"\n    The regex that strips leading and trailing separators must only remove those\n    separators, not the entire string. With a default separator '-', an input that\n    results in leading and trailing hyphens after the replacement step should be\n    stripped to the inner word only. A buggy regex that matches the whole string\n    would return an empty string, causing this test to fail.\n    \"\"\"\n    input_str = \" -Hello- \"\n    # After transliteration and replacement:\n    #   spaces -> '-', yielding \"-Hello-\"\n    #   collapse multiple separators (none needed)\n    #   strip leading/trailing '-' -> \"Hello\"\n    #   lowercased -> \"hello\"\n    assert parameterize(input_str, separator=\"-\") == \"hello\"\n\n\ndef test_parameterize__sep_empty_bug():\n    \"\"\"\n    When separator is an empty string, the function should *not* invoke the\n    leading/trailing separator removal regex. The expected result is the\n    transliterated string with non\u2011alphanumeric characters removed and lower\u2011cased.\n    A buggy implementation that runs the regex and replaces the whole result with\n    'XX' would cause this test to fail.\n    \"\"\"\n    input_str = \"Hello World\"\n    # transliterate leaves the string unchanged (ASCII only)\n    # non\u2011alphanumeric chars (space) are removed because separator == ''\n    # => \"HelloWorld\" -> lowercased => \"helloworld\"\n    assert parameterize(input_str, separator=\"\") == \"helloworld\"\n\n\ndef test_pluralize__regular_noun():\n    \"\"\"A regular noun should get a simple 's' suffix.\"\"\"\n    assert pluralize(\"post\") == \"posts\"\n\n\ndef test_pluralize__irregular_noun():\n    \"\"\"Irregular nouns should be transformed according to the rule set.\"\"\"\n    assert pluralize(\"octopus\") == \"octopi\"\n\n\ndef test_pluralize__uncountable_noun():\n    \"\"\"Uncountable nouns are returned unchanged.\"\"\"\n    assert pluralize(\"sheep\") == \"sheep\"\n\n\ndef test_pluralize__empty_string():\n    \"\"\"An empty string should be returned unchanged.\"\"\"\n    assert pluralize(\"\") == \"\"\n\n\ndef test_pluralize__already_plural():\n    \"\"\"A word that is already plural should stay the same.\"\"\"\n    assert pluralize(\"posts\") == \"posts\"\n\n\ndef test_pluralize__mixed_case_preservation():\n    \"\"\"Mixed\u2011case words preserve their case pattern after pluralisation.\"\"\"\n    assert pluralize(\"CamelOctopus\") == \"CamelOctopi\"\n\n\ndef test_humanize__basic():\n    # Typical input with an underscore separating words\n    input_word = \"employee_salary\"\n    expected = \"Employee salary\"\n    assert humanize(input_word) == expected",
+  "duration_s": 483.2,
+  "run_id": "f7ec024680c8",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      306.5,
+      98.9,
+      86.4
+    ],
+    [
+      336.8,
+      98.9,
+      86.4
+    ],
+    [
+      405.5,
+      98.9,
+      90.9
+    ],
+    [
+      426.6,
+      98.9,
+      90.9
+    ],
+    [
+      446.6,
+      98.9,
+      90.9
+    ],
+    [
+      465.9,
+      98.9,
+      90.9
+    ],
+    [
+      465.9,
+      98.9,
+      90.9
+    ],
+    [
+      465.9,
+      98.9,
+      90.9
+    ],
+    [
+      466.0,
+      98.9,
+      90.9
+    ],
+    [
+      466.0,
+      98.9,
+      90.9
+    ],
+    [
+      466.0,
+      98.9,
+      90.9
+    ],
+    [
+      466.0,
+      98.9,
+      90.9
+    ],
+    [
+      466.0,
+      98.9,
+      90.9
+    ]
+  ],
+  "llm_calls": 63,
+  "llm_tokens": 87634,
+  "models": [
+    "cloudflare/@cf/openai/gpt-oss-20b",
+    "gemini/gemini-2.5-flash",
+    "gemini/gemini-3.5-flash-lite",
+    "groq/openai/gpt-oss-20b",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/gpt-oss:20b",
+    "ollama_chat/nemotron-3-ultra"
+  ],
+  "wall_s": 483.2,
+  "subject": "inflection",
+  "level": "basic",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 19:49:00"
+}

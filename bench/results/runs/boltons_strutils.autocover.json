@@ -1,0 +1,212 @@
+{
+  "target": "boltons/strutils.py",
+  "test_path": "tests/test_strutils_autocover.py",
+  "rounds": 1,
+  "baseline": {
+    "line_pct": 19.1,
+    "branch_pct": 0.0,
+    "lines_covered": 79,
+    "lines_total": 414,
+    "branches_covered": 0,
+    "branches_total": 184
+  },
+  "final": {
+    "line_pct": 93.7,
+    "branch_pct": 91.3,
+    "lines_covered": 400,
+    "lines_total": 427,
+    "branches_covered": 168,
+    "branches_total": 184
+  },
+  "mutation": {
+    "killed": 123,
+    "total": 150,
+    "score_pct": 82.0,
+    "reused_kills": 112,
+    "survivors": [
+      "line 57 (None): 'iter_splitlines' -> ''",
+      "line 283 (None): 'axes' -> ''",
+      "line 297 (None): 'leaves' -> ''",
+      "line 303 (None): 'offspring' -> ''",
+      "line 506 (None): 220 -> 221",
+      "line 224 (singularize): 2 -> 3",
+      "line 226 (singularize): 'aeiou' -> ''",
+      "line 226 (singularize): 4 -> 5",
+      "line 355 (a10n): < -> <=",
+      "line 355 (a10n): 3 -> 4",
+      "line 642 (gunzip_bytes): 16 -> 17",
+      "line 645 (gzip_bytes): 6 -> 7",
+      "line 807 (args2cmd): ' ' -> ''",
+      "line 821 (args2cmd): '\\n    1) Arguments are delimited by white space, which is either a\\n       space or a tab.\\n\\n    2) A string surrounded by double quotation marks is\\n       interpreted as a single argument, regardless of white space\\n       contained within.  A quoted string can be embedded in an\\n       argument.\\n\\n    3) A double quotation mark preceded by a backslash is\\n       interpreted as a literal double quotation mark.\\n\\n    4) Backslashes are interpreted literally, unless they\\n       immediately precede a double quotation mark.\\n\\n    5) If backslashes immediately precede a double quotation mark,\\n       every pair of backslashes is interpreted as a literal\\n       backslash.  If the number of backslashes is odd, the last\\n       backslash escapes the next double quotation mark as\\n       described in rule 3.\\n\\n    See http://msdn.microsoft.com/en-us/library/17w5ykft.aspx\\n    or search http://msdn.microsoft.com for\\n    \"Parsing C++ Command-Line Arguments\"\\n    ' -> ''",
+      "line 867 (args2cmd): '\\\\\"' -> ''",
+      "line 865 (args2cmd): * -> /",
+      "line 998 (format_int_list): > -> >=",
+      "line 1333 (ellipsize): 160 -> 161",
+      "line 1370 (ellipsize): <= -> <",
+      "line 1371 (ellipsize): return value -> None"
+    ]
+  },
+  "tests_in_suite": 105,
+  "candidates": 244,
+  "accepted": 105,
+  "accepted_by": {
+    "coverage": 72,
+    "scenario": 31,
+    "mutants": 2
+  },
+  "accepted_after_fix": 8,
+  "sent_to_fixer": 36,
+  "rejected_no_signal": 102,
+  "frozen": 6,
+  "superseded": 0,
+  "weak_kept": 5,
+  "failed": 18,
+  "rule_violations": {},
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 129,
+    "tokens": 230212,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 71,
+  "scenarios_covered": 65,
+  "llm": {
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 3,
+      "tokens": 15082,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "groq/openai/gpt-oss-120b": {
+      "calls": 5,
+      "tokens": 7540,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 4,
+      "tokens": 16638,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 65,
+      "tokens": 73673,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 4,
+      "tokens": 24897,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 13,
+      "tokens": 74303,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 4,
+      "tokens": 3049,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 10,
+      "tokens": 4207,
+      "roles": [
+        "judge"
+      ]
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "calls": 5,
+      "tokens": 1657,
+      "roles": [
+        "judge"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-20b": {
+      "calls": 5,
+      "tokens": 2493,
+      "roles": [
+        "judge"
+      ]
+    },
+    "ollama_chat/gpt-oss:20b": {
+      "calls": 2,
+      "tokens": 1070,
+      "roles": [
+        "judge"
+      ]
+    },
+    "zai/glm-4.5-flash": {
+      "calls": 9,
+      "tokens": 5603,
+      "roles": [
+        "judge"
+      ]
+    }
+  },
+  "suite": "import gzip\nimport io\nimport re\nimport uuid\n\nimport pytest\nfrom boltons.strutils import (\n    DeaccenterDict,\n    HTMLTextExtractor,\n    MultiReplace,\n    _match_case,\n    a10n,\n    args2sh,\n    asciify,\n    bytes2human,\n    camel2under,\n    cardinalize,\n    complement_int_list,\n    ellipsize,\n    escape_shell_args,\n    find_hashtags,\n    format_int_list,\n    gunzip_bytes,\n    gzip_bytes,\n    html2text,\n    human_readable_list,\n    indent,\n    int_ranges_from_int_list,\n    is_ascii,\n    is_uuid,\n    iter_splitlines,\n    multi_replace,\n    ordinalize,\n    parse_int_list,\n    pluralize,\n    removeprefix,\n    singularize,\n    slugify,\n    split_punct_ws,\n    strip_ansi,\n    under2camel,\n    unit_len,\n    unwrap_text,\n)\n\n\ndef test_int_ranges_from_int_list__cover_5():\n    assert int_ranges_from_int_list('1,3-5,7-9') == ((1, 1), (3, 5), (7, 9))\n\n\ndef test_slugify__ascii_bytes():\n    assert slugify(\"Kurt G\u00f6del's pretty cool.\", ascii=True) == b'kurt_goedel_s_pretty_cool'\n\n\ndef test_cardinalize__basic():\n    assert cardinalize('vowel', 5) == 'vowels'\n    assert cardinalize('Wish', 3) == 'Wishes'\n    assert cardinalize('apple', 1) == 'apple'\n\n\ndef test_multi_replace__basic():\n    text = 'The foo bar cat ate a bat'\n    sub_map = {'foo': 'zoo', 'cat': 'hat', 'bat': 'kraken'}\n    expected = 'The zoo bar hat ate a kraken'\n    assert multi_replace(text, sub_map) == expected\n\n\ndef test_indent__basic():\n    text = \"Hello\\nWorld\"\n    margin = \"  \"\n    expected = \"  Hello\\n  World\"\n    assert indent(text, margin) == expected\n\n\n@pytest.mark.parametrize(\n    \"ending,expected\",\n    [\n        (None, [\"First line\", \"Second line\"]),\n        (\"\\n\\n\", \"First line\\n\\nSecond line\"),\n    ],\n)\ndef test_unwrap_text__basic(ending, expected):\n    text = \"First line\\n\\nSecond line\"\n    result = unwrap_text(text, ending=ending)\n    assert result == expected\n\n\n# Basic happy\u2011path test\ndef test_singularize__basic():\n    assert singularize(\"chances\") == \"chance\"\n\n\ndef test_args2sh__basic():\n    args = ['aa', '[bb]', \"cc'cc\", 'dd\"dd']\n    expected = \"aa '[bb]' 'cc'\\\"'\\\"'cc' 'dd\\\"dd'\"\n    assert args2sh(args) == expected\n\n\ndef test_bytes2human__basic():\n    assert bytes2human(128991) == '126K'\n    assert bytes2human(100001221) == '95M'\n    assert bytes2human(0, 2) == '0.00B'\n    assert bytes2human(1024) == '1K'\n    assert bytes2human(1024 ** 8) == '1Y'\n\n\ndef test_strip_ansi__cover_1():\n    text = b'\\x1b[0m\\x1b[1;36mart\\x1b[46;34m'\n    expected = b'art'\n    assert strip_ansi(text) == expected\n\n\ndef test_human_readable_list__two_items():\n    items = ['apple', 'banana']\n    result = human_readable_list(items)\n    assert result == 'apple and banana'\n\n\ndef test_ordinalize__other_digit():\n    assert ordinalize(4) == '4th'\n\n\ndef test_complement_int_list__cover_1():\n    assert complement_int_list('') == ''\n\n\ndef test_DeaccenterDict___missing____basic():\n    d = DeaccenterDict()\n\n    # --- Early return when key already present (lines 479-481) ---\n    d[65] = \"A\"  # store a value for key 65 ('A')\n    assert d.__missing__(65) == \"A\"\n\n    # --- Decomposition with combining diaeresis (0x308) true branch (lines 482-486, 491-492) ---\n    # U+00E4 LATIN SMALL LETTER A WITH DIAERESIS -> decomposition: '0061 0308'\n    key_ae = 0x00E4\n    assert key_ae not in d\n    result_ae = d.__missing__(key_ae)\n    # The branch sets ch = self.get(key) again (still None) -> returns None\n    assert result_ae is None\n    assert d[key_ae] is None\n\n    # --- Decomposition where second part is not 0x308 (else branch) (lines 482-485, 488, 491-492) ---\n    # U+00C5 LATIN CAPITAL LETTER A WITH RING ABOVE -> decomposition: '0041 030A'\n    key_aring = 0x00C5\n    assert key_aring not in d\n    result_aring = d.__missing__(key_aring)\n    # p1 = '0041' -> int('0041', 16) = 65\n    assert result_aring == 65\n    assert d[key_aring] == 65\n\n    # --- Exception path: decomposition leads to IndexError/ValueError (lines 482-489, 490, 491-492) ---\n    # U+0061 LATIN SMALL LETTER A has empty decomposition -> int('', 16) raises ValueError\n    key_a = 0x0061\n    assert key_a not in d\n    result_a = d.__missing__(key_a)\n    # Falls back to self.get(key, key) -> key not present -> returns key itself (97)\n    assert result_a == 97\n    assert d[key_a] == 97\n\n    # --- Verify stored values are returned on subsequent calls (lines 479-481) ---\n    assert d.__missing__(key_ae) is None\n    assert d.__missing__(key_aring) == 65\n    assert d.__missing__(key_a) == 97\n\n\ndef test_HTMLTextExtractor_handle_charref__cover_1():\n    extractor = HTMLTextExtractor()\n    extractor.handle_charref('X41')\n    assert extractor.result == ['A']\n\n\ndef test_is_ascii__cover_3():\n    assert is_ascii(b'B\\xe9yonce') == False\n\n\ndef test_format_int_list__basic():\n    # 1. Mixed singletons and ranges (covers typical flow, range building, final handling)\n    mixed = [1, 3, 5, 6, 7, 8, 10, 11, 15]\n    assert format_int_list(mixed) == \"1,3,5-8,10-11,15\"\n\n    # 2. Repeated numbers (covers delta == 0 for both len==1 and len>1 branches)\n    repeats = [1, 1, 2, 2, 3]\n    assert format_int_list(repeats) == \"1-3\"\n\n    # 3. All non\u2011contiguous singletons (covers delta > 1 when contig_range length is 1)\n    non_contig = [1, 3, 5]\n    assert format_int_list(non_contig) == \"1,3,5\"\n\n    # 4. Space after delimiters (covers delim_space branch)\n    spaced = [1, 3, 5, 6, 7, 8, 10, 11, 15]\n    assert format_int_list(spaced, delim_space=True) == \"1, 3, 5-8, 10-11, 15\"\n\n    # 5. Custom delimiters (covers custom delim and range_delim handling)\n    custom = [1, 2, 4, 5]\n    assert format_int_list(custom, delim=';', range_delim='..') == \"1..2;4..5\"\n\n\ndef test_is_uuid__basic():\n    assert is_uuid('e682ccca-5a4c-4ef2-9711-73f9ad1e15ea') == True\n\n\ndef test_escape_shell_args__cover_2():\n    args = ['echo', 'hello world']\n    with pytest.raises(ValueError, match=\"style expected one of 'cmd' or 'sh', not 'invalid'\"):\n        escape_shell_args(args, style='invalid')\n\n\ndef test_unit_len__irregular_plural():\n    assert unit_len(['mouse', 'mouse'], 'mouse') == '2 mice'\n\n\ndef test_html2text__basic():\n    html = '<a href=\"#\">Test &amp;<em>(\\u0394&#x03b7;&#956;&#x03CE;)</em></a>'\n    expected = 'Test &(\\u0394\\u03b7\\u03bc\\u03ce)'\n    assert html2text(html) == expected\n\n\ndef test_gzip_bytes__basic():\n    # Test with a typical valid input\n    input_bytes = b'a' * 10000\n    compressed_bytes = gzip_bytes(input_bytes)\n    assert len(compressed_bytes) == 46\n\n\ndef test_is_ascii__cover_1():\n    assert is_ascii('Beyonc\u00e9') == False\n\n\ndef test_a10n__basic():\n    assert a10n('abbreviation') == 'a10n'\n    assert a10n('internationalization') == 'i18n'\n\n\ndef test_HTMLTextExtractor_handle_entityref__cover_1():\n    extractor = HTMLTextExtractor()\n    extractor.result = []\n    extractor.handle_entityref('unknown_entity')\n    assert extractor.result == ['&unknown_entity;']\n\n\nclass _FakeBytes:\n    \"\"\"Helper that raises UnicodeDecodeError on .encode and returns a string on .decode.\"\"\"\n    def encode(self, encoding):\n        # Simulate the condition that triggers the UnicodeDecodeError branch\n        raise UnicodeDecodeError('utf-8', b'', 0, 1, 'fake')\n\n    def decode(self, encoding):\n        # Return a simple ASCII string so the subsequent .encode('ascii') succeeds\n        return 'hello'\n\n\ndef test_asciify__cover_unicode_decode_error():\n    \"\"\"Trigger the UnicodeDecodeError branch (lines 436-439).\"\"\"\n    fake = _FakeBytes()\n    assert asciify(fake) == b'hello'\n\n\ndef test_under2camel__normal_multi_word():\n    assert under2camel('complex_tokenizer') == 'ComplexTokenizer'\n\n\ndef test_is_ascii__cover_4():\n    try:\n        is_ascii(123)\n    except ValueError as e:\n        assert str(e) == \"expected text or bytes, not <class 'int'>\"\n\n\ndef test_args2sh__empty_string():\n    args = ['', 'aa']\n    expected = \"'' aa\"\n    assert args2sh(args) == expected\n\n\ndef test_removeprefix__basic():\n    assert removeprefix(\"Hello, world!\", \"Hello, \") == \"world!\"\n\n\n# Trigger the irregular\u2011plural lookup path\ndef test_singularize__cover_irregular_plural():\n    # The module defines 'feet' \u2192 'foot' as an irregular plural\n    assert singularize(\"feet\") == \"foot\"\n    # Case preservation: upper\u2011case input should yield upper\u2011case output\n    assert singularize(\"FEET\") == \"FOOT\"\n\n\ndef test_iter_splitlines__basic():\n    text = '\\nhi\\nbye\\n'\n    expected = ['', 'hi', 'bye', '']\n    assert list(iter_splitlines(text)) == expected\n\n\ndef test_is_uuid__cover_1():\n    assert is_uuid('not-a-uuid') == False\n\n\ndef test_is_uuid__cover_6():\n    assert is_uuid(uuid.UUID('e682ccca-5a4c-4ef2-9711-73f9ad1e15ea'), version=1) == False\n\n\ndef test_camel2under__pascal_case():\n    assert camel2under('BasicParseTest') == 'basic_parse_test'\n\n\ndef test_gunzip_bytes__cover_1():\n    # Test with an empty gzipped input\n    empty_gzip_bytes = b'\\x1f\\x8b\\x08\\x00\\x00\\x00\\x00\\x00\\x02\\xff\\x01\\x00\\x00\\xff\\xff\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00'\n    assert gunzip_bytes(empty_gzip_bytes) == b''\n\n\n# Trigger the 'ies' \u2192 'y' conversion (consonant before 'ies')\ndef test_singularize__cover_ies_conversion():\n    assert singularize(\"activities\") == \"activity\"\n    # Preserve title case\n    assert singularize(\"Activities\") == \"Activity\"\n\n\n# Trigger the 'ss' branch that returns the original word unchanged\ndef test_singularize__cover_ss_no_change():\n    assert singularize(\"glass\") == \"glass\"\n    # Mixed case should also be returned unchanged\n    assert singularize(\"Glass\") == \"Glass\"\n\n\n# Tests for the private _match_case helper covering all its branches\ndef test_match_case__strip_empty():\n    assert _match_case(\"   \", \"Dog\") == \"Dog\"\n\n\ndef test_match_case__default():\n    # Mixed case that matches none of the above patterns\n    assert _match_case(\"HeLLo\", \"cats\") == \"cats\"\n\n\ndef test_ordinalize__teen_number():\n    assert ordinalize(13) == '13th'\n\n\ndef test_ordinalize__cover_5():\n    assert ordinalize(24) == '24th'\n\n\ndef test_human_readable_list__empty_list():\n    items = []\n    result = human_readable_list(items)\n    assert result == ''\n\n\ndef test_complement_int_list__basic():\n    assert complement_int_list('1,3,5-8,10-11,15') == '0,2,4,9,12-14'\n\n\ndef test_unit_len__zero_items():\n    assert unit_len([], 'apple') == 'No apples'\n\n\ndef test_a10n__cover_1():\n    assert a10n('') == ''\n\n\ndef test_removeprefix__cover_1():\n    assert removeprefix(\"Hello, world!\", \"Hi, \") == \"Hello, world!\"\n\n\ndef test_strip_ansi__basic():\n    text = '\\x1b[0m\\x1b[1;36mart\\x1b[46;34m'\n    expected = 'art'\n    assert strip_ansi(text) == expected\n\n\ndef test_find_hashtags__basic():\n    input_string = \"#atag http://asite/#ananchor\"\n    expected_output = ['atag']\n    assert find_hashtags(input_string) == expected_output\n\n\n# Trigger the early\u2011return when the stripped word is empty\ndef test_singularize__cover_empty_input():\n    original = \"   \"\n    assert singularize(original) is original  # returns the same object (original string)\n\n\n# Trigger the branch where the word does not end with 's'\ndef test_singularize__cover_no_s_suffix():\n    assert singularize(\"cat\") == \"cat\"\n\n\n# Trigger the two\u2011letter word branch\ndef test_singularize__cover_two_letter():\n    # 'as' \u2192 'a'\n    assert singularize(\"as\") == \"a\"\n    # Preserve original case pattern\n    assert singularize(\"AS\") == \"A\"\n    assert singularize(\"As\") == \"A\"\n\n\n# Trigger the 'es' where the preceding character is 's' (e.g., glasses \u2192 glass)\ndef test_singularize__cover_es_after_s():\n    assert singularize(\"glasses\") == \"glass\"\n    # Upper\u2011case input should keep upper case after conversion\n    assert singularize(\"GLASSES\") == \"GLASS\"\n\n\ndef test_asciify__cover_unicode_encode_error_ignore():\n    \"\"\"Trigger the UnicodeEncodeError branch with ignore=True (lines 440-446).\"\"\"\n    assert asciify('\u00e9', ignore=True) == b'e'\n\n\ndef test_ordinalize__ext_only_suffix():\n    assert ordinalize(2, ext_only=True) == 'nd'\n\n\ndef test_ordinalize__non_digit_input():\n    assert ordinalize('hi') == 'hi'\n\n\ndef test_human_readable_list__basic():\n    items = ['apple', 'banana', 'cherry']\n    result = human_readable_list(items)\n    assert result == 'apple, banana, and cherry'\n\n\ndef test_human_readable_list__single_item():\n    items = ['apple']\n    result = human_readable_list(items)\n    assert result == 'apple'\n\n\ndef test_slugify__empty_input():\n    assert slugify('') == ''\n\n\ndef test_HTMLTextExtractor_handle_charref__basic():\n    extractor = HTMLTextExtractor()\n    extractor.handle_charref('65')\n    assert extractor.result == ['A']\n\n\ndef test_MultiReplace_sub__cover_1():\n    sub_map = {}\n    mr = MultiReplace(sub_map)\n    text = 'foo baz'\n    assert mr.sub(text) == 'foo baz'\n\n\ndef test_is_ascii__basic():\n    assert is_ascii('Beyonce') == True\n\n\ndef test_HTMLTextExtractor_handle_entityref__basic():\n    extractor = HTMLTextExtractor()\n    extractor.result = []\n    extractor.handle_entityref('amp')\n    assert extractor.result == ['&']\n\n\ndef test_HTMLTextExtractor_handle_charref__hex():\n    extractor = HTMLTextExtractor()\n    extractor.handle_charref('x41')\n    assert extractor.result == ['A']\n\n\ndef test_HTMLTextExtractor___cover_1():\n    extractor = HTMLTextExtractor()\n    assert extractor.convert_charrefs is True\n\n\ndef test_int_ranges_from_int_list__empty_string():\n    assert int_ranges_from_int_list('') == ()\n\n\ndef test_complement_int_list__cover_2():\n    assert complement_int_list('1,3,5-8', range_start=1, range_end=1) == ''\n\n\ndef test_slugify__preserve_case():\n    assert slugify('Hello WORLD', lower=False) == 'Hello_WORLD'\n\n\ndef test_asciify__basic():\n    \"\"\"Happy path: plain ASCII string should be encoded to bytes.\"\"\"\n    assert asciify('hello') == b'hello'\n\n\ndef test_ordinalize__typical_number():\n    assert ordinalize(1) == '1st'\n\n\ndef test_ordinalize__negative_number():\n    assert ordinalize(-1) == '-1st'\n\n\ndef test_parse_int_list__basic():\n    assert parse_int_list('1,3,5-8,10-11,15') == [1, 3, 5, 6, 7, 8, 10, 11, 15]\n\n\ndef test_int_ranges_from_int_list__basic():\n    assert int_ranges_from_int_list('1,3,5-8,10-11,15') == ((1, 1), (3, 3), (5, 8), (10, 11), (15, 15))\n\n\ndef test_slugify__basic():\n    assert slugify('First post! Hi!!!!~1    ') == 'first_post_hi_1'\n\n\ndef test_slugify__custom_delim():\n    assert slugify('a b c', delim='-') == 'a-b-c'\n\n\ndef test_slugify__type_error():\n    try:\n        slugify(123)\n    except TypeError:\n        pass\n    else:\n        assert False, \"Expected TypeError\"\n\n\ndef test_unit_len__multi_items():\n    assert unit_len([1, 2, 3], 'apple') == '3 apples'\n\n\ndef test_unit_len__single_item():\n    assert unit_len(['x'], 'apple') == '1 apple'\n\n\ndef test_unit_len__default_noun():\n    assert unit_len('abc') == '3 items'\n\n\ndef test_unit_len__non_sized_error():\n    with pytest.raises(TypeError):\n        unit_len((i for i in range(3)))\n\n\ndef test_MultiReplace_sub__basic():\n    sub_map = {'foo': 'bar', 'baz': 'qux'}\n    mr = MultiReplace(sub_map)\n    text = 'foo baz'\n    assert mr.sub(text) == 'bar qux'\n\n\ndef test_camel2under__camel_case():\n    assert camel2under('camelCaseString') == 'camel_case_string'\n\n\ndef test_camel2under__empty_string():\n    assert camel2under('') == ''\n\n\ndef test_camel2under__single_character():\n    assert camel2under('A') == 'a'\n    assert camel2under('a') == 'a'\n\n\ndef test_camel2under__with_numbers():\n    assert camel2under('Test123Case') == 'test123_case'\n\n\ndef test_under2camel__single_word_no_underscore():\n    assert under2camel('hello') == 'Hello'\n\n\ndef test_under2camel__empty_string():\n    assert under2camel('') == '_'\n\n\ndef test_under2camel__leading_trailing_underscores():\n    assert under2camel('_hello') == '_Hello'\n    assert under2camel('world_') == 'World_'\n\n\ndef test_under2camel__consecutive_underscores():\n    assert under2camel('a__b') == 'A_B'\n\n\ndef test_split_punct_ws__basic_split():\n    assert split_punct_ws('First post! Hi!!!!~1    ') == ['First', 'post', 'Hi', '1']\n\n\ndef test_split_punct_ws__empty_string():\n    assert split_punct_ws('') == []\n\n\ndef test_split_punct_ws__only_punct_ws():\n    assert split_punct_ws('   !!!   ') == []\n\n\ndef test_split_punct_ws__leading_trailing():\n    assert split_punct_ws('!Hello!') == ['Hello']\n\n\ndef test_split_punct_ws__unicode_punct_not_split():\n    assert split_punct_ws('caf\u00e9\u2014test') == ['caf\u00e9\u2014test']\n\n\ndef test_split_punct_ws__non_string_error():\n    with pytest.raises(TypeError):\n        split_punct_ws(123)\n\n\ndef test_HTMLTextExtractor_handle_data__basic():\n    extractor = HTMLTextExtractor()\n    extractor.result = []\n    data = \"Hello, World!\"\n    extractor.handle_data(data)\n    assert extractor.result == [data]\n\n\ndef test_HTMLTextExtractor_get_text__basic():\n    extractor = HTMLTextExtractor()\n    extractor.feed(\"<html><body><p>Hello, World!</p></body></html>\")\n    assert extractor.get_text() == \"Hello, World!\"\n\n\ndef test_escape_shell_args__cover_1():\n    args = ['echo', 'hello world']\n    expected = 'echo \"hello world\"'\n    assert escape_shell_args(args, style='cmd') == expected\n\n\ndef test_ellipsize__unparsable():\n    assert ellipsize('Beautiful is better than ugly. Explicit is better.', 31) == 'Beautiful is better than ugly\u2026'\n\n\ndef test_pluralize__unparsable():\n    # Irregular plurals that should be left unchanged by pluralize()\n    assert pluralize('children') == 'children'\n    assert pluralize('people') == 'people'\n    assert pluralize('geese') == 'geese'\n    assert pluralize('mice') == 'mice'\n    assert pluralize('lice') == 'lice'\n\n\ndef test_MultiReplace___init____cover_1():\n    \"\"\"Cover the branch where options['regex'] is True and the pattern is a string.\"\"\"\n    sub_map = {'baz': 'BAZ'}\n    mr = MultiReplace(sub_map, regex=True)\n\n    assert mr.group_map == {'group0': 'BAZ'}\n    # No escaping when regex=True.\n    expected_pattern = r'(?P<group0>baz)'\n    assert mr.combined_pattern.pattern == expected_pattern\n    assert mr.combined_pattern.flags == re.UNICODE\n\n\ndef test_escape_shell_args__basic():\n    args = ['echo', 'hello world']\n    expected = \"echo 'hello world'\"\n    assert escape_shell_args(args, style='sh') == expected\n\n\ndef test_MultiReplace___init____basic():\n    \"\"\"Typical valid input with default options (regex=False).\"\"\"\n    sub_map = {'foo': 'FOO', 'bar': 'BAR'}\n    mr = MultiReplace(sub_map)\n\n    # Check the mapping of group names to replacement values.\n    assert mr.group_map == {'group0': 'FOO', 'group1': 'BAR'}\n\n    # Check the compiled pattern: escaped literals joined with '|'.\n    expected_pattern = r'(?P<group0>foo)|(?P<group1>bar)'\n    assert mr.combined_pattern.pattern == expected_pattern\n    # The compiled pattern includes the UNICODE flag (value 32) by default.\n    assert mr.combined_pattern.flags == 32\n\n\ndef test_MultiReplace___init____cover_2():\n    \"\"\"Cover the branch where the pattern is not a string (compiled regex).\"\"\"\n    pattern = re.compile(r'\\d+')\n    sub_map = {pattern: 'NUM'}\n    mr = MultiReplace(sub_map)\n\n    assert mr.group_map == {'group0': 'NUM'}\n    # The raw pattern string from the compiled regex is used.\n    expected_pattern = r'(?P<group0>\\d+)'  # pattern.pattern yields '\\\\d+'\n    assert mr.combined_pattern.pattern == expected_pattern\n    assert mr.combined_pattern.flags == re.UNICODE\n\n\ndef test_gunzip_bytes__basic():\n    # Create a valid gzip stream for known input\n    uncompressed = b'hello world\\n'\n    buf = io.BytesIO()\n    with gzip.GzipFile(fileobj=buf, mode='wb') as f:\n        f.write(uncompressed)\n    compressed = buf.getvalue()\n    assert gunzip_bytes(compressed) == uncompressed",
+  "duration_s": 786.2,
+  "run_id": "f6c7efb6afdd",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      576.5,
+      87.6,
+      76.6
+    ],
+    [
+      702.9,
+      96.5,
+      90.8
+    ],
+    [
+      747.1,
+      96.7,
+      91.3
+    ]
+  ],
+  "llm_calls": 129,
+  "llm_tokens": 230212,
+  "models": [
+    "cloudflare/@cf/openai/gpt-oss-20b",
+    "gemini/gemini-3.5-flash-lite",
+    "groq/openai/gpt-oss-120b",
+    "groq/openai/gpt-oss-20b",
+    "mistral/codestral-2508",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/gpt-oss:20b",
+    "ollama_chat/nemotron-3-ultra",
+    "zai/glm-4.5-flash"
+  ],
+  "wall_s": 786.3,
+  "subject": "boltons_strutils",
+  "level": "medium",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 20:34:34"
+}

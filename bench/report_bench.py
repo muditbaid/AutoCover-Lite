@@ -57,8 +57,12 @@ def metrics(result: dict | None) -> dict:
         return {"ok": False, "error": (result or {}).get("error", "not run")}
     if result["tool"] == "autocover":
         final = result["final"]
+        own = (result.get("mutation") or {}).get("score_pct", 0.0)
+        # Prefer the independent re-score (bench/rescore.py): same scorer as the baseline.
+        rescored = (result.get("mutation_rescored") or {}).get("score_pct")
         return {"ok": True, "line": final["line_pct"], "branch": final["branch_pct"],
-                "mutation": (result.get("mutation") or {}).get("score_pct", 0.0),
+                "mutation": rescored if rescored is not None else own, "mutation_own": own,
+                "rescored": rescored is not None,
                 "tests": result["tests_in_suite"], "calls": result.get("llm_calls", 0),
                 "tokens": result.get("llm_tokens", 0), "wall": result.get("wall_s", 0.0),
                 "extra": f"{result['rounds']} rounds, stopped: {result['stopped_by']}"}
@@ -244,7 +248,9 @@ def main() -> None:
            "- **Baseline**: the same Generator model chain and test-writing rules, one call "
            "for the whole module, failing tests dropped; the median of 3 samples is shown.",
            "- **Mutation score**: both tools are scored on the identical seeded mutant pool "
-           "(`mutation.max_mutants_per_function` / `max_mutants_total`).",
+           "(`mutation.max_mutants_per_function` / `max_mutants_total`), with every mutant run "
+           "against the final suite (`bench/rescore.py` re-scores AutoCover-Lite this way "
+           "instead of reusing kills recorded during validation).",
            "- **Caveats**: one AutoCover-Lite run per subject; free-tier models answer "
            "differently depending on quotas and load (see the models used in "
            "`bench/results/runs/*.json`); subjects are pinned wheel versions with their own "

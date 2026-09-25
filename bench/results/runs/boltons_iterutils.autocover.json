@@ -1,0 +1,200 @@
+{
+  "target": "boltons/iterutils.py",
+  "test_path": "tests/test_iterutils_autocover.py",
+  "rounds": 1,
+  "baseline": {
+    "line_pct": 15.0,
+    "branch_pct": 0.3,
+    "lines_covered": 85,
+    "lines_total": 565,
+    "branches_covered": 1,
+    "branches_total": 308
+  },
+  "final": {
+    "line_pct": 78.3,
+    "branch_pct": 68.5,
+    "lines_covered": 451,
+    "lines_total": 576,
+    "branches_covered": 211,
+    "branches_total": 308
+  },
+  "mutation": {
+    "killed": 94,
+    "total": 150,
+    "score_pct": 62.7,
+    "reused_kills": 90,
+    "survivors": [
+      "line 309 (_validate_positive_int): True -> False",
+      "line 311 (_validate_positive_int): or -> and",
+      "line 311 (_validate_positive_int): < -> <=",
+      "line 311 (_validate_positive_int): 0 -> 1",
+      "line 750 (bucketize): remove `not`",
+      "line 740 (bucketize): return value -> None",
+      "line 735 (bucketize): != -> ==",
+      "line 746 (bucketize): 'expected key to be callable or a string or a list' -> ''",
+      "line 754 (bucketize): 1 -> 2",
+      "line 930 (redundant): return value -> None",
+      "line 904 (redundant): is -> is not",
+      "line 917 (redundant): not in -> in",
+      "line 920 (redundant): in -> not in",
+      "line 911 (redundant): % -> //",
+      "line 964 (one): 2 -> 3",
+      "line 1094 (default_exit): % -> //",
+      "line 1094 (default_exit): 'unexpected iterable type: %r' -> ''",
+      "line 1103 (remap): True -> False",
+      "line 1225 (remap): in -> not in",
+      "line 1240 (remap): '-' -> ''"
+    ]
+  },
+  "tests_in_suite": 167,
+  "candidates": 309,
+  "accepted": 167,
+  "accepted_by": {
+    "scenario": 96,
+    "coverage": 71
+  },
+  "accepted_after_fix": 0,
+  "sent_to_fixer": 0,
+  "rejected_no_signal": 74,
+  "frozen": 0,
+  "superseded": 0,
+  "weak_kept": 11,
+  "failed": 61,
+  "rule_violations": {
+    "literal_oracle": 4
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 172,
+    "tokens": 259776,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 179,
+  "scenarios_covered": 138,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 14,
+      "tokens": 47921,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "groq/openai/gpt-oss-120b": {
+      "calls": 8,
+      "tokens": 14528,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 2,
+      "tokens": 11367,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 41,
+      "tokens": 54829,
+      "roles": [
+        "generator"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 2,
+      "tokens": 10022,
+      "roles": [
+        "generator"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 6,
+      "tokens": 42958,
+      "roles": [
+        "generator"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 2,
+      "tokens": 3502,
+      "roles": [
+        "judge"
+      ]
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "calls": 5,
+      "tokens": 2316,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 6,
+      "tokens": 6628,
+      "roles": [
+        "judge"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-20b": {
+      "calls": 5,
+      "tokens": 3897,
+      "roles": [
+        "judge"
+      ]
+    },
+    "ollama_chat/gpt-oss:20b": {
+      "calls": 2,
+      "tokens": 1412,
+      "roles": [
+        "judge"
+      ]
+    },
+    "zai/glm-4.5-flash": {
+      "calls": 79,
+      "tokens": 60396,
+      "roles": [
+        "judge"
+      ]
+    }
+  },
+  "suite": "import os\nimport random\n\nimport pytest\nfrom boltons.iterutils import (\n    GUIDerator,\n    PathAccessError,\n    SequentialGUIDerator,\n    backoff,\n    backoff_iter,\n    chunked,\n    chunked_iter,\n    default_enter,\n    default_exit,\n    default_visit,\n    first,\n    flatten,\n    flatten_iter,\n    frange,\n    get_path,\n    is_collection,\n    is_iterable,\n    is_scalar,\n    lstrip,\n    lstrip_iter,\n    one,\n    pairwise,\n    pairwise_iter,\n    partition,\n    remap,\n    research,\n    rstrip,\n    rstrip_iter,\n    same,\n    soft_sorted,\n    split,\n    strip,\n    strip_iter,\n    unique,\n    unique_iter,\n    untyped_sorted,\n    windowed,\n    windowed_iter,\n    xfrange,\n)\n\n\ndef test_research__query_matches_some_values_returns_list():\n    root = {'a': {'b': 1, 'c': (2, 'd', 3)}, 'e': None}\n    res = research(root, query=lambda p, k, v: isinstance(v, int))\n    assert sorted(res) == [(('a', 'b'), 1), (('a', 'c', 0), 2), (('a', 'c', 2), 3)]\n\n\ndef test_chunked__exact_chunks_no_fill():\n    result = chunked(range(10), 2)\n    assert result == [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]\n\n\ndef test_backoff__basic():\n    assert backoff(1, 10) == [1.0, 2.0, 4.0, 8.0, 10.0]\n\n\ndef test_split__basic():\n    # Test with a typical valid input\n    input_data = ['hi', 'hello', None, None, 'sup', None, 'soap', None]\n    expected_output = [['hi', 'hello'], ['sup'], ['soap']]\n    assert split(input_data) == expected_output\n\n\ndef test_strip__only_trailing_matches():\n    assert strip(['Foo', 'Bar', 'Bam', 'Fu', 'Fu'], 'Fu') == ['Foo', 'Bar', 'Bam']\n\n\ndef test_partition__basic():\n    # ---- Error: non\u2011iterable input ----\n    with pytest.raises(TypeError) as exc:\n        partition(None)\n    assert str(exc.value) == \"expected an iterable\"\n\n    # ---- _make_key_func: string key (attribute lookup) ----\n    class Item:\n        def __init__(self, flag):\n            self.flag = flag\n\n    items = [Item(True), Item(False), Item(True)]\n    true_items, false_items = partition(items, \"flag\")\n    assert true_items == [items[0], items[2]]\n    assert false_items == [items[1]]\n\n    # ---- _make_key_func: invalid key type ----\n    with pytest.raises(TypeError) as exc:\n        partition([1, 2, 3], 5)  # int is neither str nor callable\n    assert str(exc.value) == \"expected key to be callable or a string\"\n\n    # ---- Happy path: default key (bool) ----\n    assert partition([0, 1, 0, 2]) == ([1, 2], [0, 0])\n\n    # ---- Happy path: multiple predicates ----\n    # predicates: >0, <0 ; remaining go to last bucket (==0)\n    pos, neg, zero = partition(range(-2, 3), lambda i: i > 0, lambda i: i < 0)\n    assert pos == [1, 2]\n    assert neg == [-2, -1]\n    assert zero == [0]\n\n    # ---- Verify return type and structure ----\n    result = partition([1, 2, 3])\n    assert isinstance(result, tuple)\n    assert len(result) == 2  # one predicate + catch\u2011all\n    assert result == ([1, 2, 3], [])  # all truthy go to first bucket\n\n\ndef test_get_path__default_returned_on_access_error():\n    root = {'a': [1, 2, 3]}\n    path = ('a', 'x')  # trying to use a non-numeric string on a list triggers TypeError\n    default = 'missing'\n    assert get_path(root, path, default) == default\n\n\ndef test_untyped_sorted__heterogeneous_sort():\n    iterable = ['abc', 2.0, 1, 2, 'def']\n    expected = [1, 2.0, 2, 'abc', 'def']\n    assert untyped_sorted(iterable) == expected\n\n\ndef test_soft_sorted__cover_2():\n    iterable = ['two', 'b', 'one', 'a']\n    first = ['one', 'two']\n    last = ['a', 'b']\n    result = soft_sorted(iterable, first=first, last=last)\n    assert result == ['one', 'two', 'a', 'b']\n\n\ndef test_unique__callable_key():\n    input_list = [1, 2, 3, 4, 5]\n    key_func = lambda x: x % 2\n    expected_output = [1, 2]\n    assert unique(input_list, key=key_func) == expected_output\n\n\ndef test_frange__cover_1():\n    assert frange(6, step=1.25) == [0.0, 1.25, 2.5, 3.75, 5.0]\n\n\ndef test_pairwise__normal_multiple_elements():\n    result = list(pairwise(range(5)))\n    assert result == [(0, 1), (1, 2), (2, 3), (3, 4)]\n\n\ndef test_xfrange__cover_2():\n    # Test the case where start is None\n    result = tuple(xfrange(5))\n    assert result == (0.0, 1.0, 2.0, 3.0, 4.0)\n\n\ndef test_remap__visit_returns_false_drops_item():\n    root = [1, 2, 3, 4]\n    def drop_even(path, key, value):\n        return False if value % 2 == 0 else (key, value)\n    result = remap(root, visit=drop_even, enter=default_enter, exit=default_exit)\n    assert result == [1, 3]\n\n\ndef test_GUIDerator___next____cover_1():\n    guid = GUIDerator()\n    original_pid = guid.pid\n    guid.pid = os.getpid() + 1\n    result = next(guid)\n    assert isinstance(result, str)\n    assert len(result) == 24\n    assert guid.pid == os.getpid()\n\n\ndef test_pairwise_iter__with_end_sentinel():\n    result = list(pairwise_iter(range(3), end=None))\n    assert result == [(0, 1), (1, 2), (2, None)]\n\n\ndef test_flatten__nested_lists():\n    nested = [[1, 2], [[3], [4, 5]]]\n    assert flatten(nested) == [1, 2, 3, 4, 5]\n\n\ndef test_same__all_equal():\n    assert same([1, 1, 1]) is True\n\n\ndef test_backoff_iter__cover_jitter_true_path(monkeypatch):\n    # deterministic random value\n    monkeypatch.setattr(random, \"random\", lambda: 0.5)\n    result = list(backoff_iter(4, 16, count=3, jitter=0.5))\n    # jitter calculation: cur_ret = cur - cur * jitter * 0.5 = cur * (1 - 0.25) = cur * 0.75\n    expected = [4 * 0.75, 8 * 0.75, 16 * 0.75]  # after first step cur becomes 8, then 16 (capped)\n    assert result == expected\n\n\ndef test_chunked_iter__bytes_input():\n    src = b\"abcdefghij\"\n    size = 3\n    expected = [b\"abc\", b\"def\", b\"ghi\", b\"j\"]\n    assert list(chunked_iter(src, size)) == expected\n\n\ndef test_SequentialGUIDerator___next____cover_1():\n    # Create a SequentialGUIDerator instance\n    guid = SequentialGUIDerator()\n\n    # Store the original PID\n    original_pid = guid.pid\n\n    # Change the PID to trigger the reseed condition\n    guid.pid = os.getpid() + 1\n\n    # Get the next GUID, which should trigger the reseed\n    next_guid = next(guid)\n\n    # Verify that the GUID is a hexadecimal string\n    assert isinstance(next_guid, str)\n    assert all(c in '0123456789abcdef' for c in next_guid)\n\n    # Restore the original PID\n    guid.pid = original_pid\n\n\ndef test_backoff_iter__cover_count_none_factor_one_start_ne_stop():\n    # factor == 1.0 with start != stop should raise\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, count=None, factor=1.0))\n    assert \"expected factor > 1.0 when count is None\" in str(exc.value)\n\n\ndef test_get_path__retrieve_nested_value_with_dot_string_pa():\n    # dot string that includes a numeric segment requiring conversion to int for list indexing\n    root = {'a': {'b': [10, 20, 30]}}\n    path = 'a.b.1'\n    assert get_path(root, path) == 20\n\n\ndef test_default_exit__set_reconstructed():\n    new_parent = {1, 2, 3}\n    new_items = [(None, 4), (None, 5)]\n    result = default_exit(None, None, None, new_parent, new_items)\n    assert result == {1, 2, 3, 4, 5}\n\n\ndef test_one__single_truthy():\n    assert one([0, False, 'x']) == 'x'\n\n\ndef test_GUIDerator___init____size_above_maximum_raises_value_error():\n    with pytest.raises(ValueError, match='expected 20 <= size <= 36'):\n        GUIDerator(size=37)\n\n\ndef test_frange__cover_3():\n    assert frange(5, 0) == []\n\n\ndef test_PathAccessError___str____str_returns_descriptive_message():\n    # Create a PathAccessError instance with a segment, path, and exception\n    exc = ValueError(\"Invalid value\")\n    seg = \"key\"\n    path = [\"parent\", \"child\"]\n    path_access_error = PathAccessError(exc, seg, path)\n\n    # Call the __str__ method and check the returned message\n    assert str(path_access_error) == \"could not access 'key' from path ['parent', 'child'], got error: ValueError('Invalid value')\"\n\n\ndef test_research__query_raises_exception_reraise_true_prop():\n    root = {'a': 1, 'b': 2}\n    def faulty_query(p, k, v):\n        raise ValueError(\"Query failed\")\n    try:\n        research(root, query=faulty_query, reraise=True)\n    except ValueError as e:\n        assert str(e) == \"Query failed\"\n\n\ndef test_windowed_iter__size_greater_than_length_no_fill():\n    src = range(3)\n    size = 5\n    assert list(windowed_iter(src, size)) == []\n\n\ndef test_PathAccessError___repr____repr_returns_formatted_string():\n    exc = ValueError(\"test error\")\n    seg = \"test_seg\"\n    path = [\"test\", \"path\"]\n    error = PathAccessError(exc, seg, path)\n    expected_repr = \"PathAccessError(ValueError('test error'), 'test_seg', ['test', 'path'])\"\n    assert repr(error) == expected_repr\n\n\ndef test_is_collection__cover_2():\n    assert is_collection(object()) is False\n    assert is_collection(42) is False\n    assert is_collection(3.14) is False\n\n\ndef test_backoff_iter__cover_start_negative():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(-1, 5))\n    assert \"expected start >= 0\" in str(exc.value)\n\n\ndef test_chunked_iter__with_fill_value():\n    src = range(10)\n    size = 3\n    fill_val = -1\n    expected = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, -1, -1]]\n    assert list(chunked_iter(src, size, fill=fill_val)) == expected\n\n\ndef test_unique_iter__src_not_iterable():\n    with pytest.raises(TypeError) as excinfo:\n        list(unique_iter(42))\n    assert str(excinfo.value) == 'expected an iterable, not <class \\'int\\'>'\n\n\ndef test_unique_iter__default_key_duplicates():\n    src = [1, 2, 2, 3, 1]\n    result = list(unique_iter(src))\n    assert result == [1, 2, 3]\n\n\ndef test_untyped_sorted__invalid_key():\n    iterable = [1, 2, 3]\n    key = \"not a function\"\n    with pytest.raises(TypeError):\n        untyped_sorted(iterable, key=key)\n\n\ndef test_research__query_not_callable_raises_type_error():\n    root = {'a': 1, 'b': 2}\n    try:\n        research(root, query='not a callable')\n    except TypeError as e:\n        assert str(e) == \"query expected callable, not: 'not a callable'\"\n\n\ndef test_soft_sorted__basic():\n    iterable = ['two', 'b', 'one', 'a']\n    first = ['one', 'two']\n    result = soft_sorted(iterable, first=first)\n    assert result == ['one', 'two', 'a', 'b']\n\n\ndef test_backoff__cover_1():\n    try:\n        backoff(1, 10, count='repeat')\n    except ValueError as e:\n        assert str(e) == \"'repeat' supported in backoff_iter, not backoff\"\n    else:\n        assert False, \"Expected ValueError\"\n\n\ndef test_lstrip__basic():\n    # Test with a typical valid input\n    input_iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Foo'\n    expected_output = ['Bar', 'Bam']\n    assert lstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_default_visit__identity_return():\n    # Test with various path, key, value combinations\n    test_cases = [\n        ([], 'key1', 'value1'),  # empty path\n        (['path1'], 'key2', 'value2'),  # non-empty path\n        (['path1', 'path2'], 'key3', 42),  # nested path with integer value\n        (['path1', 'path2', 'path3'], 'key4', {'nested': 'value'}),  # nested path with dict value\n    ]\n\n    for path, key, value in test_cases:\n        result_key, result_value = default_visit(path, key, value)\n        assert result_key == key\n        assert result_value == value\n\n\ndef test_remap__visit_returns_true_keeps_item():\n    root = [10, 20]\n    def keep_all(path, key, value):\n        return True  # keep unchanged\n    result = remap(root, visit=keep_all, enter=default_enter, exit=default_exit)\n    assert result == [10, 20]\n\n\n# ---------- cover error handling lines ----------\ndef test_remap__non_callable_visit():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2], visit=123, enter=default_enter, exit=default_exit)\n    assert \"visit expected callable\" in str(exc.value)\n\n\ndef test_remap__non_callable_enter():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2], visit=default_visit, enter=123, exit=default_exit)\n    assert \"enter expected callable\" in str(exc.value)\n\n\ndef test_remap__non_callable_exit():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2], visit=default_visit, enter=default_enter, exit=123)\n    assert \"exit expected callable\" in str(exc.value)\n\n\ndef test_remap__unexpected_kwargs():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2], visit=default_visit, enter=default_enter, exit=default_exit, foo=42)\n    assert \"unexpected keyword arguments\" in str(exc.value)\n\n\ndef test_remap__invalid_trace_type():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2], visit=default_visit, enter=default_enter, exit=default_exit, trace=123)\n    assert \"trace expected tuple of event names\" in str(exc.value)\n\n\ndef test_remap__trace_string_converts():\n    # Ensure that passing a string for trace does not raise and still works\n    root = {\"a\": 1}\n    result = remap(root, visit=default_visit, enter=default_enter, exit=default_exit, trace=\"visit\")\n    assert result == {\"a\": 1}\n\n\ndef test_backoff_iter__cover_factor_too_small():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, factor=0.9))\n    assert \"expected factor >= 1.0\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_stop_zero():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 0))\n    assert \"expected stop >= 0\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_stop_less_than_start():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(5, 1))\n    assert \"expected stop >= start\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_count_none_factor_one_start_eq_stop():\n    # factor == 1.0 with start == stop yields a single value\n    result = list(backoff_iter(3, 3, count=None, factor=1.0))\n    assert result == [3.0]\n\n\ndef test_backoff_iter__cover_negative_count():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, count=-2))\n    assert \"count must be positive\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_jitter_out_of_bounds():\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, jitter=2.0))\n    assert \"expected jitter -1 <= j <= 1\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_cur_zero_branch():\n    # start=0 triggers the cur==0 branch\n    result = list(backoff_iter(0, 5, count=3))\n    assert result == [0.0, 1.0, 2.0]\n\n\ndef test_chunked_iter__empty_iterable():\n    src = []\n    size = 3\n    assert list(chunked_iter(src, size)) == []\n\n\ndef test_frange__cover_5():\n    try:\n        frange(5, step=0)\n    except ValueError as e:\n        assert str(e) == 'step must be non-zero'\n\n\ndef test_xfrange__basic():\n    # Test with typical valid input\n    result = tuple(xfrange(1, 3, step=0.75))\n    assert result == (1.0, 1.75, 2.5)\n\n\ndef test_xfrange__cover_1():\n    # Test the case where step is zero\n    with pytest.raises(ValueError, match='step must be non-zero'):\n        tuple(xfrange(1, 3, step=0.0))\n\n\ndef test_chunked__count_limits_chunks():\n    result = chunked(range(10), 2, count=3)\n    assert result == [[0, 1], [2, 3], [4, 5]]\n\n\ndef test_split__cover_1():\n    # Test to cover line 118: return list(split_iter(src, sep, maxsplit))\n    input_data = ['a', 'b', 'c']\n    expected_output = [['a', 'b', 'c']]\n    assert split(input_data) == expected_output\n\n\ndef test_rstrip__no_trailing_matches():\n    input_iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Baz'\n    expected_output = ['Foo', 'Bar', 'Bam']\n    assert rstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_chunked_iter__string_input():\n    src = \"abcdefghij\"\n    size = 3\n    expected = [\"abc\", \"def\", \"ghi\", \"j\"]\n    assert list(chunked_iter(src, size)) == expected\n\n\ndef test_first__first_truthy():\n    iterable = [0, False, None, [], (), 42]\n    result = first(iterable)\n    assert result == 42\n\n\ndef test_research__query_raises_exception_reraise_false_cat():\n    root = {'a': 1, 'b': 2}\n    def faulty_query(p, k, v):\n        if k == 'b':\n            raise ValueError(\"Query failed\")\n        return isinstance(v, int)\n    res = research(root, query=faulty_query, reraise=False)\n    assert res == [(('a',), 1)]\n\n\ndef test_soft_sorted__cover_1():\n    iterable = ['two', 'b', 'one', 'a']\n    result = soft_sorted(iterable)\n    assert result == ['a', 'b', 'one', 'two']\n\n\ndef test_lstrip_iter__all_elements_match():\n    iterable = ['Foo', 'Foo', 'Foo']\n    strip_value = 'Foo'\n    result = list(lstrip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_GUIDerator___next____basic():\n    guid = GUIDerator()\n    result = next(guid)\n    assert isinstance(result, str)\n    assert len(result) == 24\n\n\ndef test_same__with_ref_matching():\n    assert same([1, 1, 1], ref=1) is True\n\n\ndef test_SequentialGUIDerator___next____cover_2():\n    # Create a SequentialGUIDerator instance\n    guid = SequentialGUIDerator()\n\n    # Get the next GUID\n    next_guid = next(guid)\n\n    # Verify that the GUID is a hexadecimal string\n    assert isinstance(next_guid, str)\n    assert all(c in '0123456789abcdef' for c in next_guid)\n\n\n# ---------- happy path scenarios ----------\ndef test_remap__basic_visit_transform():\n    root = {\"a\": 1, \"b\": 2}\n    def double(path, key, value):\n        return (key, value * 2)\n    result = remap(root, visit=double, enter=default_enter, exit=default_exit)\n    assert result == {\"a\": 2, \"b\": 4}\n\n\ndef test_remap__enter_returns_false_skips_traversal():\n    root = {\"a\": [1, 2, 3], \"b\": 5}\n    def custom_enter(path, key, value):\n        # Skip traversing the list under key 'a'\n        if key == \"a\" and isinstance(value, list):\n            return (value, False)\n        return default_enter(path, key, value)\n    result = remap(root, visit=default_visit, enter=custom_enter, exit=default_exit)\n    # The list under 'a' should be unchanged (no inner transformation)\n    assert result == {\"a\": [1, 2, 3], \"b\": 5}\n\n\ndef test_backoff_iter__basic():\n    \"\"\"Typical valid input with explicit count.\"\"\"\n    result = list(backoff_iter(1.0, 10.0, count=5))\n    assert result == [1.0, 2.0, 4.0, 8.0, 10.0]\n\n\ndef test_chunked_iter__normal_evenly_divisible():\n    src = range(10)\n    size = 2\n    expected = [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]\n    assert list(chunked_iter(src, size)) == expected\n\n\ndef test_chunked_iter__normal_remainder_chunk():\n    src = range(10)\n    size = 3\n    expected = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]\n    assert list(chunked_iter(src, size)) == expected\n\n\ndef test_get_path__retrieve_nested_value_with_tuple_path():\n    root = {'a': {'b': {'c': [[1], [2], [3]]}}}\n    path = ('a', 'b', 'c', 2, 0)\n    assert get_path(root, path) == 3\n\n\ndef test_get_path__empty_path_returns_root():\n    root = {'x': 1, 'y': [2, 3]}\n    path = ()\n    assert get_path(root, path) is root\n\n\ndef test_default_exit__list_reconstructed():\n    new_parent = [1, 2, 3]\n    new_items = [(None, 4), (None, 5)]\n    result = default_exit(None, None, None, new_parent, new_items)\n    assert result == [1, 2, 3, 4, 5]\n\n\ndef test_default_exit__unexpected_type_raises():\n    new_parent = \"not_a_mapping_sequence_or_set\"\n    new_items = [(None, 1), (None, 2)]\n    try:\n        default_exit(None, None, None, new_parent, new_items)\n    except RuntimeError as e:\n        assert str(e) == \"unexpected iterable type: <class 'str'>\"\n\n\ndef test_windowed_iter__normal_size_le_length():\n    src = range(7)\n    size = 3\n    expected = [(0, 1, 2), (1, 2, 3), (2, 3, 4), (3, 4, 5), (4, 5, 6)]\n    assert list(windowed_iter(src, size)) == expected\n\n\ndef test_windowed_iter__empty_iterable():\n    src = []\n    size = 3\n    assert list(windowed_iter(src, size)) == []\n\n\ndef test_windowed_iter__size_one():\n    src = range(5)\n    size = 1\n    expected = [(0,), (1,), (2,), (3,), (4,)]\n    assert list(windowed_iter(src, size)) == expected\n\n\ndef test_unique_iter__key_callable_len():\n    src = ['hi', 'hello', 'ok', 'bye']\n    result = list(unique_iter(src, key=lambda x: len(x)))\n    assert result == ['hi', 'hello', 'bye']\n\n\ndef test_unique_iter__empty_iterable():\n    src = []\n    result = list(unique_iter(src))\n    assert result == []\n\n\ndef test_rstrip_iter__strips_trailing_matches():\n    iterable = ['Foo', 'Bar', 'Bam', 'Bam']\n    strip_value = 'Bam'\n    result = list(rstrip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar']\n\n\ndef test_rstrip_iter__no_trailing_matches():\n    iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Baz'\n    result = list(rstrip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_rstrip_iter__all_elements_match():\n    iterable = ['Bam', 'Bam', 'Bam']\n    strip_value = 'Bam'\n    result = list(rstrip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_rstrip_iter__empty_iterable():\n    iterable = []\n    strip_value = 'Bam'\n    result = list(rstrip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_rstrip_iter__default_strip_value_none():\n    iterable = ['Foo', 'Bar', None, None]\n    result = list(rstrip_iter(iterable))\n    assert result == ['Foo', 'Bar']\n\n\ndef test_rstrip_iter__multiple_trailing_matches():\n    iterable = ['Foo', 'Bar', 'Bam', 'Bam', 'Bam']\n    strip_value = 'Bam'\n    result = list(rstrip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar']\n\n\ndef test_untyped_sorted__reverse_sort():\n    iterable = ['abc', 2.0, 1, 2, 'def']\n    expected = ['def', 'abc', 2.0, 2, 1]\n    assert untyped_sorted(iterable, reverse=True) == expected\n\n\ndef test_untyped_sorted__empty_iterable():\n    iterable = []\n    expected = []\n    assert untyped_sorted(iterable) == expected\n\n\ndef test_untyped_sorted__single_element():\n    iterable = [42]\n    expected = [42]\n    assert untyped_sorted(iterable) == expected\n\n\ndef test_frange__basic():\n    assert frange(5) == [0.0, 1.0, 2.0, 3.0, 4.0]\n\n\ndef test_research__query_matches_none_returns_empty_list():\n    root = {'a': {'b': 'x', 'c': ('y', 'z')}, 'e': None}\n    res = research(root, query=lambda p, k, v: isinstance(v, int))\n    assert res == []\n\n\ndef test_lstrip_iter__strips_leading_matches():\n    iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Foo'\n    result = list(lstrip_iter(iterable, strip_value))\n    assert result == ['Bar', 'Bam']\n\n\ndef test_lstrip_iter__no_leading_matches():\n    iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Baz'\n    result = list(lstrip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_lstrip_iter__empty_iterable():\n    iterable = []\n    strip_value = 'Foo'\n    result = list(lstrip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_lstrip_iter__default_strip_value_none():\n    iterable = [None, None, 'Foo', 'Bar']\n    result = list(lstrip_iter(iterable))\n    assert result == ['Foo', 'Bar']\n\n\ndef test_lstrip_iter__single_non_matching_element():\n    iterable = ['Foo']\n    strip_value = 'Bar'\n    result = list(lstrip_iter(iterable, strip_value))\n    assert result == ['Foo']\n\n\ndef test_is_iterable__basic():\n    assert is_iterable([]) is True\n    assert is_iterable(\"hello\") is True\n    assert is_iterable({}) is True\n    assert is_iterable(object()) is False\n\n\ndef test_chunked__partial_final_chunk_no_fill():\n    result = chunked(range(10), 3)\n    assert result == [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]\n\n\ndef test_chunked__with_fill_pads_final_chunk():\n    result = chunked(range(10), 3, fill=None)\n    assert result == [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, None, None]]\n\n\ndef test_chunked__empty_iterable():\n    result = chunked([], 3)\n    assert result == []\n\n\ndef test_chunked__size_larger_than_iterable():\n    result = chunked(range(3), 5)\n    assert result == [[0, 1, 2]]\n\n\ndef test_flatten_iter__flat_list():\n    input_list = [1, 2, 3]\n    result = list(flatten_iter(input_list))\n    assert result == [1, 2, 3]\n\n\ndef test_flatten_iter__nested_iterables():\n    nested = [[1, 2], [[3], [4, 5]]]\n    result = list(flatten_iter(nested))\n    assert result == [1, 2, 3, 4, 5]\n\n\ndef test_flatten_iter__mixed_iterables():\n    mixed = ([1, 2], {3, 4}, (5,))\n    result = list(flatten_iter(mixed))\n    assert result == [1, 2, 3, 4, 5]\n\n\ndef test_flatten_iter__string_atomic():\n    strings = ['a', 'bc']\n    result = list(flatten_iter(strings))\n    assert result == ['a', 'bc']\n\n\ndef test_flatten_iter__empty_iterable():\n    empty = []\n    result = list(flatten_iter(empty))\n    assert result == []\n\n\ndef test_flatten_iter__non_iterable_error():\n    with pytest.raises(TypeError):\n        list(flatten_iter(None))\n\n\ndef test_same__not_all_equal():\n    assert same([1, 2, 3]) is False\n\n\ndef test_same__empty_iterable():\n    assert same([]) is True\n\n\ndef test_same__single_element():\n    assert same([42]) is True\n\n\ndef test_same__with_ref_not_matching():\n    assert same([1, 2, 3], ref=1) is False\n\n\ndef test_PathAccessError___init____init_stores_attributes():\n    exc = ValueError(\"Test exception\")\n    seg = \"test_segment\"\n    path = [\"test\", \"path\"]\n\n    error = PathAccessError(exc, seg, path)\n\n    assert error.exc is exc\n    assert error.seg == seg\n    assert error.path == path\n\n\ndef test_one__no_truthy_default_none():\n    assert one([0, False, None]) is None\n\n\ndef test_one__no_truthy_custom_default():\n    assert one([0, False], default='none') == 'none'\n\n\ndef test_one__multiple_truthy_returns_default():\n    assert one([True, 1, False], default='dup') == 'dup'\n\n\ndef test_one__custom_key_function():\n    assert one([5, 10, 15], key=lambda x: x > 12) == 15\n\n\ndef test_one__non_iterable_raises():\n    with pytest.raises(TypeError):\n        one(123)\n\n\ndef test_is_scalar__basic():\n    assert is_scalar(object()) is True\n    assert is_scalar(range(10)) is False\n    assert is_scalar('hello') is True\n\n\ndef test_is_collection__basic():\n    assert is_collection([1, 2, 3]) is True\n    assert is_collection((1, 2, 3)) is True\n    assert is_collection({1, 2, 3}) is True\n    assert is_collection({'a': 1, 'b': 2}) is True\n    assert is_collection(range(10)) is True\n\n\ndef test_rstrip__strips_trailing_matches():\n    input_iterable = ['Foo', 'Bar', 'Bam', 'Bam']\n    strip_value = 'Bam'\n    expected_output = ['Foo', 'Bar']\n    assert rstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_rstrip__all_elements_match():\n    input_iterable = ['Bam', 'Bam', 'Bam']\n    strip_value = 'Bam'\n    expected_output = []\n    assert rstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_rstrip__empty_iterable():\n    input_iterable = []\n    strip_value = 'Bam'\n    expected_output = []\n    assert rstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_rstrip__default_strip_value_none():\n    input_iterable = ['Foo', 'Bar', None, None]\n    expected_output = ['Foo', 'Bar']\n    assert rstrip(input_iterable) == expected_output\n\n\ndef test_rstrip__single_non_matching_element():\n    input_iterable = ['Foo']\n    strip_value = 'Bar'\n    expected_output = ['Foo']\n    assert rstrip(input_iterable, strip_value) == expected_output\n\n\ndef test_strip__strips_both_ends():\n    assert strip(['Fu', 'Foo', 'Bar', 'Bam', 'Fu'], 'Fu') == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip__only_leading_matches():\n    assert strip(['Fu', 'Fu', 'Foo', 'Bar', 'Bam'], 'Fu') == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip__no_matches_at_ends():\n    assert strip(['Foo', 'Bar', 'Bam'], 'Fu') == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip__all_elements_match():\n    assert strip(['Fu', 'Fu', 'Fu'], 'Fu') == []\n\n\ndef test_strip__empty_iterable():\n    assert strip([], 'Fu') == []\n\n\ndef test_strip_iter__strips_both_ends():\n    iterable = ['Fu', 'Foo', 'Bar', 'Bam', 'Fu']\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip_iter__only_leading_matches():\n    iterable = ['Fu', 'Fu', 'Foo', 'Bar', 'Bam']\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip_iter__only_trailing_matches():\n    iterable = ['Foo', 'Bar', 'Bam', 'Fu', 'Fu']\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip_iter__no_matches_at_ends():\n    iterable = ['Foo', 'Bar', 'Bam']\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == ['Foo', 'Bar', 'Bam']\n\n\ndef test_strip_iter__all_elements_match():\n    iterable = ['Fu', 'Fu', 'Fu']\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_strip_iter__empty_iterable():\n    iterable = []\n    strip_value = 'Fu'\n    result = list(strip_iter(iterable, strip_value))\n    assert result == []\n\n\ndef test_pairwise__single_element():\n    result = list(pairwise([1]))\n    assert result == []\n\n\ndef test_pairwise__empty_iterable():\n    result = list(pairwise([]))\n    assert result == []\n\n\ndef test_pairwise__with_end_sentinel():\n    result = list(pairwise(range(3), end=None))\n    assert result == [(0, 1), (1, 2), (2, None)]\n\n\ndef test_pairwise_iter__normal_multiple_elements():\n    result = list(pairwise_iter(range(5)))\n    assert result == [(0, 1), (1, 2), (2, 3), (3, 4)]\n\n\ndef test_pairwise_iter__single_element():\n    result = list(pairwise_iter([1]))\n    assert result == []\n\n\ndef test_pairwise_iter__empty_iterable():\n    result = list(pairwise_iter([]))\n    assert result == []\n\n\ndef test_windowed__normal_size_le_length():\n    src = [1, 2, 3, 4, 5]\n    size = 3\n    expected = [(1, 2, 3), (2, 3, 4), (3, 4, 5)]\n    assert windowed(src, size) == expected\n\n\ndef test_windowed__size_greater_than_length_no_fill():\n    src = [1, 2, 3]\n    size = 5\n    expected = []\n    assert windowed(src, size) == expected\n\n\ndef test_windowed__empty_iterable():\n    src = []\n    size = 3\n    expected = []\n    assert windowed(src, size) == expected\n\n\ndef test_windowed__size_one():\n    src = [1, 2, 3, 4, 5]\n    size = 1\n    expected = [(1,), (2,), (3,), (4,), (5,)]\n    assert windowed(src, size) == expected\n\n\ndef test_unique__normal_duplicates():\n    input_list = [1, 2, 2, 3, 4, 4, 5]\n    expected_output = [1, 2, 3, 4, 5]\n    assert unique(input_list) == expected_output\n\n\ndef test_unique__empty_input():\n    input_list = []\n    expected_output = []\n    assert unique(input_list) == expected_output\n\n\ndef test_unique__all_unique():\n    input_list = [1, 2, 3, 4, 5]\n    expected_output = [1, 2, 3, 4, 5]\n    assert unique(input_list) == expected_output\n\n\ndef test_unique__non_iterable_error():\n    non_iterable_input = 123\n    with pytest.raises(TypeError):\n        unique(non_iterable_input)\n\n\ndef test_first__first_all_falsy_none():\n    iterable = [0, False, None, [], ()]\n    result = first(iterable)\n    assert result is None\n\n\ndef test_first__first_all_falsy_default():\n    iterable = [0, False, None, [], ()]\n    default = 'ohai'\n    result = first(iterable, default=default)\n    assert result == 'ohai'\n\n\ndef test_first__first_key_predicate():\n    iterable = [1, 1, 3, 4, 5]\n    key = lambda x: x % 2 == 0\n    result = first(iterable, key=key)\n    assert result == 4\n\n\ndef test_first__first_key_no_match():\n    iterable = [1, 3, 5]\n    key = lambda x: x % 2 == 0\n    result = first(iterable, key=key)\n    assert result is None\n\n\ndef test_first__first_invalid_key_error():\n    iterable = [1, 2, 3]\n    key = 42\n    try:\n        first(iterable, key=key)\n    except TypeError:\n        pass\n    else:\n        assert False, \"Expected TypeError\"\n\n\ndef test_flatten__empty_list():\n    assert flatten([]) == []\n\n\ndef test_flatten__single_element():\n    assert flatten([42]) == [42]\n\n\ndef test_flatten__already_flat():\n    flat = [1, 2, 3]\n    assert flatten(flat) == flat\n\n\ndef test_flatten__mixed_nesting_depths():\n    mixed = [1, [2, [3]]]\n    assert flatten(mixed) == [1, 2, 3]\n\n\ndef test_GUIDerator___init____size_at_minimum_boundary_20_initializes():\n    guiderator = GUIDerator(size=20)\n    assert guiderator.size == 20\n\n\ndef test_GUIDerator___init____size_at_maximum_boundary_36_initializes():\n    guiderator = GUIDerator(size=36)\n    assert guiderator.size == 36\n\n\ndef test_GUIDerator___init____size_below_minimum_raises_value_error():\n    with pytest.raises(ValueError, match='expected 20 <= size <= 36'):\n        GUIDerator(size=19)\n\n\ndef test_GUIDerator___init____non_integer_size_raises_type_error():\n    with pytest.raises(TypeError):\n        GUIDerator(size='24')",
+  "duration_s": 1803.8,
+  "run_id": "8b348bcc259e",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      1742.1,
+      80.2,
+      68.5
+    ]
+  ],
+  "llm_calls": 172,
+  "llm_tokens": 259776,
+  "models": [
+    "cloudflare/@cf/openai/gpt-oss-20b",
+    "gemini/gemini-3.5-flash-lite",
+    "groq/openai/gpt-oss-120b",
+    "groq/openai/gpt-oss-20b",
+    "mistral/codestral-2508",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/gpt-oss:20b",
+    "ollama_chat/nemotron-3-ultra",
+    "zai/glm-4.5-flash"
+  ],
+  "wall_s": 1803.9,
+  "subject": "boltons_iterutils",
+  "level": "hard",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 21:46:30"
+}

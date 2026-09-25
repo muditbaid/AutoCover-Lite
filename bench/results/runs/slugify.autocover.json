@@ -1,0 +1,180 @@
+{
+  "target": "slugify/slugify.py",
+  "test_path": "tests/test_slugify_autocover.py",
+  "rounds": 5,
+  "baseline": {
+    "line_pct": 21.1,
+    "branch_pct": 0.0,
+    "lines_covered": 27,
+    "lines_total": 128,
+    "branches_covered": 0,
+    "branches_total": 66
+  },
+  "final": {
+    "line_pct": 94.8,
+    "branch_pct": 95.5,
+    "lines_covered": 128,
+    "lines_total": 135,
+    "branches_covered": 63,
+    "branches_total": 66
+  },
+  "mutation": {
+    "killed": 40,
+    "total": 52,
+    "score_pct": 76.9,
+    "reused_kills": 25,
+    "survivors": [
+      "line 22 (None): '(?<=\\\\d),(?=\\\\d)' -> ''",
+      "line 25 (None): 'auto' -> ''",
+      "line 25 (None): 'text-unidecode' -> ''",
+      "line 74 (_modern_truncate): - -> +",
+      "line 146 (_modern_slugify): and -> or",
+      "line 139 (_modern_slugify): 'post' -> ''",
+      "line 178 (slugify): True -> False",
+      "line 179 (slugify): True -> False",
+      "line 183 (slugify): False -> True",
+      "line 210 (slugify): 'legacy' -> ''",
+      "line 34 (_numeric_reference): <= -> <",
+      "line 38 (_numeric_reference): 0 -> 1"
+    ]
+  },
+  "tests_in_suite": 16,
+  "candidates": 61,
+  "accepted": 16,
+  "accepted_by": {
+    "coverage": 14,
+    "mutants": 2
+  },
+  "accepted_after_fix": 9,
+  "sent_to_fixer": 30,
+  "rejected_no_signal": 9,
+  "frozen": 8,
+  "superseded": 0,
+  "weak_kept": 2,
+  "failed": 25,
+  "rule_violations": {
+    "no_autouse_fixture": 3,
+    "literal_oracle": 1
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "no gaps left",
+  "llm_budget": {
+    "calls": 37,
+    "tokens": 216843,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 6,
+  "scenarios_covered": 6,
+  "llm": {
+    "ollama_chat/nemotron-3-ultra": {
+      "calls": 1,
+      "tokens": 2989,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 14,
+      "tokens": 78575,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 5,
+      "tokens": 19742,
+      "roles": [
+        "fixer"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 17,
+      "tokens": 115537,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import importlib\nimport sys\nimport types\n\nimport pytest\nimport slugify.slugify as slug_mod\nfrom slugify.slugify import _modern_slugify, _modern_truncate, _transliterate, slugify\n\n\n# Helper to mock import_module for transliteration backends\n@pytest.fixture\ndef mock_transliteration_backend(monkeypatch):\n    \"\"\"\n    Replace import_module used in _transliterate with a stub that returns a\n    dummy module providing the required function.\n    \"\"\"\n    original_import = importlib.import_module\n\n    def fake_import(name: str):\n        # Provide a dummy module for any of the supported backends\n        if name in {\"unidecode\", \"text_unidecode\", \"anyascii\"}:\n            mod = types.SimpleNamespace()\n            # The function name depends on backend: 'unidecode' for most, 'anyascii' for that backend\n            if name == \"anyascii\":\n                setattr(mod, \"anyascii\", lambda txt: txt.replace(\"\u00e9\", \"e\"))\n            else:\n                setattr(mod, \"unidecode\", lambda txt: txt.replace(\"\u00e9\", \"e\"))\n            return mod\n        # Fallback to real import for everything else\n        return original_import(name)\n\n    monkeypatch.setattr(importlib, \"import_module\", fake_import)\n\n\ndef test__modern_truncate_various_branches(mock_transliteration_backend):\n    # max_length <= 0 returns unchanged (except separator mapping)\n    assert _modern_slugify.__globals__[\"_modern_truncate\"](\"a-b-c\", max_length=0, word_boundary=False,\n                                                          separator=\"_\", save_order=False) == \"a_b_c\"\n\n    # output fits within max_length, no truncation\n    assert _modern_slugify.__globals__[\"_modern_truncate\"](\"a-b\", max_length=10, word_boundary=False,\n                                                          separator=\"_\", save_order=False) == \"a_b\"\n\n    # word_boundary truncation with save_order=False\n    txt = \"one-two-three\"\n    truncated = _modern_slugify.__globals__[\"_modern_truncate\"](txt, max_length=7,\n                                                               word_boundary=True,\n                                                               separator=\"-\", save_order=False)\n    # Should keep whole words that fit: \"one-two\"\n    assert truncated == \"one-two\"\n\n    # hard cut path (word_boundary=False)\n    hard_cut = _modern_slugify.__globals__[\"_modern_truncate\"](txt, max_length=5,\n                                                               word_boundary=False,\n                                                               separator=\"-\", save_order=False)\n    # Expected \"one-t\"\n    assert hard_cut == \"one-t\"\n\n\ndef test_slugify__modern_validation_errors():\n    # bool max_length\n    with pytest.raises(TypeError):\n        slugify(\"test\", algorithm=\"modern\", max_length=True)\n\n    # non\u2011str separator\n    with pytest.raises(TypeError):\n        slugify(\"test\", algorithm=\"modern\", separator=5)\n\n    # non\u2011str/bytes/bytearray text\n    with pytest.raises(TypeError):\n        slugify(123, algorithm=\"modern\")\n\n    # invalid replacement_stage\n    with pytest.raises(ValueError):\n        slugify(\"test\", algorithm=\"modern\", replacement_stage=\"invalid\")\n\n    # invalid backend\n    with pytest.raises(ValueError):\n        slugify(\"test\", algorithm=\"modern\", backend=\"unknown\")\n\n\n# Helper to mock import_module for transliteration backends\n@pytest.fixture\ndef mock_transliteration_backend_2(monkeypatch):\n    \"\"\"\n    Replace import_module used in _transliterate with a stub that returns a\n    dummy module providing the required function.\n    \"\"\"\n    # The submodule is already loaded; fetch it from sys.modules\n    slugify_mod = sys.modules[\"slugify.slugify\"]\n\n    def fake_import(name: str):\n        # Provide a dummy module for any of the supported backends\n        if name in {\"unidecode\", \"text_unidecode\", \"anyascii\"}:\n            mod = types.SimpleNamespace()\n            # The function name depends on backend: 'unidecode' for most, 'anyascii' for that backend\n            if name == \"anyascii\":\n                setattr(mod, \"anyascii\", lambda txt: txt.replace(\"\u00e9\", \"e\"))\n            else:\n                setattr(mod, \"unidecode\", lambda txt: txt.replace(\"\u00e9\", \"e\"))\n            return mod\n        # Fallback to real import for everything else\n        return importlib.import_module(name)\n\n    monkeypatch.setattr(slugify_mod, \"import_module\", fake_import)\n\n\ndef test__transliterate_backend_selection(mock_transliteration_backend_2):\n    # backend='auto' should import the mocked 'unidecode' module\n    result = _transliterate(\"caf\u00e9\", backend=\"auto\")\n    assert result == \"cafe\"\n\n    # backend='anyascii' should import the mocked 'anyascii' module\n    result_any = _transliterate(\"caf\u00e9\", backend=\"anyascii\")\n    assert result_any == \"cafe\"\n\n    # backend='text-unidecode' should import the mocked module\n    result_txt = _transliterate(\"caf\u00e9\", backend=\"text-unidecode\")\n    assert result_txt == \"cafe\"\n\n\n# ----------------------------------------------------------------------\n# Helpers for monkeypatching import_module used in _transliterate\n# ----------------------------------------------------------------------\nclass DummyBackend:\n    \"\"\"A dummy transliteration backend that returns a predictable string.\"\"\"\n    @staticmethod\n    def unidecode(text: str) -> str:\n        # Simple deterministic transformation: replace any non\u2011ASCII with '?'\n        return ''.join(ch if ord(ch) < 128 else '?' for ch in text)\n\n\ndef fake_import_module(name: str):\n    \"\"\"Return a dummy module for known backend names, otherwise raise.\"\"\"\n    if name in (\"unidecode\", \"text_unidecode\", \"anyascii\"):\n        return DummyBackend\n    raise ModuleNotFoundError(name)\n\n\n# ----------------------------------------------------------------------\n# Advanced combination of features\n# ----------------------------------------------------------------------\ndef test_slugify__advanced_features_combination():\n    \"\"\"Stopwords, replacements, custom regex, truncation, word_boundary and save_order.\"\"\"\n    text = \"Foo Bar Baz\"\n    result = slugify(\n        text,\n        algorithm=\"modern\",\n        stopwords=[\"Bar\"],                # remove \"Bar\"\n        replacements=[(\"Foo\", \"Qux\")],    # pre\u2011replace Foo \u2192 Qux\n        replacement_stage=\"both\",\n        regex_pattern=r\"\\s+\",             # replace spaces with '-'\n        max_length=8,\n        word_boundary=True,\n        save_order=False,\n        separator=\"-\",\n        lowercase=False,\n    )\n    # Expected processing:\n    #   pre\u2011replace \u2192 \"Qux Bar Baz\"\n    #   regex \u2192 \"Qux-Bar-Baz\"\n    #   stopwords \u2192 \"Qux-Baz\"\n    #   length (7) \u2264 max_length (8) \u2192 no truncation\n    assert result == \"Qux-Baz\"\n\n\ndef test_slugify__bytes_input_decoding():\n    \"\"\"Bytes and bytearray inputs are decoded as UTF\u20118, ignoring invalid bytes.\"\"\"\n    # b'\\xff' is invalid UTF\u20118 and should be ignored.\n    bad_bytes = b\"Hello \\xff World\"\n    result = slugify(bad_bytes, algorithm=\"modern\")\n    assert result == \"hello-world\"\n\n\ndef test_slugify__invalid_algorithm():\n    with pytest.raises(ValueError) as exc:\n        slugify(\"test\", algorithm=\"invalid\")\n    assert \"algorithm\" in str(exc.value)\n\n\n# ----------------------------------------------------------------------\n# Truncation edge cases (covers _modern_truncate logic and output_length calculation)\n# ----------------------------------------------------------------------\ndef test_slugify__truncate_with_long_separator():\n    \"\"\"\n    Separator longer than the default should increase the effective output length.\n    With max_length just below the correct length, truncation must happen.\n    \"\"\"\n    text = \"a-b-c\"\n    # Using '--' (len 2) makes the final string longer than the original.\n    result = slugify(\n        text,\n        algorithm=\"modern\",\n        separator=\"--\",\n        max_length=6,          # 5 (original) + 2*(2-1) = 7 > 6 \u2192 truncation expected\n        word_boundary=False,\n        save_order=False,\n        lowercase=False,\n    )\n    # Expected truncated output: \"a--b\"\n    assert result == \"a--b\"\n\n\ndef test_slugify__legacy_default_behavior():\n    \"\"\"Default legacy algorithm with ASCII text returns a lower\u2011case hyphen slug.\"\"\"\n    result = slugify(\"Hello World\")\n    assert result == \"hello-world\"\n\n\ndef test_slugify__modern_algorithm_basic():\n    \"\"\"Modern algorithm decodes entities early and respects stopwords and length budget.\"\"\"\n    text = \"Hello &amp; World\"\n    # Stopwords removal should drop \"world\" (lower\u2011cased). The entity becomes '&',\n    # which is treated as a disallowed character and replaced by the default separator,\n    # then collapsed and removed by stopword processing, leaving only \"hello\".\n    result = slugify(\n        text,\n        algorithm=\"modern\",\n        stopwords=[\"world\"],\n        max_length=0,  # no truncation\n        lowercase=True,\n    )\n    assert result == \"hello\"\n\n\n# ----------------------------------------------------------------------\n# Helpers\n# ----------------------------------------------------------------------\nclass DummyBackend_2:\n    \"\"\"Simple backend that transliterates a few characters.\"\"\"\n    @staticmethod\n    def unidecode(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n\ndef fake_import_module_2(name: str):\n    \"\"\"Return a dummy backend for any known name, otherwise raise.\"\"\"\n    if name in (\"unidecode\", \"text_unidecode\", \"anyascii\"):\n        return DummyBackend_2\n    raise ModuleNotFoundError(name)\n\n\n# ----------------------------------------------------------------------\n# Scenario 4 \u2013 modern_truncate loops (lines 83, 89, 98)\n# ----------------------------------------------------------------------\ndef test_slugify__modern_truncate_continue_and_break():\n    \"\"\"Exercise the `continue` (empty token) and `break` (save_order) paths.\"\"\"\n    # Input contains consecutive separators after processing -> empty token.\n    src = \"a--b\"\n    # word_boundary=True, save_order=False -> empty token is skipped (continue)\n    result1 = slugify(\n        src,\n        algorithm=\"modern\",\n        max_length=1,          # only enough for first word\n        word_boundary=True,\n        save_order=False,\n        separator=\"-\",\n    )\n    assert result1 == \"a\"\n\n    # word_boundary=True, save_order=True -> break after first word when it doesn't fit\n    result2 = slugify(\n        src,\n        algorithm=\"modern\",\n        max_length=1,\n        word_boundary=True,\n        save_order=True,\n        separator=\"-\",\n    )\n    assert result2 == \"a\"\n\n\ndef test_slugify__numeric_references():\n    \"\"\"Decimal and hexadecimal numeric references are decoded correctly,\n    surrogate range and invalid numbers are left untouched, and the final\n    slug respects default lower\u2011casing and separator handling.\"\"\"\n    text = \"&#65;&#x41;&#xD800;&#9999999999999999999999;\"\n    # entities=False because we are testing numeric patterns directly\n    result = slugify(\n        text,\n        entities=False,\n        decimal=True,\n        hexadecimal=True,\n        algorithm=\"modern\",\n    )\n    # Expected: decimal and hex references become 'A' \u2192 lower\u2011cased to 'a',\n    # disallowed characters are replaced by the default separator '-',\n    # surrogate and overflow references remain but lose the surrounding '&#' and ';'.\n    assert result == \"aa-xd800-9999999999999999999999\"\n\n# Import the module itself (to monkey\u2011patch its internal import_module)\nslug_mod = importlib.import_module(\"slugify.slugify\")\n\n\n# ----------------------------------------------------------------------\n# Helpers\n# ----------------------------------------------------------------------\nclass DummyBackend_3:\n    \"\"\"Simple backend that transliterates a few characters.\"\"\"\n    @staticmethod\n    def unidecode(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n\ndef fake_import_module_3(name: str):\n    \"\"\"Return a dummy backend for any known name, otherwise raise.\"\"\"\n    if name in (\"unidecode\", \"text_unidecode\", \"anyascii\"):\n        return DummyBackend_3\n    raise ModuleNotFoundError(name)\n\n\n# ----------------------------------------------------------------------\n# Scenario 1 \u2013 Unicode handling / transliteration\n# ----------------------------------------------------------------------\n@pytest.mark.parametrize(\n    \"allow_unicode,backend,expected\",\n    [\n        # Unicode kept, lower\u2011casing only\n        (True, \"auto\", \"caf\u00e9\"),\n        # Transliteration via dummy backend (auto falls back to dummy)\n        (False, \"auto\", \"cafe\"),\n        # Explicit backend names \u2013 all use the same dummy implementation\n        (False, \"text-unidecode\", \"cafe\"),\n        (False, \"unidecode\", \"cafe\"),\n        (False, \"anyascii\", \"cafe\"),\n    ],\n)\ndef test_slugify__unicode_and_transliteration(monkeypatch, allow_unicode, backend, expected):\n    \"\"\"allow_unicode=True keeps Unicode; False triggers transliteration via backend.\"\"\"\n    # Patch the internal import_module used by _transliterate\n    monkeypatch.setattr(slug_mod, \"import_module\", fake_import_module_3)\n\n    result = slugify(\n        \"Caf\u00e9\",\n        allow_unicode=allow_unicode,\n        backend=backend,\n        algorithm=\"modern\",\n    )\n    assert result == expected\n\n\ndef test_slugify__transliterate_error(monkeypatch):\n    \"\"\"When backend='auto' and import_module raises a ModuleNotFoundError for a\n    name other than 'unidecode', the exception is re\u2011raised.\"\"\"\n    # Obtain the module where import_module is defined\n    slug_mod = sys.modules[slugify.__module__]\n\n    class DummyBackend:\n        \"\"\"Simple backend that transliterates a few characters.\"\"\"\n        @staticmethod\n        def unidecode(text: str) -> str:\n            return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n        @staticmethod\n        def anyascii(text: str) -> str:\n            return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n    def bad_import(name: str):\n        # Simulate a failure for the first import attempt (unidecode)\n        if name == \"unidecode\":\n            err = ModuleNotFoundError(\"foo\")\n            err.name = \"foo\"  # mimic the attribute used by the code\n            raise err\n        return DummyBackend\n\n    monkeypatch.setattr(slug_mod, \"import_module\", bad_import)\n\n    with pytest.raises(ModuleNotFoundError) as exc:\n        slugify(\"test\", algorithm=\"modern\", backend=\"auto\")\n    assert exc.value.name == \"foo\"\n\n\n# ----------------------------------------------------------------------\n# Helpers\n# ----------------------------------------------------------------------\nclass DummyBackend_4:\n    \"\"\"Simple backend that transliterates a few characters.\"\"\"\n    @staticmethod\n    def unidecode(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return text.replace(\"\u00e9\", \"e\").replace(\"\u00f8\", \"o\")\n\n\ndef fake_import_module_4(name: str):\n    \"\"\"Return a dummy backend for any known name, otherwise raise.\"\"\"\n    if name in (\"unidecode\", \"text_unidecode\", \"anyascii\"):\n        return DummyBackend_4\n    raise ModuleNotFoundError(name)\n\n\n# ----------------------------------------------------------------------\n# Additional coverage for line 153 (Unicode normalisation)\n# ----------------------------------------------------------------------\ndef test_slugify__unicode_normalisation(monkeypatch):\n    \"\"\"Ensure the NFKC normalisation path is executed.\"\"\"\n    # Use a character that is unchanged by NFKC; we only need to see the call.\n    text = \"\u00c5\"  # U+00C5\n\n    # Record calls to unicodedata.normalize\n    calls = []\n\n    def spy_normalize(form, s):\n        calls.append((form, s))\n        return s  # return the string unchanged\n\n    # Patch the normalize function in the module's unicodedata reference\n    monkeypatch.setattr(slug_mod.unicodedata, \"normalize\", spy_normalize)\n\n    # Run slugify with Unicode handling enabled and the modern algorithm\n    slug_mod.slugify(text, allow_unicode=True, algorithm=\"modern\")\n\n    # Verify that a call with form \"NFKC\" was made\n    assert any(form == \"NFKC\" for form, _ in calls)\n\n# Helper constants (imported indirectly via slugify)\nDEFAULT_SEPARATOR = \"-\"  # the library's default separator\n\n\ndef test_modern_truncate__continue_on_empty_token_hard_cut():\n    \"\"\"\n    Exercise the `continue` in the hard\u2011cut loop (the second loop in _modern_truncate).\n    The text consists solely of the default separator, which splits into two empty tokens.\n    With a multi\u2011character separator and a small max_length, the loop runs and skips both empties.\n    \"\"\"\n    text = DEFAULT_SEPARATOR  # results in ['', ''] after split\n    separator = \"--\"\n    max_length = 1  # output_length will be 2 (> max_length) to trigger the loop\n    result = _modern_truncate(\n        text=text,\n        max_length=max_length,\n        word_boundary=False,\n        separator=separator,\n        save_order=False,\n    )\n    # No non\u2011empty tokens were added, so the result should be an empty string.\n    assert result == \"\"\n\n\ndef test_modern_truncate__continue_on_empty_token_word_boundary():\n    \"\"\"\n    Ensure the `continue` in the word_boundary handling loop is exercised.\n    The input text starts with the default separator, producing an empty token\n    when split on it. The loop should skip that token.\n    \"\"\"\n    # Text begins with the default separator, yielding ['', 'a'] after split.\n    text = f\"{DEFAULT_SEPARATOR}a\"\n    # Use a separator longer than one character to make output_length > max_length.\n    separator = \"--\"\n    # max_length is set lower than the calculated output length to force truncation logic.\n    max_length = 2\n    result = _modern_truncate(\n        text=text,\n        max_length=max_length,\n        word_boundary=True,\n        separator=separator,\n        save_order=False,\n    )\n    # After truncation, only the non\u2011empty token 'a' should remain, joined by the custom separator.\n    assert result == \"a\"",
+  "duration_s": 601.1,
+  "run_id": "86e133293cc2",
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      59.0,
+      21.1,
+      0.0
+    ],
+    [
+      176.0,
+      21.1,
+      0.0
+    ],
+    [
+      256.9,
+      62.6,
+      48.5
+    ],
+    [
+      286.9,
+      90.1,
+      80.3
+    ],
+    [
+      388.2,
+      91.1,
+      81.8
+    ],
+    [
+      416.2,
+      91.1,
+      81.8
+    ],
+    [
+      442.6,
+      91.9,
+      83.3
+    ],
+    [
+      508.8,
+      98.5,
+      90.9
+    ],
+    [
+      525.4,
+      98.5,
+      90.9
+    ],
+    [
+      550.6,
+      98.5,
+      90.9
+    ],
+    [
+      580.6,
+      100.0,
+      95.5
+    ]
+  ],
+  "llm_calls": 37,
+  "llm_tokens": 216843,
+  "models": [
+    "mistral/codestral-2508",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/nemotron-3-ultra"
+  ],
+  "wall_s": 601.3,
+  "subject": "slugify",
+  "level": "basic",
+  "tool": "autocover",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 19:40:57"
+}

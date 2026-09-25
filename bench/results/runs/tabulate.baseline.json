@@ -1,0 +1,81 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 12,
+  "tests_passing": 9,
+  "collection_error": false,
+  "pass_rate": 75.0,
+  "line_pct": 44.7,
+  "branch_pct": 28.0,
+  "mutation": {
+    "killed": 32,
+    "total": 150,
+    "score_pct": 21.3
+  },
+  "llm_calls": 3,
+  "llm_tokens": 58176,
+  "latency_s": 18.0,
+  "wall_s": 437.2,
+  "suite": "import pytest\nfrom tabulate import tabulate, tabulate_formats, simple_separated_format, SEPARATING_LINE\n\n\ndef test_simple_separated_format_returns_correct_structure():\n    sep = \"\\t\"\n    fmt = simple_separated_format(sep)\n    # headerrow and datarow should be DataRow with the given separator\n    assert fmt.headerrow.sep == sep\n    assert fmt.datarow.sep == sep\n    # padding should be zero and no hidden elements\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef test_tabulate_formats_contains_known_formats():\n    # The list should be sorted alphabetically\n    assert \"simple\" in tabulate_formats\n    assert \"grid\" in tabulate_formats\n    # Ensure ordering is alphabetical\n    assert tabulate_formats == sorted(tabulate_formats)\n\n\ndef test_tabulate_showindex_always_adds_index_column():\n    out = tabulate([[\"x\", 1]], headers=[\"col\"], showindex=\"always\", tablefmt=\"simple\")\n    lines = out.splitlines()\n    # Data line should start with the index \"0\"\n    data_line = lines[2]\n    first_token = data_line.split()[0]\n    assert first_token == \"0\"\n\n\ndef test_tabulate_missingval_replaces_none():\n    out = tabulate([[None, \"b\"]], headers=[\"A\", \"B\"], tablefmt=\"simple\", missingval=\"M\")\n    assert \"M\" in out\n    # Ensure the placeholder appears only once (for the None value)\n    assert out.count(\"M\") == 1\n\n\ndef test_tabulate_intfmt_applies_format():\n    out = tabulate([[5]], headers=[\"N\"], tablefmt=\"simple\", intfmt=\"04d\")\n    # The formatted integer should be zero\u2011padded to width 4\n    assert \"0005\" in out\n\n\ndef test_tabulate_floatfmt_applies_format():\n    out = tabulate([[3.14159]], headers=[\"F\"], tablefmt=\"simple\", floatfmt=\".2f\")\n    # The float should be rounded to two decimal places\n    assert \"3.14\" in out\n\n\ndef test_tabulate_non_iterable_raises_type_error():\n    with pytest.raises(TypeError):\n        tabulate(42)  # not iterable\n\n\ndef test_tabulate_showindex_mismatched_length_raises_value_error():\n    # Two rows but index iterable of length 1 should raise\n    with pytest.raises(ValueError):\n        tabulate([[1], [2]], headers=[\"A\"], showindex=[0])\n\n\ndef test_tabulate_preserve_whitespace_affects_alignment():\n    # With preserve_whitespace=False (default), leading/trailing spaces are stripped\n    out_default = tabulate([[\"  x  \", 1]], headers=[\"h\"], tablefmt=\"simple\")\n    # With preserve_whitespace=True, spaces are kept, affecting column width\n    out_preserve = tabulate(\n        [[\"  x  \", 1]],\n        headers=[\"h\"],\n        tablefmt=\"simple\",\n        preserve_whitespace=True,\n    )\n    # The default output should not contain the extra spaces around 'x'\n    assert \"x\" in out_default and \"  x  \" not in out_default\n    # The preserved output should contain the spaces inside the cell\n    assert \"  x  \" in out_preserve\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 12,
+      "tests_passing": 9,
+      "collection_error": false,
+      "pass_rate": 75.0,
+      "line_pct": 44.7,
+      "branch_pct": 28.0,
+      "mutation": {
+        "killed": 32,
+        "total": 150,
+        "score_pct": 21.3
+      },
+      "llm_calls": 1,
+      "llm_tokens": 19309,
+      "latency_s": 18.0,
+      "wall_s": 135.1
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 10,
+      "tests_passing": 5,
+      "collection_error": false,
+      "pass_rate": 50.0,
+      "line_pct": 43.8,
+      "branch_pct": 27.3,
+      "mutation": {
+        "killed": 31,
+        "total": 150,
+        "score_pct": 20.7
+      },
+      "llm_calls": 1,
+      "llm_tokens": 19484,
+      "latency_s": 18.1,
+      "wall_s": 150.2
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 15,
+      "tests_passing": 10,
+      "collection_error": false,
+      "pass_rate": 66.7,
+      "line_pct": 53.6,
+      "branch_pct": 38.3,
+      "mutation": {
+        "killed": 54,
+        "total": 150,
+        "score_pct": 36.0
+      },
+      "llm_calls": 1,
+      "llm_tokens": 19383,
+      "latency_s": 15.6,
+      "wall_s": 151.9
+    }
+  ],
+  "subject": "tabulate",
+  "level": "hard",
+  "tool": "baseline",
+  "target": "tabulate/__init__.py",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 20:53:47"
+}
