@@ -56,6 +56,11 @@ def coverage_curve(events: list[dict], t0: float) -> list[list[float]]:
 
 async def bench_autocover(subject: dict, args) -> dict:
     cfg = bench_config(args)
+    # A fresh LLM cache per run: replies cached by earlier runs would make AutoCover-Lite
+    # look faster than it is and let it spend the time budget on extra rounds. Caching
+    # within the run (retries, repeated prompts) still works.
+    fresh = ROOT / ".autocover" / "bench_cache" / f"{subject['name']}-{int(time.time())}.sqlite"
+    cfg.llm.cache.path = str(fresh)
     runtime = build_runtime(cfg)
     repo = SUBJECTS_DIR / subject["name"]
     t0 = time.time()
