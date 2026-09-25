@@ -16,14 +16,12 @@ llm:
       - cloudflare/@cf/nvidia/nemotron-3-120b-a12b   # 75%, 11s, 25/day
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
       - mistral/codestral-2508        # 53%, 5s, high volume
-    fixer:
+    fixer:                            # same bake-off order as the Generator
+      - ollama_chat/gpt-oss:120b
+      - gemini/gemini-3.5-flash
+      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
       - mistral/codestral-2508
-      - ollama_chat/gpt-oss:120b
-      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
-      - zai/glm-4.7-flash
-      - gemini/gemini-3.5-flash
-      - gemini/gemini-2.5-flash
     preparer:                         # few calls per run, so reasoning quality matters most
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       - ollama_chat/nemotron-3-ultra
@@ -112,7 +110,8 @@ run:
   budget_min: 10
   max_scenarios_per_function: 6
   preparer_batch: 6         # functions planned per Preparer call (large modules)
-  max_functions_per_round: 12  # Generator targets per round, highest priority first
+  max_functions_first_round: 60  # round 1: a breadth pass over every function
+  max_functions_per_round: 12    # later rounds: the functions with the biggest gaps
   preparer_max_tokens: 4096
   generator_max_tokens: 8192
   include_private: false

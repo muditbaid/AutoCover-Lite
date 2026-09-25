@@ -29,7 +29,12 @@ async def generate(ctx: RunContext, state: RunState) -> RunState:
         ctx.telemetry.event("generator", "budget_exhausted", round=round_no)
         return {"round": round_no, "pending": []}
     with ctx.telemetry.span("generator", "round", round=round_no) as span:
-        targets = state.get("targets", [])[: ctx.config.run.max_functions_per_round]
+        # Breadth first: round 1 reaches every function once (calls run in parallel), so a
+        # large module is not left mostly untested when the budget ends; later rounds go
+        # deep on the biggest gaps.
+        limit = (ctx.config.run.max_functions_first_round if round_no == 1
+                 else ctx.config.run.max_functions_per_round)
+        targets = state.get("targets", [])[:limit]
         batches = await asyncio.gather(
             *(_generate_for(ctx, state, fn, round_no) for fn in targets))
         pending = [c for batch in batches for c in batch]

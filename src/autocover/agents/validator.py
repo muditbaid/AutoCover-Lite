@@ -178,8 +178,17 @@ async def _accept(ctx: RunContext, clean: list[Candidate], suite: str) -> str:
         suite = _accept_one(ctx, best, suite, "coverage" if cov else "mutants")
         remaining.remove(best)
 
+    # Judge the leftovers in parallel: one judge call per distinct untested scenario (the
+    # first candidate claiming it); sequential calls dominated validation on big modules.
+    claims: dict[tuple[str, str], Candidate] = {}
     for cand in remaining:
-        if await _judge_accepts(ctx, cand):
+        key = (cand.function, cand.scenario_id)
+        if cand.scenario_id and key not in ctx.covered_scenarios and key not in claims:
+            claims[key] = cand
+    verdicts = await asyncio.gather(*(_judge_accepts(ctx, c) for c in claims.values()))
+    confirmed = {c.id for c, ok in zip(claims.values(), verdicts, strict=True) if ok}
+    for cand in remaining:
+        if cand.id in confirmed:
             suite = _accept_one(ctx, cand, suite, "scenario")
         else:
             cand.status, cand.reason = "rejected", "no new coverage, mutant kills or scenario"

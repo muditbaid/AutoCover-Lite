@@ -90,7 +90,8 @@ class RunConfig(BaseModel):
     budget_min: float = 10           # wall-clock budget for a run
     max_scenarios_per_function: int = 6
     preparer_batch: int = 6          # functions planned per Preparer call
-    max_functions_per_round: int = 12  # Generator targets per round (highest priority)
+    max_functions_first_round: int = 60  # round 1 is a breadth pass over every function
+    max_functions_per_round: int = 12  # later rounds: the biggest remaining gaps
     preparer_max_tokens: int = 4096
     generator_max_tokens: int = 8192  # reasoning models spend part of this thinking
     include_private: bool = False    # also test _private functions
