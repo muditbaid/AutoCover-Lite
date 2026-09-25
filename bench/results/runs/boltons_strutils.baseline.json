@@ -1,0 +1,81 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 34,
+  "tests_passing": 31,
+  "collection_error": false,
+  "pass_rate": 91.2,
+  "line_pct": 89.4,
+  "branch_pct": 82.1,
+  "mutation": {
+    "killed": 97,
+    "total": 150,
+    "score_pct": 64.7
+  },
+  "llm_calls": 3,
+  "llm_tokens": 52935,
+  "latency_s": 17.6,
+  "wall_s": 422.4,
+  "suite": "import sys\nimport uuid\nimport zlib\nimport pytest\nfrom boltons.strutils import (\n    camel2under, under2camel, slugify, split_punct_ws, unit_len,\n    ordinalize, cardinalize, pluralize, singularize, asciify, is_ascii,\n    find_hashtags, a10n, strip_ansi, bytes2human, html2text,\n    gunzip_bytes, gzip_bytes, iter_splitlines, indent, is_uuid,\n    escape_shell_args, args2sh, args2cmd, parse_int_list,\n    format_int_list, complement_int_list, int_ranges_from_int_list,\n    MultiReplace, multi_replace, unwrap_text, removeprefix,\n    human_readable_list, ellipsize,\n)\n\n\n# ----------------------------------------------------------------------\n# Simple transformations\n# ----------------------------------------------------------------------\ndef test_camel2under_basic():\n    assert camel2under('BasicParseTest') == 'basic_parse_test'\n    # consecutive capitals should be split correctly\n    assert camel2under('HTMLParser') == 'html_parser'\n\n\n@pytest.mark.parametrize(\n    \"text, delim, lower, ascii_flag, expected\",\n    [\n        ('First post! Hi!!!!~1    ', '_', True, False, 'first_post_hi_1'),\n        ('Kurt G\u00f6del\\'s pretty cool.', '_', True, True,\n         b'kurt_goedel_s_pretty_cool'),  # ascii flag returns bytes\n        ('MixedCASE Text', '-', False, False, 'MixedCASE-Text'),\n    ],\n)\ndef test_slugify_variations(text, delim, lower, ascii_flag, expected):\n    result = slugify(text, delim=delim, lower=lower, ascii=ascii_flag)\n    assert result == expected\n\n\ndef test_split_punct_ws():\n    assert split_punct_ws('First post! Hi!!!!~1    ') == ['First', 'post', 'Hi', '1']\n    assert split_punct_ws('') == []\n\n\ndef test_unit_len():\n    assert unit_len(range(10), 'number') == '10 numbers'\n    assert unit_len('aeiou', 'vowel') == '5 vowels'\n    assert unit_len([], 'worry') == 'No worries'\n\n\n@pytest.mark.parametrize(\n    \"number, ext_only, expected\",\n    [\n        (1, False, '1st'),\n        (2, False, '2nd'),\n        (3, False, '3rd'),\n        (4, False, '4th'),\n        (11, False, '11th'),  # teen case\n        (12, False, '12th'),\n        (13, False, '13th'),\n        (21, False, '21st'),\n        ('hi', False, 'hi'),  # non\u2011digit suffix\n        (1515, True, 'th'),   # ext_only\n    ],\n)\ndef test_ordinalize(number, ext_only, expected):\n    assert ordinalize(number, ext_only=ext_only) == expected\n\n\ndef test_cardinalize():\n    assert cardinalize('vowel', 1) == 'vowel'\n    assert cardinalize('vowel', 2) == 'vowels'\n    # case preservation\n    assert cardinalize('Wish', 3) == 'Wishes'\n\n\n@pytest.mark.parametrize(\n    \"word, expected\",\n    [\n        ('friend', 'friends'),\n        ('enemy', 'enemies'),\n        ('Sheep', 'Sheep'),  # irregular unchanged\n        ('CHILD', 'CHILDREN'),  # case upper\n        ('Glass', 'Glasses'),  # ends with ss -> es\n        ('bus', 'buses'),  # ends with s -> es\n        ('fox', 'foxes'),  # ends with x -> es\n        ('match', 'matches'),  # ends with ch -> es\n        ('brush', 'brushes'),  # ends with sh -> es\n    ],\n)\ndef test_pluralize(word, expected):\n    assert pluralize(word) == expected\n\n\ndef test_asciify_and_is_ascii():\n    # pure ascii string\n    assert asciify('Hello') == b'Hello'\n    assert is_ascii('Hello')\n    # unicode with accent\n    assert asciify('Beyonc\u00e9') == b'Beyonce'\n    assert not is_ascii('Beyonc\u00e9')\n    # ignore flag drops unconvertible chars\n    assert asciify('\ud83d\ude00', ignore=True) == b''\n\n\ndef test_is_ascii_errors():\n    with pytest.raises(ValueError):\n        is_ascii(123)  # not str or bytes\n    # bytes input\n    assert is_ascii(b'abc')\n    assert not is_ascii(b'\\xff')\n\n\ndef test_a10n():\n    assert a10n('abbreviation') == 'a10n'\n    assert a10n('internationalization') == 'i18n'\n    assert a10n('') == ''\n\n\ndef test_strip_ansi():\n    ansi = '\\x1b[0m\\x1b[1;36mart\\x1b[46;34m'\n    cleaned = strip_ansi(ansi)\n    assert cleaned == 'art'\n    # bytes input should return same type\n    ansi_bytes = ansi.encode()\n    cleaned_bytes = strip_ansi(ansi_bytes)\n    assert isinstance(cleaned_bytes, bytes)\n    assert cleaned_bytes == b'art'\n\n\ndef test_bytes2human():\n    assert bytes2human(128991) == '126K'          # default ndigits=0\n    assert bytes2human(100001221) == '95M'\n    assert bytes2human(0, 2) == '0.00B'\n    assert bytes2human(1024) == '1K'\n    assert bytes2human(1024 ** 8) == '1Y'\n\n\ndef test_html2text():\n    html = '<a href=\"#\">Test &amp;<em>(\\u0394&#x03b7;&#956;&#x03CE;)</em></a>'\n    expected = 'Test &(\\u0394\\u03b7\\u03bc\\u03ce)'\n    assert html2text(html) == expected\n\n\ndef test_gzip_and_gunzip_roundtrip():\n    data = b'bytesahoy!' * 100\n    gz = gzip_bytes(data, level=9)\n    # decompress should give original\n    assert gunzip_bytes(gz) == data\n\n\ndef test_iter_splitlines_various():\n    text = '\\nhi\\nbye\\n'\n    assert list(iter_splitlines(text)) == ['', 'hi', 'bye', '']\n    text2 = '\\r\\nhi\\rbye\\r\\n'\n    assert list(iter_splitlines(text2)) == ['', 'hi', 'bye', '']\n    assert list(iter_splitlines('')) == []\n\n\ndef test_indent():\n    txt = \"line1\\n\\nline2\"\n    # indent non\u2011empty lines only (default key=bool)\n    indented = indent(txt, '>>')\n    assert indented == \">>line1\\n\\n>>line2\"\n    # indent all lines including empty\n    indented_all = indent(txt, '--', key=lambda _: True)\n    assert indented_all == \"--line1\\n--\\n--line2\"\n\n\ndef test_is_uuid():\n    u = uuid.uuid4()\n    assert is_uuid(u)  # UUID object\n    s = str(u)\n    assert is_uuid(s)\n    # wrong version\n    v1 = uuid.uuid1()\n    assert not is_uuid(str(v1), version=4)\n    assert is_uuid(str(v1), version=1)\n    # invalid string\n    assert not is_uuid('not-a-uuid')\n\n\ndef test_escape_shell_args():\n    args = ['simple', 'has space', \"quote'inside\", 'back\\\\slash']\n    # sh style\n    sh = escape_shell_args(args, style='sh')\n    assert sh == args2sh(args)\n    # cmd style\n    cmd = escape_shell_args(args, style='cmd')\n    assert cmd == args2cmd(args)\n    # invalid style\n    with pytest.raises(ValueError):\n        escape_shell_args(args, style='unknown')\n\n\ndef test_args2sh():\n    args = ['aa', '[bb]', \"cc'cc\", 'dd\"dd', '']\n    result = args2sh(args)\n    # empty string becomes ''\n    assert result.split(' ')[-1] == \"''\"\n    # check quoting of special characters\n    assert \"'[bb]'\" in result\n    assert \"'cc'\\\"'\\\"'cc'\" in result\n    assert 'dd\"dd' in result  # double quotes are left as is inside single quotes\n\n\ndef test_args2cmd():\n    args = ['aa', '[bb]', \"cc'cc\", 'dd\"dd', '']\n    result = args2cmd(args)\n    # empty argument becomes \"\"\n    assert result.endswith('\"\"')\n    # double quotes are escaped\n    assert r'dd\\\"dd' in result\n    # single quotes are left unchanged\n    assert \"cc'cc\" in result\n\n\ndef test_parse_int_list():\n    assert parse_int_list('1,3,5-8,10-11,15') == [1, 3, 5, 6, 7, 8, 10, 11, 15]\n    # empty entries ignored\n    assert parse_int_list('1,,3') == [1, 3]\n    # single number\n    assert parse_int_list('42') == [42]\n    # whitespace trimmed\n    assert parse_int_list(' 1 - 3 ') == [1, 2, 3]\n\n\ndef test_format_int_list():\n    lst = [1, 3, 5, 6, 7, 8, 10, 11, 15]\n    assert format_int_list(lst) == '1,3,5-8,10-11,15'\n    # delim_space adds spaces after commas\n    assert format_int_list(lst, delim_space=True) == '1, 3, 5-8, 10-11, 15'\n    # custom delimiters\n    assert format_int_list(lst, delim=';') == '1;3;5-8;10-11;15'\n\n\ndef test_complement_int_list():\n    base = '1,3,5-8,10-11,15'\n    # default complement (range_start=0, range_end inferred)\n    assert complement_int_list(base) == '0,2,4,9,12-14'\n    # custom start\n    assert complement_int_list(base, range_start=3) == '4,9,12-14'\n    # custom end\n    assert complement_int_list(base, range_end=14) == '0,2,4,9,12-13'\n    # start > end yields empty\n    assert complement_int_list(base, range_start=20, range_end=10) == ''\n    # empty input yields empty\n    assert complement_int_list('') == ''\n\n\ndef test_int_ranges_from_int_list():\n    assert int_ranges_from_int_list('1,3,5-8,10-11,15') == ((1, 1), (3, 3), (5, 8), (10, 11), (15, 15))\n    assert int_ranges_from_int_list('1') == ((1, 1),)\n    assert int_ranges_from_int_list('') == ()\n\n\ndef test_multi_replace_dict_and_list():\n    text = 'The foo bar cat ate a bat'\n    sub_map = {'foo': 'zoo', 'cat': 'hat', 'bat': 'kraken'}\n    # dict order is nondeterministic; result should have all replacements applied\n    result = MultiReplace(sub_map).sub(text)\n    for src, dst in sub_map.items():\n        assert src not in result\n        assert dst in result\n    # list preserves order\n    ordered = [('foo', 'zoo'), ('cat', 'hat'), ('bat', 'kraken')]\n    mr = MultiReplace(ordered)\n    assert mr.sub(text) == 'The zoo bar hat ate a kraken'\n\n\ndef test_multi_replace_regex():\n    text = 'abc123xyz'\n    # replace any digits with '#'\n    mr = MultiReplace([(r'\\d+', '#')], regex=True)\n    assert mr.sub(text) == 'abc#xyz'\n\n\ndef test_multi_replace_shortcut():\n    text = 'foo bar baz'\n    sub_map = {'foo': 'baz', 'baz': 'bar'}\n    # using shortcut should apply both replacements (order nondeterministic)\n    result = multi_replace(text, sub_map)\n    # both 'baz' and 'bar' should appear, original keys should not\n    assert 'foo' not in result\n    assert 'baz' in result\n    assert 'bar' in result\n\n\ndef test_unwrap_text():\n    txt = \"Short \\n lines  \\nwrapped\\nsmall.\\n\\nAnother\\nparagraph.\"\n    expected = 'Short lines wrapped small.\\n\\nAnother paragraph.'\n    assert unwrap_text(txt) == expected\n    # when ending=None returns list of paragraphs\n    lst = unwrap_text(txt, ending=None)\n    assert isinstance(lst, list)\n    assert lst == ['Short lines wrapped small.', 'Another paragraph.']\n\n\ndef test_removeprefix():\n    assert removeprefix('foobar', 'foo') == 'bar'\n    assert removeprefix('foobar', 'baz') == 'foobar'\n    # empty prefix returns original\n    assert removeprefix('test', '') == 'test'\n\n\ndef test_human_readable_list():\n    # empty\n    assert human_readable_list([]) == ''\n    # single\n    assert human_readable_list(['one']) == 'one'\n    # two items\n    assert human_readable_list(['one', 'two']) == 'one and two'\n    # three items, oxford comma default\n    assert human_readable_list(['one', 'two', 'three']) == 'one, two, and three'\n    # oxford disabled\n    assert human_readable_list(['one', 'two', 'three'], oxford=False) == 'one, two and three'\n    # custom delimiter and conjunction\n    assert human_readable_list(['a', 'b', 'c'], delimiter=';', conjunction='or') == 'a; b; or c'\n\n\ndef test_ellipsize_basic():\n    # short text unchanged\n    txt = 'Hello, World!'\n    assert ellipsize(txt, 16) == txt\n    # cut at space, remove punctuation\n    long = 'Beautiful is better than ugly. Explicit is better.'\n    assert ellipsize(long, 31) == 'Beautiful is better than ugly\u2026'\n    # decimal point preserved\n    dec = 'rates around 6.5% this week'\n    assert ellipsize(dec, 20) == 'rates around 6.5%\u2026'\n    # hard cut token longer than limit\n    token = 'antidisestablishmentarianism'\n    assert ellipsize(token, 10) == 'antidises\u2026'\n    # max_len too small raises\n    with pytest.raises(ValueError):\n        ellipsize('test', 1)  # ellipsis length is 1, need >1\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 40,
+      "tests_passing": 34,
+      "collection_error": false,
+      "pass_rate": 85.0,
+      "line_pct": 79.7,
+      "branch_pct": 67.4,
+      "mutation": {
+        "killed": 91,
+        "total": 150,
+        "score_pct": 60.7
+      },
+      "llm_calls": 1,
+      "llm_tokens": 17493,
+      "latency_s": 18.3,
+      "wall_s": 142.4
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 34,
+      "tests_passing": 31,
+      "collection_error": false,
+      "pass_rate": 91.2,
+      "line_pct": 89.4,
+      "branch_pct": 82.1,
+      "mutation": {
+        "killed": 97,
+        "total": 150,
+        "score_pct": 64.7
+      },
+      "llm_calls": 1,
+      "llm_tokens": 17110,
+      "latency_s": 17.6,
+      "wall_s": 137.9
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 33,
+      "tests_passing": 32,
+      "collection_error": false,
+      "pass_rate": 97.0,
+      "line_pct": 93.0,
+      "branch_pct": 87.5,
+      "mutation": {
+        "killed": 104,
+        "total": 150,
+        "score_pct": 69.3
+      },
+      "llm_calls": 1,
+      "llm_tokens": 18332,
+      "latency_s": 17.8,
+      "wall_s": 142.1
+    }
+  ],
+  "subject": "boltons_strutils",
+  "level": "medium",
+  "tool": "baseline",
+  "target": "boltons/strutils.py",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 16:49:18"
+}

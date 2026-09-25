@@ -115,8 +115,20 @@ def build_module_context(
     helpers: dict[str, FunctionInfo] = {}
 
     def add(node: ast.FunctionDef | ast.AsyncFunctionDef, class_name: str | None) -> None:
-        private = node.name.startswith("_") and node.name != "__call__"
+        # Dunder methods (__init__, __add__, __eq__, ...) are a class's public protocol and
+        # often hold most of its logic; only _single and __mangled names are private.
+        private = node.name.startswith("_") and not _is_dunder(node.name)
         qualname = f"{class_name}.{node.name}" if class_name else node.name
+        # Property setters/deleters and redefinitions share a name: keep them apart.
+        accessor = next((d.attr for d in node.decorator_list if isinstance(d, ast.Attribute)
+                         and d.attr in ("setter", "deleter")), None)
+        if accessor:
+            qualname = f"{qualname}_{accessor}"
+        taken = {f.qualname for f in functions} | set(helpers)
+        n = 2
+        base = qualname
+        while qualname in taken:
+            qualname, n = f"{base}_{n}", n + 1
         start = node.decorator_list[0].lineno if node.decorator_list else node.lineno
         info = FunctionInfo(
             qualname=qualname,
@@ -221,6 +233,10 @@ def _called_names(node: ast.AST) -> set[str]:
         for call in ast.walk(node)
         if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
     }
+
+
+def _is_dunder(name: str) -> bool:
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
 
 
 def _self_calls(node: ast.AST) -> set[str]:

@@ -56,7 +56,9 @@ def _hidden():
 def test_methods_get_class_header_and_private_are_skipped(tmp_path):
     (tmp_path / "cart.py").write_text(SOURCE_WITH_CLASS)
     ctx = build_module_context(tmp_path, "cart.py")
-    assert [f.qualname for f in ctx.functions] == ["Cart.total"]
+    # Dunder methods are public protocol (targets); _single names are private helpers.
+    assert [f.qualname for f in ctx.functions] == ["Cart.__init__", "Cart.total"]
+    assert sorted(ctx.helpers) == ["Cart._private", "_hidden"]
     text = render_context(ctx, "Cart.total")
     assert "from cart import Cart" in text
     assert "def __init__(self, items: list[float]):" in text
@@ -68,3 +70,33 @@ def test_unknown_function_raises():
     ctx = build_module_context(EXAMPLE_DIR, "ticket_price.py")
     with pytest.raises(KeyError):
         ctx.function("nope")
+
+
+SOURCE_WITH_PROPERTY = """
+class Delta:
+    def __init__(self, days=0):
+        self.days = days
+
+    @property
+    def weeks(self):
+        return self.days // 7
+
+    @weeks.setter
+    def weeks(self, value):
+        self.days = value * 7
+
+    def __add__(self, other):
+        return Delta(self.days + other.days)
+
+    def __mangled(self):
+        return 1
+"""
+
+
+def test_property_accessors_get_distinct_names_and_operators_are_targets(tmp_path):
+    (tmp_path / "delta.py").write_text(SOURCE_WITH_PROPERTY)
+    ctx = build_module_context(tmp_path, "delta.py")
+    names = [f.qualname for f in ctx.functions]
+    assert names == ["Delta.__init__", "Delta.weeks", "Delta.weeks_setter", "Delta.__add__"]
+    assert "Delta._Delta__mangled" in ctx.helpers or "Delta.__mangled" in ctx.helpers
+    assert len({f.qualname for f in ctx.functions}) == len(ctx.functions)

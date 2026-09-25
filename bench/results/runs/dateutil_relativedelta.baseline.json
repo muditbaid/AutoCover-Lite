@@ -1,0 +1,81 @@
+{
+  "model": "ollama_chat/gpt-oss:120b",
+  "tests_generated": 20,
+  "tests_passing": 15,
+  "collection_error": false,
+  "pass_rate": 75.0,
+  "line_pct": 62.2,
+  "branch_pct": 55.4,
+  "mutation": {
+    "killed": 46,
+    "total": 108,
+    "score_pct": 42.6
+  },
+  "llm_calls": 3,
+  "llm_tokens": 26840,
+  "latency_s": 18.1,
+  "wall_s": 282.3,
+  "suite": "import datetime\nimport calendar\nimport pytest\nfrom dateutil.relativedelta import (\n    relativedelta,\n    MO,\n    TU,\n    WE,\n    TH,\n    FR,\n    SA,\n    SU,\n)\n\n\ndef test_non_integer_years_raises():\n    with pytest.raises(ValueError):\n        relativedelta(years=1.5)\n\n\ndef test_absolute_float_warns_deprecation():\n    with pytest.warns(DeprecationWarning):\n        delta = relativedelta(year=2020.5)\n    # The warning is emitted; the value is still stored as float\n    assert delta.year == 2020.5\n\n\ndef test_yearday_conversion_and_leapdays():\n    # 60th day of a non\u2011leap year -> March 1, leapdays set to -1\n    delta = relativedelta(yearday=60)\n    assert delta.month == 3\n    assert delta.day == 1\n    assert delta.leapdays == -1\n\n\ndef test_weeks_property_getter_and_setter():\n    delta = relativedelta(days=10)\n    assert delta.weeks == 1  # 10 // 7 = 1\n    delta.weeks = 3\n    # days = original 10 - (1*7) + (3*7) = 24\n    assert delta.days == 24\n    assert delta.weeks == 3\n\n\ndef test_normalized_fractional_fields():\n    delta = relativedelta(days=1.5, hours=2.3)\n    norm = delta.normalized()\n    # 1.5 days -> 1 day + 12h, plus 2.3h = 14.3h\n    # 14.3h -> 14h + 0.3h = 14h + 18m\n    assert norm.days == 1\n    assert norm.hours == 14\n    assert norm.minutes == 18\n    assert norm.seconds == 0\n    assert norm.microseconds == 0\n\n\ndef test_add_two_relativedeltas_combines_fields_and_absolute():\n    d1 = relativedelta(years=1, months=2, days=3, year=2020)\n    d2 = relativedelta(months=5, days=4, month=5)\n    dsum = d1 + d2\n    assert dsum.years == 1\n    assert dsum.months == 7\n    assert dsum.days == 7\n    # absolute fields: year from d1, month from d2 (since d2.month is not None)\n    assert dsum.year == 2020\n    assert dsum.month == 5\n    # other absolute fields remain None\n    assert dsum.day is None\n\n\ndef test_add_timedelta_combines_relative_parts():\n    delta = relativedelta(days=2, hours=3, minutes=10)\n    td = datetime.timedelta(days=1, hours=4, minutes=5)\n    result = delta + td\n    assert result.days == 3\n    assert result.hours == 7\n    assert result.minutes == 15\n    # other fields unchanged\n    assert result.years == 0\n    assert result.months == 0\n\n\ndef test_add_to_date_with_absolute_day_and_month_overflow():\n    base = datetime.date(2020, 1, 31)\n    delta = relativedelta(months=1, day=15)\n    result = base + delta\n    # month becomes Feb (2), day limited to 15 (Feb has 29 days in 2020)\n    assert result == datetime.date(2020, 2, 15)\n\n\ndef test_leapdays_applied_when_month_gt_2_and_leap_year():\n    base = datetime.datetime(2020, 3, 1, 0, 0, 0)\n    delta = relativedelta(leapdays=1)\n    result = base + delta\n    assert result == datetime.datetime(2020, 3, 2, 0, 0, 0)\n\n\ndef test_weekday_adjustment_moves_to_next_monday():\n    base = datetime.datetime(2021, 9, 14)  # Tuesday\n    delta = relativedelta(weekday=MO(1))\n    result = base + delta\n    # Next Monday after 2021-09-14 is 2021-09-20\n    assert result == datetime.datetime(2021, 9, 20)\n\n\ndef test_abs_and_neg():\n    delta = relativedelta(years=-2, months=-3, days=-4, hours=-5)\n    neg = -delta\n    assert neg.years == 2\n    assert neg.months == 3\n    assert neg.days == 4\n    assert neg.hours == 5\n\n    abs_delta = abs(delta)\n    assert abs_delta.years == 2\n    assert abs_delta.months == 3\n    assert abs_delta.days == 4\n    assert abs_delta.hours == 5\n\n\ndef test_bool_truthiness():\n    assert not bool(relativedelta())\n    assert bool(relativedelta(days=1))\n\n\ndef test_mul_and_rmul():\n    delta = relativedelta(days=2, hours=3, minutes=4)\n    scaled = delta * 2.5\n    assert scaled.days == int(2 * 2.5)\n    assert scaled.hours == int(3 * 2.5)\n    assert scaled.minutes == int(4 * 2.5)\n\n    # __rmul__ should behave the same\n    assert 2.5 * delta == scaled\n\n\ndef test_eq_ne_and_hash():\n    d1 = relativedelta(years=1, months=2, day=15, weekday=MO(1))\n    d2 = relativedelta(years=1, months=2, day=15, weekday=MO(1))\n    d3 = relativedelta(years=1, months=2, day=15, weekday=TU(1))\n\n    assert d1 == d2\n    assert d1 != d3\n    assert hash(d1) == hash(d2)\n    # Equality with non\u2011relativedelta returns NotImplemented, which pytest treats as False\n    assert (d1 == 5) is False\n\n\ndef test_division_by_scalar():\n    delta = relativedelta(days=10, hours=5)\n    half = delta / 2\n    assert half.days == 5\n    assert half.hours == 2  # int(5/2) == 2\n    # __truediv__ is alias of __div__\n    assert delta.__truediv__(2) == half\n",
+  "samples": [
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 25,
+      "tests_passing": 19,
+      "collection_error": false,
+      "pass_rate": 76.0,
+      "line_pct": 78.0,
+      "branch_pct": 60.9,
+      "mutation": {
+        "killed": 42,
+        "total": 108,
+        "score_pct": 38.9
+      },
+      "llm_calls": 1,
+      "llm_tokens": 8578,
+      "latency_s": 14.4,
+      "wall_s": 94.3
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 20,
+      "tests_passing": 15,
+      "collection_error": false,
+      "pass_rate": 75.0,
+      "line_pct": 62.2,
+      "branch_pct": 55.4,
+      "mutation": {
+        "killed": 46,
+        "total": 108,
+        "score_pct": 42.6
+      },
+      "llm_calls": 1,
+      "llm_tokens": 9499,
+      "latency_s": 18.1,
+      "wall_s": 93.5
+    },
+    {
+      "model": "ollama_chat/gpt-oss:120b",
+      "tests_generated": 24,
+      "tests_passing": 20,
+      "collection_error": false,
+      "pass_rate": 83.3,
+      "line_pct": 85.9,
+      "branch_pct": 78.3,
+      "mutation": {
+        "killed": 51,
+        "total": 108,
+        "score_pct": 47.2
+      },
+      "llm_calls": 1,
+      "llm_tokens": 8763,
+      "latency_s": 14.2,
+      "wall_s": 94.5
+    }
+  ],
+  "subject": "dateutil_relativedelta",
+  "level": "hard",
+  "tool": "baseline",
+  "target": "dateutil/relativedelta.py",
+  "budget_min": 15.0,
+  "finished": "2026-09-24 17:16:40"
+}

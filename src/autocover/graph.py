@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 import sys
+import time
 from collections import Counter
 
 from langgraph.graph import END, START, StateGraph
@@ -31,6 +32,7 @@ from autocover.tools.sandbox import RunRequest
 from autocover.tools.splicer import list_tests, remove_tests
 
 MAX_SUITE_REPAIRS = 2
+FINALIZE_RESERVE_S = 45  # suite check, flaky rerun and mutation score
 SUITE_FILE = "test_autocover_suite.py"
 
 
@@ -53,6 +55,8 @@ def build_graph(ctx: RunContext):
         return await fix(ctx, state)
 
     async def plan_next_node(state: RunState) -> RunState:
+        if ctx.round_started:
+            ctx.last_round_s = time.monotonic() - ctx.round_started
         return {"targets": plan_targets(ctx, state.get("scenarios", {}))}
 
     async def finalize_node(state: RunState) -> RunState:
@@ -91,7 +95,10 @@ def stop_reason(ctx: RunContext, state: RunState) -> str | None:
         return "no gaps left"
     if state.get("round", 0) >= ctx.config.run.max_rounds:
         return "max rounds"
-    if ctx.time_left() <= 0:
+    # Start another round only if one more round (as long as the last one) and the final
+    # suite checks still fit: the deadline is otherwise only seen between rounds, and a
+    # round on a large module can take minutes.
+    if ctx.time_left() <= ctx.last_round_s + FINALIZE_RESERVE_S:
         return "time budget"
     if not ctx.budget_left():
         return "LLM budget"

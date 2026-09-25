@@ -103,6 +103,8 @@ class RunContext:
                 and m.id not in self.shown_survivors]
     scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
     telemetry_start: int = 0  # index of this run's first telemetry event
+    round_started: float = 0.0  # monotonic time the current generation round began
+    last_round_s: float = 0.0   # duration of the last full round (generate..validate/fix)
     _counter: int = 0
 
     def llm_used(self) -> tuple[int, int]:
