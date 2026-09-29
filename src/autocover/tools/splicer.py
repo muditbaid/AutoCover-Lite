@@ -5,6 +5,10 @@ after the existing imports (duplicates dropped), test functions and helpers are
 appended, and name clashes are resolved by deterministic renames (`name_2`, `name_3`,
 ...) that are also applied to references inside the candidate, so a renamed fixture
 still matches the test parameters that use it.
+
+Imports that bind an existing name to something else (`import datetime` in a candidate,
+`from datetime import datetime` in the file) get an alias in the candidate, again with
+its references renamed: otherwise the later import rebinds the name for every test.
 """
 
 from __future__ import annotations
@@ -29,6 +33,11 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
     bound = set().union(*(_bindings(s) for s in base.body if _is_import(s)))
     existing_stmts = {_key(s) for s in base.body}
     taken = _defined_names(base)
+
+    # Imports first: a name the file already binds to something else gets an alias.
+    import_renames = _import_renames(base, cand, taken)
+    if import_renames:
+        cand = cand.visit(_Renamer(import_renames)).visit(_AliasImports(import_renames))
 
     # Rename clashing definitions until none are left: renaming a helper changes the text
     # of the fixtures/tests that use it, which can create new clashes (fixpoint).
@@ -71,7 +80,7 @@ def splice_tests(existing: str, candidate: str) -> SpliceResult:
         new_body[0] = _with_blank_lines(new_body[0])
     body.extend(new_body)
     result = base.with_changes(body=body)
-    return SpliceResult(result.code, added, renames, skipped)
+    return SpliceResult(result.code, added, {**import_renames, **renames}, skipped)
 
 
 def remove_tests(source: str, names: set[str]) -> str:
@@ -163,6 +172,48 @@ def _bindings(stmt: cst.SimpleStatementLine) -> set[tuple]:
     return out
 
 
+def _local(binding: tuple) -> str | None:
+    """The name an import binding creates in the module (None for `import *`)."""
+    if binding[0] == "import":
+        return binding[2] or binding[1].split(".")[0]
+    return None if binding[2] == "*" else binding[3] or binding[2]
+
+
+def _target(binding: tuple) -> tuple:
+    """What the binding refers to, whatever local name it gets."""
+    return binding[:2] if binding[0] == "import" else binding[:3]
+
+
+def _import_renames(base: cst.Module, cand: cst.Module, taken: set[str]) -> dict[str, str]:
+    """Local import names of `cand` to rename: those the file binds to something else.
+    The new name is the file's own name for the same target when it has one."""
+    binding_of: dict[str, tuple] = {}   # file: local name -> binding (the last one wins)
+    for stmt in base.body:
+        if _is_import(stmt):
+            for binding in _bindings(stmt):
+                if name := _local(binding):
+                    binding_of[name] = binding
+    # Only names still bound to their import at the end of the file can be reused.
+    local_of = {_target(b): name for name, b in sorted(binding_of.items())
+                if name not in taken}
+    renames: dict[str, str] = {}
+    for stmt in cand.body:
+        if not _is_import(stmt):
+            continue
+        for binding in sorted(_bindings(stmt), key=str):
+            name = _local(binding)
+            if name is None or name in renames:
+                continue
+            other = binding_of.get(name)
+            if not (name in taken or (other and _target(other) != _target(binding))):
+                continue
+            if binding[0] == "import" and "." in binding[1] and not binding[2]:
+                continue  # `import a.b` binds `a`: no alias keeps `a.b.x` working
+            renames[name] = local_of.get(_target(binding)) or _fresh(
+                name, taken | set(binding_of) | set(renames.values()))
+    return renames
+
+
 def _def_name(stmt: cst.CSTNode) -> str | None:
     if isinstance(stmt, (cst.FunctionDef, cst.ClassDef)):
         return stmt.name.value
@@ -210,11 +261,18 @@ def _is_docstring(stmt: cst.CSTNode) -> bool:
 
 
 class _Renamer(cst.CSTTransformer):
-    """Rename bare Name references (defs, calls, parameters) but not attribute names."""
+    """Rename bare Name references (defs, calls, parameters) but not attribute names or
+    the modules and names inside import statements (see _AliasImports)."""
 
     def __init__(self, renames: dict[str, str]):
         self.renames = renames
         self._attr_names: set[int] = set()
+
+    def visit_Import(self, node: cst.Import) -> bool:
+        return False
+
+    def visit_ImportFrom(self, node: cst.ImportFrom) -> bool:
+        return False
 
     def visit_Attribute(self, node: cst.Attribute) -> None:
         self._attr_names.add(id(node.attr))
@@ -224,3 +282,19 @@ class _Renamer(cst.CSTTransformer):
             return updated
         new = self.renames.get(original.value)
         return updated.with_changes(value=new) if new else updated
+
+
+class _AliasImports(cst.CSTTransformer):
+    """Bind renamed import names under their new names: `import m` -> `import m as m_2`."""
+
+    def __init__(self, renames: dict[str, str]):
+        self.renames = renames
+
+    def leave_ImportAlias(self, original: cst.ImportAlias,
+                          updated: cst.ImportAlias) -> cst.ImportAlias:
+        local = _code(updated.asname.name) if updated.asname else \
+            _code(updated.name).split(".")[0]
+        new = self.renames.get(local)
+        if new is None:
+            return updated
+        return updated.with_changes(asname=cst.AsName(name=cst.Name(new)))

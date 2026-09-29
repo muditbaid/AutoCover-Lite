@@ -107,3 +107,49 @@ def test_renaming_a_helper_cascades_to_fixtures_that_use_it():
     assert '"ticket_price.ticket_price", _fake_2)' in src
     assert "def test_b(patched_2):" in src
     compile(src, "<suite>", "exec")
+
+
+def _run_all(source: str) -> list[str]:
+    """Execute a merged test module and call every test; return the names that passed."""
+    namespace: dict = {}
+    exec(compile(source, "<suite>", "exec"), namespace)
+    passed = []
+    for name in list_tests(source):
+        namespace[name]()
+        passed.append(name)
+    return passed
+
+
+def test_import_binding_a_name_differently_gets_an_alias():
+    # dateutil benchmark: `import datetime` tests merged after `from datetime import
+    # datetime` tests; the later import rebound `datetime` and 12 tests failed together.
+    suite = "from datetime import datetime\n\n\ndef test_cls():\n" \
+            "    assert datetime(2020, 1, 1).year == 2020\n"
+    module_style = "import datetime\n\n\ndef test_mod():\n" \
+                   "    assert datetime.datetime(2021, 1, 1).year == 2021\n" \
+                   "    assert datetime.date(2021, 1, 2).day == 2\n"
+    merged = splice_tests(suite, module_style)
+    assert merged.renamed == {"datetime": "datetime_2"}
+    assert "import datetime as datetime_2" in merged.source
+    assert "datetime_2.datetime(2021, 1, 1)" in merged.source
+    # A later candidate importing the module again reuses the alias, no new import.
+    again = splice_tests(merged.source, module_style.replace("test_mod", "test_mod_b"))
+    assert again.source.count("import datetime as datetime_2") == 1
+    assert "import datetime" not in again.source.splitlines()
+    assert _run_all(again.source) == ["test_cls", "test_mod", "test_mod_b"]
+
+
+def test_import_clashing_with_a_helper_name_gets_an_alias():
+    suite = "def json():\n    return 'helper'\n\n\ndef test_helper():\n" \
+            "    assert json() == 'helper'\n"
+    cand = "import json\n\n\ndef test_dump():\n    assert json.dumps([1]) == '[1]'\n"
+    merged = splice_tests(suite, cand)
+    assert "import json as json_2" in merged.source
+    assert _run_all(merged.source) == ["test_helper", "test_dump"]
+
+
+def test_same_import_in_another_form_is_not_renamed():
+    suite = "from os import path\n\n\ndef test_a():\n    assert path.sep\n"
+    cand = "from os import path\n\n\ndef test_b():\n    assert path.join('a', 'b')\n"
+    merged = splice_tests(suite, cand)
+    assert merged.renamed == {} and merged.source.count("from os import path") == 1
