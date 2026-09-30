@@ -107,6 +107,7 @@ class RunResult:
     # node id -> (lines, branches) executed by that test; filled when per_test=True
     per_test: dict[str, tuple[frozenset[int], frozenset[tuple[int, int]]]] = field(
         default_factory=dict)
+    alone: bool = False  # one candidate in its own sandbox (not carved out of a batch)
 
     @property
     def passed(self) -> bool:

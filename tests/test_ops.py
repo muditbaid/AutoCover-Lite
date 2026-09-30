@@ -151,3 +151,39 @@ def test_scenario_judging_stops_at_the_deadline(tmp_path):
                                         write=False, functions=["ticket_price"]))
     assert any(e.get("event") == "judging_cut_by_deadline" for e in runtime.telemetry.events)
     assert summary["duration_s"] < 60 and summary["tests_in_suite"] > 0
+
+
+class HangingSandbox:
+    """A batch containing `test_hang` times out; alone, `test_hang` times out too."""
+
+    def __init__(self):
+        self.labels: list[str] = []
+
+    async def arun(self, request):
+        self.labels.append(request.label)
+        if any("def test_hang" in src for src in request.tests.values()):
+            return RunResult(status="timeout", exit_code=None)
+        name = next(iter(request.tests))
+        return RunResult(status="ok", exit_code=0,
+                         tests=[TestOutcome(f"{name}::test_ok", "passed")])
+
+
+def test_a_hanging_test_is_not_run_alone_twice():
+    # iterutils (mini-benchmark): batch timeout, then the batch fallback ran the hanging
+    # test alone, then "confirm in isolation" ran it alone again - 480s for one test.
+    from autocover.agents.executor import execute
+    from autocover.state import Candidate
+
+    config = Config(mutation=MutationConfig(enabled=False),
+                    telemetry=TelemetryConfig(jsonl_path=None))
+    box = HangingSandbox()
+    ctx = RunContext(config=config, repo=EXAMPLE, target="ticket_price.py", test_path="t.py",
+                     router=None, sandbox=box, telemetry=Telemetry(),
+                     module=build_module_context(EXAMPLE, "ticket_price.py"))
+    cands = [Candidate(id=f"c{i}", function="ticket_price", test_name=name, round=1,
+                       code=f"def {name}():\n    assert True\n")
+             for i, name in enumerate(["test_ok", "test_hang", "test_ok_2"])]
+    state = asyncio.run(execute(ctx, {"pending": cands}))
+    statuses = {c.test_name: c.status for c in state["executed"]}
+    assert statuses == {"test_ok": "passed", "test_hang": "failed", "test_ok_2": "passed"}
+    assert box.labels.count("c1") == 1  # the hanging test ran alone exactly once

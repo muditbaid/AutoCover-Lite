@@ -122,7 +122,9 @@ llm:
 sandbox:
   backend: docker        # docker | local (local = subprocess, for development only)
   python_version: "3.12"
-  timeout_s: 120
+  timeout_s: 45          # per candidate run (a batch gets 2x): unit tests take seconds,
+                         # so 45s means a hang (iterutils: a test looping on an infinite
+                         # iterator cost 120s three times at the old limit)
   memory: 1g
   cpus: 1.0
   pids_limit: 256

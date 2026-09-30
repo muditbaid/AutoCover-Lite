@@ -7,7 +7,8 @@ candidate removes most of the sandbox start-up cost.
 
 Safety nets: a batch that times out or crashes is re-run one candidate per sandbox, and a
 candidate that fails inside a batch is re-run alone to confirm - so one test's side
-effects can never make another look broken.
+effects can never make another look broken. A failure that already comes from a run of
+its own is not re-run: a hanging test would otherwise cost the timeout three times.
 """
 
 from __future__ import annotations
@@ -26,7 +27,8 @@ async def execute(ctx: RunContext, state: RunState) -> RunState:
                             candidates=len(pending)) as span:
         results = await run_candidates(ctx, pending)
         batched = ctx.config.sandbox.batch and len(pending) > 1
-        suspects = [c for c in pending if not results[c.id].passed] if batched else []
+        suspects = [c for c in pending
+                    if not results[c.id].passed and not results[c.id].alone] if batched else []
         if suspects:  # confirm batch failures in isolation
             confirmed = await asyncio.gather(*(run_candidate(ctx, c) for c in suspects))
             results.update({c.id: r for c, r in zip(suspects, confirmed, strict=True)})
@@ -80,9 +82,11 @@ async def _run_batch(ctx: RunContext, chunk: list[Candidate], overrides: dict | 
 
 async def run_candidate(ctx: RunContext, cand: Candidate, overrides: dict | None = None,
                         timeout_s: float | None = None) -> RunResult:
-    return await ctx.sandbox.arun(RunRequest(
+    result = await ctx.sandbox.arun(RunRequest(
         target=ctx.target, tests={candidate_filename(cand): cand.code},
         overrides=overrides or {}, timeout_s=timeout_s, label=cand.id))
+    result.alone = True
+    return result
 
 
 def candidate_filename(cand: Candidate) -> str:
