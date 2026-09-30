@@ -1,0 +1,48 @@
+# AutoCover-Lite on its own code (dogfooding). Runs only on demand, since every run spends
+# free-tier LLM quota and takes 10-20 minutes:
+#   * add the label `autocover` to a pull request: tests for the modules it changes;
+#   * or Actions -> "AutoCover-Lite" -> Run workflow, with the modules to test.
+# The generated tests arrive as a follow-up pull request against the same branch.
+name: AutoCover-Lite
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Modules to test, space-separated (e.g. src/autocover/ci.py)"
+        required: true
+
+permissions:
+  contents: write        # push the branch with generated tests
+  pull-requests: write   # open the follow-up pull request
+
+concurrency:
+  group: autocover-${{ github.head_ref || github.ref_name }}
+
+jobs:
+  tests:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'autocover'
+    runs-on: ubuntu-latest   # GitHub-hosted runners include Docker for the sandbox
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}   # the branch itself, not a merge commit
+          fetch-depth: 0
+      - uses: ./              # the action defined in this repository (action.yml)
+        with:
+          paths: ${{ inputs.paths }}
+          budget-min: "10"
+          max-modules: "2"
+          max-llm-calls: "60"
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
