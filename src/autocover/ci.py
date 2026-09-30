@@ -1,4 +1,9 @@
-"""Helpers for running AutoCover-Lite in CI (used by the GitHub Action in action.yml)."""
+"""Helpers for running AutoCover-Lite in CI (used by the GitHub Action in action.yml).
+
+`changed_modules` picks the source modules a branch adds or modifies (tests, docs and
+tooling are skipped), and `summary_markdown` turns the runs' JSON summaries into the
+table shown in the job summary and in the body of the follow-up pull request.
+"""
 
 from __future__ import annotations
 
