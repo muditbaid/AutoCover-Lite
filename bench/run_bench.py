@@ -43,7 +43,7 @@ RESULTS = ROOT / "bench" / "results" / "runs"
 
 
 def bench_config(args):
-    cfg = load_config(ROOT / "config.yaml")
+    cfg = load_config(getattr(args, "config", None) or ROOT / "config.yaml")
     cfg.run.budget_min = args.budget_min
     cfg.run.max_rounds = args.max_rounds
     cfg.run.max_llm_calls = args.max_llm_calls
@@ -133,6 +133,8 @@ async def main() -> None:
     parser.add_argument("--repeat", type=int, default=1,
                         help="run each (subject, tool) this many times: <subject>.<tool>.r<N>.json")
     parser.add_argument("--out-dir", type=Path, default=RESULTS)
+    parser.add_argument("--config", type=Path, default=None,
+                        help="config.yaml to use (default: the repository's)")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     args.runs_per_day = args.runs_per_day or None

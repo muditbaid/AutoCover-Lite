@@ -11,6 +11,10 @@ tests for a module. A test is kept only if:
 - it survives the quality gates: best-practice rules, plus mutation testing to catch weak
   assertions.
 
+It runs end to end on free tiers, and everything model-specific lives in `config.yaml`,
+so stronger (paid) models plug in without code changes: see
+[Plugging in better models](#plugging-in-better-models).
+
 ## Status
 
 | Milestone | What | State |
@@ -20,7 +24,7 @@ tests for a module. A test is kept only if:
 | 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ✅ done |
 | 4. Scale & ops | Batched sandbox runs, budgets, flaky reruns, run reports | ✅ done |
 | 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ✅ done |
-| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | built (`action.yml`), not yet tried on a real PR |
+| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | write-up ✅; Action built (`action.yml`), not yet run on a real PR |
 
 ## Benchmark
 
@@ -99,6 +103,64 @@ How to read it fairly:
   two Gemini versions allow 36 requests a day, and GPT-OSS 120B on Ollama answers one
   call at a time. Only ~24% of v2's generation and repair calls ran on models that
   passed 100% in the bake-off (v1: 27%).
+
+## Plugging in better models
+
+The pipeline is model-agnostic: each agent role (`preparer`, `generator`, `fixer`,
+`fixer_final`, `judge`) is an ordered chain of [LiteLLM](https://docs.litellm.ai/) model
+ids in `config.yaml`, so any provider LiteLLM supports works, paid or free.
+[`examples/config.paid.yaml`](examples/config.paid.yaml) is a complete example: the
+repository's config with only the `llm` section replaced.
+
+```bash
+export ANTHROPIC_API_KEY=...        # or the key of the provider you configure
+autocover llm-ping --role generator --config examples/config.paid.yaml
+autocover run <repo> <module.py> --config examples/config.paid.yaml
+```
+
+| Setting | Free tier (`config.yaml`) | Paid |
+|---|---|---|
+| `models.<id>.rpd`, `reserve` | ration 20-1000 requests/day per model | drop them |
+| `runs_per_day`, `role_queue_wait_s` | share scarce quota between runs; wait for the one strong model | drop them |
+| `providers.<p>.max_concurrency` | 1-3 | your account's limit (round 1 sends one call per function at once) |
+| `run.max_llm_calls` | 60 | keep it: the per-run cost cap |
+| `run.budget_min` | 10-15 | the time you can afford per module |
+
+Everything else (sandbox, coverage and mutation gates, rules, time budget, telemetry)
+does not depend on the models. To see what a model change buys, measure it on repeats,
+not on single runs (see [Benchmark](#benchmark) for why):
+
+```bash
+python bench/run_bench.py --tools autocover --subjects slugify dateutil_relativedelta \
+    boltons_iterutils --repeat 3 --out-dir bench/results/paid --runs-per-day 0 \
+    --config examples/config.paid.yaml
+python bench/report_repeats.py bench/results/paid     # next to the free-tier runs
+```
+
+## Limits and future work
+
+On free tiers this is as far as tuning goes. The last experiment doubled the share of
+work done by the strongest free model and the scores did not move (see Benchmark): what
+limits quality now is how fast free models answer and how few requests they allow
+(Ollama Cloud: one call at a time; Gemini Flash: 20 requests/day per version; Nemotron
+on NVIDIA NIM: 50-120s per call), and on a 15-minute budget the large modules get only
+1-2 rounds. Stronger or paid models are the next step, and the configuration above is
+built for them.
+
+Known open items:
+
+- **Round 1 on large modules** takes most of the budget (planning ~180s, generation
+  ~230s on iterutils); fewer functions in the first round or faster planning would buy
+  more rounds.
+- **Preparer bake-off**: the Generator's models were chosen by a bake-off, the Preparer's
+  by speed and judgment only.
+- **Judge batching**: one judge call per scenario; judging several scenarios of a
+  function per call would cut calls roughly in half.
+- **Not yet benchmarked**: the last two fixes (quota race on concurrent calls, a
+  hanging test costing its timeout three times), both covered by tests.
+- **GitHub Action** (`action.yml`): built, its helpers unit-tested, not yet run on a real
+  pull request; it needs a repository with the API keys as secrets.
+- **Scope**: Python, one module per run, pytest; mutants capped at 150 per module.
 
 ## How a run works
 
@@ -304,6 +366,18 @@ Problems the benchmark surfaced, each found in telemetry and fixed:
 | A run spent minutes on one slow model | Degraded provider (NIM: up to 230s per call) | A timeout moves to the next model; planning capped at 20% of the budget |
 | Cached replies made runs look fast | Benchmark reused the LLM cache | Fresh cache per benchmark run |
 | Run took 2x its budget (iterutils, 1804s) | Quotas ran dry, and the last model in the judge chain (one call at a time, ~15s each) got every overflow call: 79 queued | Least-wait fallback, deadlines on every LLM call, estimated finalize reserve |
+
+## In CI: the GitHub Action
+
+[`action.yml`](action.yml) runs the pipeline on the Python modules a pull request adds
+or changes, and opens a follow-up pull request with the generated tests and a summary
+table (coverage before -> after, mutation score, tests written), so tests arrive for
+review instead of having to be written. Copy
+[`examples/workflows/autocover.yml`](examples/workflows/autocover.yml) to
+`.github/workflows/` in the target repository and add the API keys as repository
+secrets; GitHub-hosted runners include Docker for the sandbox. Inputs cap the cost per
+pull request (`max-modules`, `budget-min`, `max-llm-calls`), and `config` points at a
+config with other models. Status: built, not yet run on a real pull request.
 
 ## Quickstart
 
