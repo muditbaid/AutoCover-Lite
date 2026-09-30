@@ -229,6 +229,9 @@ class LLMRouter:
         self._today = today or (lambda tz: datetime.now(ZoneInfo(tz)).date().isoformat())
         self._exhausted: set[tuple[str, str]] = set()  # (quota day, model) told "daily quota"
         self._run_requests: dict[tuple[str, str], int] = {}  # (model, role) -> this run
+        # Calls committed to a model whose first request is not sent yet: they count
+        # against its quotas already, or concurrent callers all see an unused cap.
+        self._committed: dict[tuple[str, str], int] = {}
         self.telemetry = telemetry or Telemetry()
         self._completion_fn = completion_fn
         self._require_keys = require_keys
@@ -360,9 +363,12 @@ class LLMRouter:
             bucket.reserved += amount
         provider = provider_of(model)
         self._queued[provider] = self._queued.get(provider, 0) + 1
+        commit = {"key": (model, role), "open": True}
+        self._committed[commit["key"]] = self._committed.get(commit["key"], 0) + 1
         try:
             resp = await self._call_with_retries(model, messages, params, est_tokens,
-                                                 reservation, deadline, role=role)
+                                                 reservation, deadline, role=role,
+                                                 commit=commit)
         except DeadlineReached:
             errors.append(f"{model}: deadline reached")
             self._deadline_failure(role, errors)
@@ -371,6 +377,8 @@ class LLMRouter:
             self.telemetry.event("llm", "model_failed", role=role, model=model,
                                  error=type(exc).__name__)
             return None
+        finally:
+            self._release_commit(commit)  # never sent (deadline, cancelled): free it
         resp.fallbacks = index
         if self.cache:
             self.cache.put(key, model, {
@@ -386,6 +394,7 @@ class LLMRouter:
         self, model: str, messages: list[dict[str, Any]], params: dict[str, Any],
         est_tokens: int, reservation: list[tuple[TokenBucket, float]] | None = None,
         deadline: float | None = None, role: str | None = None,
+        commit: dict | None = None,
     ) -> LLMResponse:
         provider = provider_of(model)
         attempts = self.config.retries + 1
@@ -419,6 +428,7 @@ class LLMRouter:
                         self.usage.record(self._day(model), model, role=role)
                         key = (model, role or "")
                         self._run_requests[key] = self._run_requests.get(key, 0) + 1
+                        self._release_commit(commit)  # now counted by the ledger
                         start = self._clock()
                         timeout = self.config.timeout_s
                         if (left := self._left(deadline)) is not None:
@@ -540,6 +550,12 @@ class LLMRouter:
         """Current quota day for `model`, in its provider's reset time zone."""
         return self._today(self.config.limits_for(provider_of(model)).quota_timezone)
 
+    def _release_commit(self, commit: dict | None) -> None:
+        if commit and commit["open"]:
+            commit["open"] = False
+            key = commit["key"]
+            self._committed[key] = max(0, self._committed.get(key, 0) - 1)
+
     def _quota_block(self, model: str, role: str) -> tuple[str, str] | None:
         """Why `role` may not call `model` now, as (reason, telemetry event), or None.
 
@@ -551,8 +567,13 @@ class LLMRouter:
         limits = self.config.model_limits(model)
         if limits.rpd is None:
             return None
-        daily = _share_block(limits.rpd, limits.reserve, self.usage.requests(day, model),
-                             self.usage.role_requests(day, model), role)
+        pending = {r: n for (m, r), n in self._committed.items() if m == model and n}
+        by_role = self.usage.role_requests(day, model)
+        for r, n in pending.items():
+            by_role[r] = by_role.get(r, 0) + n
+        daily = _share_block(limits.rpd, limits.reserve,
+                             self.usage.requests(day, model) + sum(pending.values()),
+                             by_role, role)
         if daily == "cap":
             return "daily request cap reached", "skip_daily_cap"
         if daily == "reserved":
@@ -561,6 +582,8 @@ class LLMRouter:
             reserve = {r: math.ceil(n / runs) for r, n in limits.reserve.items()}
             cap = max(math.ceil(limits.rpd / runs), sum(reserve.values()))
             by_role = {r: n for (m, r), n in self._run_requests.items() if m == model}
+            for r, n in pending.items():
+                by_role[r] = by_role.get(r, 0) + n
             if _share_block(cap, reserve, sum(by_role.values()), by_role, role):
                 return f"this run's share of the daily cap is used ({runs} runs/day)", \
                     "skip_run_share"

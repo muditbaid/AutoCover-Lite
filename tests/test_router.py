@@ -468,6 +468,32 @@ def test_each_run_gets_its_slice_of_every_reservation():
     assert models_used(router, "bulk", 2) == ["s/strong", "b/bulk"]
 
 
+def test_concurrent_callers_cannot_overrun_a_daily_cap():
+    # Round 1 fires ~50 calls at once. Each used to check the cap before any had sent a
+    # request, so all saw it unused (mini-benchmark: 10 calls on a 3-per-run model).
+    for runs_per_day, limits in ((None, ModelLimits(rpd=3)), (6, ModelLimits(rpd=18))):
+        router, _ = make_quota_router(limits, runs_per_day=runs_per_day)
+        models = run(_overlapping_calls(router, "bulk", 6))
+        assert models.count("s/strong") == 3, (runs_per_day, models)
+        assert router._committed == {("s/strong", "bulk"): 0, ("b/bulk", "bulk"): 0}
+
+
+async def _overlapping_calls(router, role, n):
+    """`n` calls in flight at once (none answers before all have been routed)."""
+    gate = asyncio.Event()
+
+    async def in_flight(*, model, messages, **kwargs):
+        await gate.wait()
+        return {"choices": [{"message": {"content": model}}], "usage": {}}
+
+    router._completion_fn = in_flight
+    tasks = [asyncio.create_task(router.complete(role, MESSAGES, use_cache=False))
+             for _ in range(n)]
+    await asyncio.sleep(0)
+    gate.set()
+    return [r.model for r in await asyncio.gather(*tasks)]
+
+
 def test_quality_roles_wait_longer_for_their_first_model():
     # a/one runs one call at a time (~10s each). With the default 15s patience the 3rd
     # concurrent caller spills to b/two; a role allowed 45s queues on a/one instead.
