@@ -29,18 +29,41 @@ hard), 15 minutes per module. Full table and charts: [`bench/results/results.md`
 
 | Mean over 9 subjects | Single-prompt baseline | AutoCover-Lite |
 |---|---|---|
-| Line coverage | 80.9% | **92.8%** |
-| Branch coverage | 72.4% | **88.4%** |
-| Mutation score (identical 52-150 mutant pool) | 56.8% | **76.8%** |
-| LLM calls | 3 | 72 |
-| Wall time | 342s | 688s |
+| Line coverage | 80.9% | **92.5%** |
+| Branch coverage | 72.4% | **87.5%** |
+| Mutation score (identical 52-150 mutant pool) | 56.8% | **74.8%** |
+| LLM calls | 3 | 86 |
+| Wall time (budget 900s) | 342s | 627s (max 850s) |
 
 AutoCover-Lite is ahead on all three metrics on every subject. The mutation score gains most
-(+20 points on average; +43 on dateutil, +36 on jmespath, +35 on slugify): the mutation
-gate and the Fixer turn tests that merely *run* code into tests that *check* it. It is
-weakest on the two largest modules: `tabulate` (886 statements in a few very long
-functions: 58% lines, 37% mutation) and `boltons.iterutils` (mutation 64.0% -> 64.7%, where
-planning hit its time cap and the Fixer had no time left).
+(+18 points on average; +37 on slugify, +29 on tabulate, +19 on jmespath): the mutation
+gate and the Fixer turn tests that merely *run* code into tests that *check* it. Its
+weakest subjects are `tabulate` (886 statements in a few very long functions: 69% lines,
+50% mutation) and `dateutil` (see below).
+
+**Two full runs.** The benchmark ran twice (v1 on 2026-09-24/25, v2 on 2026-09-28 after the
+time-budget, coverage-counting, quota and splicer fixes). Means barely moved (lines 92.8
+-> 92.5, mutation 76.8 -> 74.8), but single subjects swung by up to 29 points in either
+direction (dateutil mutation 85.2 -> 56.5, tabulate 37.3 -> 50.0, iterutils 64.7 -> 76.0).
+On free tiers one run per subject is not enough to rank changes to the pipeline: which
+models answer, and how fast, differs between runs.
+
+| Subject | v1 lines / mutation | v2 lines / mutation |
+|---|---|---|
+| humanize_number | 99.4 / 82.5 | 99.4 / 85.0 |
+| inflection | 98.8 / 89.9 | 98.8 / 89.9 |
+| slugify | 100.0 / 76.9 | 98.4 / 78.8 |
+| boltons_strutils | 96.6 / 82.0 | 94.9 / 76.7 |
+| jmespath_lexer | 100.0 / 94.0 | 100.0 / 77.6 |
+| semver_version | 94.5 / 78.7 | 95.5 / 82.7 |
+| boltons_iterutils | 87.4 / 64.7 | 93.6 / 76.0 |
+| dateutil_relativedelta | 100.0 / 85.2 | 83.0 / 56.5 |
+| tabulate | 58.4 / 37.3 | 69.3 / 50.0 |
+
+v2's dateutil ran a second time: its first v2 run lost 12 of 89 tests to a splicer bug
+(two import styles of `datetime` in one file, since fixed), and the repeat ran as the
+day's 10th run, after the 9 benchmark runs had used every Gemini request, so its Preparer
+and last-attempt Fixer fell back to weaker models.
 
 ![Mutation score](bench/results/mutation_score.svg)
 
@@ -48,22 +71,22 @@ planning hit its time cap and the Fixer had no time left).
 
 How to read it fairly:
 
-- **Not compute-matched.** AutoCover-Lite makes ~24x more LLM calls and takes ~2x the wall
+- **Not compute-matched.** AutoCover-Lite makes ~29x more LLM calls and takes ~2x the wall
   time. The baseline is the same model chain and test-writing rules in one call per
   module (median of 3 samples, failing tests dropped).
 - **Same scorer for both.** Coverage comes from one plain run of each final suite, and
-  every mutant of the identical seeded pool is run against it (`bench/rescore.py`).
-  AutoCover-Lite's own mutation score, which reuses kills recorded during validation,
-  matched the independent re-score on 8 of 9 subjects (iterutils: one mutant apart).
-- **Measurement bug found, and fixed.** Per-test coverage counted physical lines
+  every mutant of the identical seeded pool is run against it (`bench/rescore.py`). In
+  v2, AutoCover-Lite's own coverage and mutation numbers equal this independent
+  re-score on all 9 subjects.
+- **Measurement bug found in v1, and fixed.** Per-test coverage counted physical lines
   (continuation and docstring lines) instead of statements, which understated
   AutoCover-Lite's own coverage numbers (dateutil: 57.9% reported, 100% real) and made
-  acceptance credit noisy. The numbers above are re-measured; the runs themselves (8 on
-  `48fedd5`, iterutils on the time-budget fixes) still accepted tests with the noisy
-  credit.
-- **Free tiers are shared state.** All subjects draw on one day's quotas, so later
-  subjects get more fallback models, and each subject ran once, so there is no variance
-  estimate.
+  acceptance credit noisy. v1's numbers above are re-measured.
+- **Free tiers are shared state.** All subjects draw on one day's quotas; v2 gives each
+  run an equal slice (`runs_per_day`), but the strong models' total capacity stays small:
+  two Gemini versions allow 36 requests a day, and GPT-OSS 120B on Ollama answers one
+  call at a time. Only ~24% of v2's generation and repair calls ran on models that
+  passed 100% in the bake-off (v1: 27%).
 
 ## How a run works
 

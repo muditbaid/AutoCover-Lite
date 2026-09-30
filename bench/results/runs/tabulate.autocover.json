@@ -1,7 +1,7 @@
 {
   "target": "tabulate/__init__.py",
   "test_path": "tests/test___init___autocover.py",
-  "rounds": 2,
+  "rounds": 7,
   "baseline": {
     "line_pct": 14.6,
     "branch_pct": 0.2,
@@ -11,24 +11,23 @@
     "branches_total": 428
   },
   "final": {
-    "line_pct": 52.0,
-    "branch_pct": 43.9,
-    "lines_covered": 517,
-    "lines_total": 995,
-    "branches_covered": 188,
+    "line_pct": 69.3,
+    "branch_pct": 58.4,
+    "lines_covered": 614,
+    "lines_total": 886,
+    "branches_covered": 250,
     "branches_total": 428
   },
   "mutation": {
-    "killed": 56,
+    "killed": 75,
     "total": 150,
-    "score_pct": 37.3,
-    "reused_kills": 18,
+    "score_pct": 50.0,
+    "reused_kills": 44,
     "survivors": [
       "line 33 (_is_file): return value -> None",
       "line 465 (None): '+' -> ''",
       "line 485 (None): '\u253c' -> ''",
       "line 524 (None): '\u2550' -> ''",
-      "line 128 (_is_separating_line): == -> !=",
       "line 130 (_is_separating_line): >= -> >",
       "line 154 (_pipe_line_with_colons): * -> /",
       "line 154 (_pipe_line_with_colons): '' -> 'XX'",
@@ -43,88 +42,103 @@
       "line 204 (_textile_row_with_attrs): 'decimal' -> ''",
       "line 204 (_textile_row_with_attrs): '=.' -> ''",
       "line 205 (_textile_row_with_attrs): '' -> 'XX'",
-      "line 211 (_html_begin_table_without_header): return value -> None"
+      "line 211 (_html_begin_table_without_header): return value -> None",
+      "line 211 (_html_begin_table_without_header): '<table>\\n<tbody>' -> ''"
     ]
   },
-  "tests_in_suite": 24,
-  "candidates": 67,
-  "accepted": 24,
+  "tests_in_suite": 36,
+  "candidates": 108,
+  "accepted": 36,
   "accepted_by": {
-    "coverage": 12,
-    "scenario": 11,
-    "mutants": 1
+    "coverage": 34,
+    "mutants": 2
   },
-  "accepted_after_fix": 10,
-  "sent_to_fixer": 30,
-  "rejected_no_signal": 1,
-  "frozen": 12,
+  "accepted_after_fix": 17,
+  "sent_to_fixer": 46,
+  "rejected_no_signal": 13,
+  "frozen": 13,
   "superseded": 0,
   "weak_kept": 0,
-  "failed": 21,
+  "failed": 42,
   "rule_violations": {
     "private_attribute_assertion": 6,
-    "literal_oracle": 23
+    "literal_oracle": 16
   },
   "removed_in_suite_check": [],
   "removed_flaky": [],
   "stopped_by": "time budget",
   "llm_budget": {
-    "calls": 57,
-    "tokens": 396974,
+    "calls": 71,
+    "tokens": 666477,
     "max_calls": 200,
     "max_tokens": null
   },
-  "scenarios_total": 20,
-  "scenarios_covered": 17,
+  "scenarios_total": 4,
+  "scenarios_covered": 4,
   "llm": {
-    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+    "ollama_chat/nemotron-3-ultra": {
       "calls": 1,
-      "tokens": 12615,
+      "tokens": 12429,
       "roles": [
         "preparer"
       ]
     },
-    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
-      "calls": 24,
-      "tokens": 234675,
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 3,
+      "tokens": 15456,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 34,
+      "tokens": 298628,
       "roles": [
         "fixer",
+        "fixer_final",
         "generator"
       ]
     },
     "ollama_chat/gpt-oss:120b": {
-      "calls": 12,
-      "tokens": 127160,
+      "calls": 31,
+      "tokens": 313068,
       "roles": [
         "fixer",
+        "fixer_final",
         "generator"
       ]
     },
-    "groq/openai/gpt-oss-20b": {
-      "calls": 4,
-      "tokens": 2199,
+    "gemini/gemini-3.5-flash": {
+      "calls": 2,
+      "tokens": 26896,
       "roles": [
-        "judge"
-      ]
-    },
-    "mistral/ministral-14b-2512": {
-      "calls": 8,
-      "tokens": 12886,
-      "roles": [
-        "judge"
-      ]
-    },
-    "mistral/codestral-2508": {
-      "calls": 8,
-      "tokens": 7439,
-      "roles": [
-        "fixer"
+        "fixer_final"
       ]
     }
   },
-  "suite": "from tabulate import TableFormat, _CustomTextWrap, simple_separated_format, tabulate\n\n# Helper to get internal constants if they are exported; otherwise fallback.\ntry:\n    from tabulate import SEPARATING_LINE\nexcept Exception:  # pragma: no cover\n    SEPARATING_LINE = \"---\"\n\n\ndef _strip_trailing_newlines(s: str) -> str:\n    \"\"\"Utility to normalize output by stripping trailing newlines.\"\"\"\n    return s.rstrip(\"\\n\")\n\n\ndef test_tabulate__maxcolwidths_wrapping():\n    data = [[\"long text that should wrap\"]]\n    result = tabulate(data, maxcolwidths=[10], tablefmt=\"simple\")\n    # The cell should be wrapped, therefore the output contains a newline inside the row\n    lines = result.split(\"\\n\")\n    # First line is the top separator, second line contains the wrapped cell (may span multiple lines)\n    assert any(\"\\n\" in cell for cell in lines[1:]) or len(lines) > 2\n    # Ensure that the wrapped lines are not longer than the specified width (10)\n    for line in lines[2:]:\n        # ignore separator lines\n        if set(line.strip()) <= {\"-\"}:\n            continue\n        # split on two spaces (column separator) and check each part length\n        for part in line.split(\"  \"):\n            assert len(part) <= 10\n\n\ndef test_tabulate__cover_rst_escape():\n    # Use rst format with empty first column values to trigger _rst_escape_first_column.\n    data = [[\"\", \"val\"], [\"data\", \"\"]]\n    headers = [\"\", \"col2\"]\n    result = tabulate(data, headers=headers, tablefmt=\"rst\")\n    # In rst format, empty first column should be escaped to \"..\"\n    assert \"..\" in result\n    # Ensure the escaped value appears in the first column of both header and rows\n    lines = result.split(\"\\n\")\n    # Header line (second line after top border)\n    assert \"..\" in lines[1]\n    # Data lines (after header separator)\n    assert \"..\" in lines[3] or \"..\" in lines[4]\n\n\ndef test_tabulate__showindex_always():\n    data = [[1, 2]]\n    result = _strip_trailing_newlines(tabulate(data, showindex=\"always\", tablefmt=\"simple\"))\n    lines = result.split(\"\\n\")\n    # The first data line should start with the index 0\n    assert lines[1].startswith(\"0\")\n    # Ensure there are three lines (top sep, data, bottom sep)\n    assert len(lines) == 3\n    # Verify column count (index + two data columns)\n    parts = lines[1].split()\n    assert parts[0] == \"0\"\n    assert parts[1] == \"1\"\n    assert parts[2] == \"2\"\n\n\ndef test_tabulate__cover_bool():\n    # Provide a boolean value; it should be rendered as \"True\" or \"False\".\n    data = [[True], [False]]\n    result = tabulate(data, tablefmt=\"simple\")\n    lines = result.split(\"\\n\")\n    # Header line is a separator because no headers are given.\n    assert \"True\" in lines[1]\n    assert \"False\" in lines[2]\n\n\ndef test__CustomTextWrap___init____default_args():\n    \"\"\"Default construction should set internal defaults and call TextWrapper.__init__.\"\"\"\n    wrapper = _CustomTextWrap()\n    # internal attributes set by our __init__\n    assert wrapper._active_codes == []\n    assert wrapper.max_lines is None\n    # attributes set by TextWrapper.__init__\n    # default width in TextWrapper is 70\n    assert wrapper.width == 70\n    # default break_long_words is True\n    assert wrapper.break_long_words is True\n\n\ndef test__CustomTextWrap___init____width_argument():\n    \"\"\"Width keyword should be passed to the parent TextWrapper.\"\"\"\n    wrapper = _CustomTextWrap(width=80)\n    assert wrapper.width == 80\n    # internal defaults still apply\n    assert wrapper._active_codes == []\n    assert wrapper.max_lines is None\n\n\ndef test__CustomTextWrap___init____kwargs_only():\n    \"\"\"Keyword arguments other than width should be forwarded to TextWrapper.\"\"\"\n    wrapper = _CustomTextWrap(initial_indent='  ', subsequent_indent='  ')\n    assert wrapper.initial_indent == '  '\n    assert wrapper.subsequent_indent == '  '\n    # other defaults unchanged\n    assert wrapper._active_codes == []\n    assert wrapper.max_lines is None\n\n\ndef test__CustomTextWrap___init____break_long_words_false():\n    \"\"\"break_long_words=False should be reflected on the instance.\"\"\"\n    wrapper = _CustomTextWrap(break_long_words=False)\n    assert wrapper.break_long_words is False\n    # ensure other defaults are still set\n    assert wrapper._active_codes == []\n    assert wrapper.max_lines is None\n\n\ndef test__CustomTextWrap___init____max_lines_attribute():\n    \"\"\"max_lines attribute should be None after construction (Python2 compatibility).\"\"\"\n    wrapper = _CustomTextWrap()\n    assert wrapper.max_lines is None\n\n\ndef test__CustomTextWrap___init____active_codes_initialized():\n    \"\"\"_active_codes should be an empty list after construction.\"\"\"\n    wrapper = _CustomTextWrap()\n    assert isinstance(wrapper._active_codes, list)\n    assert wrapper._active_codes == []\n\n\ndef test_tabulate__cover_thousands_separator():\n    # Provide a string with commas; it should be parsed as a number and formatted without commas.\n    data = [[\"1,234\"]]\n    result = tabulate(data, tablefmt=\"simple\")\n    # The string with commas is not parsed as a number, so the comma remains.\n    assert \"1,234\" in result\n    # Ensure the comma is still present.\n    assert \",\" in result\n\n\ndef test_simple_separated_format__non_string_separator():\n    fmt = simple_separated_format(123)\n    assert isinstance(fmt, TableFormat)\n    assert fmt.headerrow == (\"\", 123, \"\")\n    assert fmt.datarow == (\"\", 123, \"\")\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef test_tabulate__cover_separating_line():\n    # Insert a separating line between rows and verify it appears in the output.\n    data = [[\"x\", \"y\"], SEPARATING_LINE, [\"z\", \"w\"]]\n    result = tabulate(data, tablefmt=\"simple\")\n    lines = result.split(\"\\n\")\n    # The separating line should be a line consisting only of dashes (and spaces)\n    sep_line = lines[2]  # header, top sep, then separating line\n    assert set(sep_line.strip()) <= {\"-\", \" \"}\n    # Ensure the rows before and after the separator are present\n    assert lines[1].strip().startswith(\"x\")\n    assert lines[3].strip().startswith(\"z\")\n\n\ndef test_tabulate__list_of_lists_no_headers():\n    data = [[1, 2], [3, 4]]\n    result = _strip_trailing_newlines(tabulate(data, headers=(), tablefmt=\"simple\"))\n    expected = \"\\n\".join(\n        [\n            \"-  -\",\n            \"1  2\",\n            \"3  4\",\n            \"-  -\",\n        ]\n    )\n    assert result == expected\n\n\ndef test_tabulate__list_of_lists_with_headers_simple():\n    data = [[1, 2], [3, 4]]\n    headers = [\"a\", \"b\"]\n    result = _strip_trailing_newlines(tabulate(data, headers=headers, tablefmt=\"simple\"))\n\n    lines = result.splitlines()\n\n    # Header line: should contain the header tokens in order\n    assert lines[0].split() == headers\n\n    # Separator line: each column should be a series of dashes (at least two)\n    for token in lines[1].split():\n        assert set(token) == {\"-\"} and len(token) >= 2\n\n    # Data rows: tokens should match the original data values\n    expected_rows = [[\"1\", \"2\"], [\"3\", \"4\"]]\n    for idx, expected in enumerate(expected_rows, start=2):\n        assert lines[idx].split() == expected\n\n    # No extra bottom separator line for the simple format with headers\n    assert len(lines) == 2 + len(expected_rows)\n\n\ndef test_simple_separated_format__newline_separator():\n    fmt = simple_separated_format('\\n')\n    assert fmt.headerrow[0] == \"\"\n    assert fmt.headerrow[1] == \"\\n\"\n    assert fmt.headerrow[2] == \"\"\n    assert fmt.datarow[0] == \"\"\n    assert fmt.datarow[1] == \"\\n\"\n    assert fmt.datarow[2] == \"\"\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef _lines(output: str):\n    \"\"\"Utility: split output into lines without trailing newline.\"\"\"\n    return output.rstrip(\"\\n\").split(\"\\n\")\n\n\ndef test_tabulate__preserve_whitespace_false_stripping():\n    # Leading/trailing whitespace in cell values is stripped when preserve_whitespace=False.\n    data = [[\"  foo  \"]]\n    out = tabulate(data, headers=[\"col\"], tablefmt=\"plain\")\n    lines = _lines(out)\n    assert lines[0] == \"col\"\n    assert lines[1] == \"foo\"\n\n\ndef test_simple_separated_format__single_char_separator():\n    sep = '\\t'\n    fmt = simple_separated_format(sep)\n    # structural fields\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n    # header row: left, separator, right\n    assert fmt.headerrow[0] == \"\" and fmt.headerrow[1] == sep and fmt.headerrow[2] == \"\"\n    # data row: same structure\n    assert fmt.datarow[0] == \"\" and fmt.datarow[1] == sep and fmt.datarow[2] == \"\"\n    # formatting constants\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef test_simple_separated_format__multi_char_separator():\n    sep = '||'\n    fmt = simple_separated_format(sep)\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n    assert fmt.headerrow[0] == \"\" and fmt.headerrow[1] == sep and fmt.headerrow[2] == \"\"\n    assert fmt.datarow[0] == \"\" and fmt.datarow[1] == sep and fmt.datarow[2] == \"\"\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef test_simple_separated_format__empty_separator():\n    sep = ''\n    fmt = simple_separated_format(sep)\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n    assert fmt.headerrow[0] == \"\" and fmt.headerrow[1] == sep and fmt.headerrow[2] == \"\"\n    assert fmt.datarow[0] == \"\" and fmt.datarow[1] == sep and fmt.datarow[2] == \"\"\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef test_tabulate__center_header_alignment():\n    # Header alignment \"center\" uses _padboth (covers _padboth).\n    data = [[123]]\n    out = tabulate(\n        data,\n        headers=[\"h\"],\n        tablefmt=\"simple\",\n        headersalign=(\"center\",),  # force centering of the single header\n    )\n    lines = _lines(out)\n    assert lines[0] == \" h\"\n    assert lines[1] == \"---\"\n    assert lines[2] == \"123\"\n\n\ndef test_tabulate__empty_data_with_headers():\n    # Empty data but with explicit headers \u2013 only the header row and separator should appear.\n    out = tabulate([], headers=[\"a\", \"b\"], tablefmt=\"simple\")\n    lines = _lines(out)\n    # In the simple format, each column gets a minimum padding of two spaces,\n    # resulting in four spaces between the two single\u2011character headers.\n    assert lines[0] == \"a    b\"\n    # The separator line uses three dashes per column in the simple format.\n    assert lines[1] == \"---  ---\"\n    # No additional rows\n    assert len(lines) == 2\n\n\ndef test_tabulate__headers_firstrow():\n    # First row is used as headers.\n    data = [[\"a\", \"b\"], [1, 2]]\n    out = tabulate(data, headers=\"firstrow\", tablefmt=\"simple\")\n    lines = _lines(out)\n    # headers are right\u2011aligned with default padding (two spaces between columns)\n    assert lines[0] == \"  a    b\"\n    # separator line (simple format uses dashes matching column width)\n    assert lines[1] == \"---  ---\"\n    # numeric values are right\u2011aligned with the same padding as headers\n    assert lines[2] == \"  1    2\"\n\n\ndef test_tabulate__infinite_value_not_parsed():\n    # \"inf\" should be treated as a regular string, not as a number (covers _afterpoint logic).\n    data = [[\"inf\"]]\n    out = tabulate(data, headers=[\"v\"], tablefmt=\"plain\", disable_numparse=True)\n    lines = _lines(out)\n    assert lines[0] == \"v\"\n    assert lines[1] == \"inf\"",
-  "duration_s": 886.8,
-  "run_id": "c78cf279719f",
+  "suite": "import re\n\nimport pytest\nimport tabulate as t\n\n# Import the public function and the internal helpers we need to hit the\n# previously uncovered lines.\nfrom tabulate import (\n    SEPARATING_LINE,\n    JupyterHTMLStr,\n    TableFormat,\n    _afterpoint,\n    _align_column,\n    _align_column_choose_padfn,\n    _align_column_choose_width_fn,\n    _align_column_multiline_width,\n    _align_header,\n    _bool,\n    _choose_width_fn,\n    _column_type,\n    _CustomTextWrap,\n    _flat_list,\n    _format,\n    _is_multiline,\n    _is_separating_line,\n    _is_separating_line_value,\n    _isbool,\n    _isconvertible,\n    _isint,\n    _isnumber,\n    _isnumber_with_thousands_separator,\n    _padboth,\n    _padleft,\n    _padright,\n    _strip_ansi,\n    _type,\n    simple_separated_format,\n    tabulate,\n)\n\n\ndef test_tabulate__cover_prepend_row_index():\n    \"\"\"Use showindex='always' to trigger row\u2011index prepending.\"\"\"\n    data = [[\"a\"], [\"b\"]]\n    result = tabulate(data, showindex=\"always\", tablefmt=\"simple\")\n    lines = result.splitlines()\n    # first column should be the index 0 and 1\n    assert lines[1].startswith(\"0\")\n    assert lines[2].startswith(\"1\")\n\n\ndef test_tabulate__basic():\n    \"\"\"Happy path: simple numeric data, default simple format.\"\"\"\n    data = [[1, 2.34], [-56, \"8.999\"], [\"2\", \"10001\"]]\n    result = tabulate(data)\n    # basic sanity checks \u2013 the output should contain the formatted numbers\n    assert isinstance(result, str)\n    # top and bottom separator lines are present\n    assert result.splitlines()[0].startswith(\"---\")\n    assert result.splitlines()[-1].startswith(\"---\")\n    # each row appears with correct alignment (rough check)\n    assert \"  1\" in result\n    assert \"-56\" in result\n    assert \"8.999\" in result\n    assert \"10001\" in result\n\n\ndef test_tabulate__cover_ansi_and_multiline():\n    \"\"\"Trigger ANSI stripping and multiline width handling.\"\"\"\n    ansi = \"\\x1b[32mgreen\\x1b[0m\"\n    stripped = _strip_ansi(ansi)\n    assert stripped == \"green\"\n    # multiline detection\n    multiline = \"line1\\nline2\"\n    assert _is_multiline(multiline) is True\n    # width function selection\n    fn = _choose_width_fn(has_invisible=False, enable_widechars=False, is_multiline=False)\n    assert fn(\"abc\") == 3\n    fn2 = _choose_width_fn(has_invisible=True, enable_widechars=False, is_multiline=False)\n    # when invisible chars are present, they are ignored for width\n    assert fn2(\"\\x1b[31mred\\x1b[0m\") == 3\n\n\ndef test_tabulate__cover_type_functions():\n    \"\"\"Directly test the low\u2011level type detection helpers.\"\"\"\n    # _isnumber\n    assert _isnumber(\"3.14\") is True\n    assert _isnumber(\"not a number\") is False\n    # _isint\n    assert _isint(\"42\") is True\n    assert _isint(\"3.14\") is False\n    # _isbool\n    assert _isbool(True) is True\n    assert _isbool(False) is True\n    assert _isbool(\"true\") is False\n    # _type with invisible ANSI codes\n    ansi_str = \"\\x1b[31mred\\x1b[0m\"\n    assert _type(ansi_str, has_invisible=True, numparse=False) is str\n    # plain string without invisibles\n    assert _type(\"plain\", has_invisible=False, numparse=False) is str\n    # datetime handling\n    import datetime\n\n    dt = datetime.datetime(2020, 1, 1, 12, 0)\n    assert _type(dt, has_invisible=False, numparse=False) is str\n    # bytes handling\n    b = b\"abc\"\n    assert _type(b, has_invisible=False, numparse=False) is bytes\n\n\ndef test_tabulate__cover_bool_conversion():\n    \"\"\"Test the internal _bool helper.\"\"\"\n    assert _bool(True) is True\n    assert _bool(False) is False\n    # non\u2011boolean truthy value\n    assert _bool(1) is True\n    # conversion error path (e.g., numpy array) \u2013 simulate by raising ValueError\n    class Bad:\n        def __bool__(self):\n            raise ValueError\n\n    assert _bool(Bad()) is False\n\n\ndef test_tabulate__cover_flat_and_column_helpers():\n    \"\"\"Flat list utility and column alignment on simple data.\"\"\"\n    nested = [[1, 2], [3, 4]]\n    flat = _flat_list(nested)\n    assert flat == [1, 2, 3, 4]\n    # column type detection on a mixed column\n    col = [\"1\", \"2.5\", \"text\"]\n    ct = _column_type(col, numparse=True)\n    # int and float should be detected as numeric, text as str -> most generic is str\n    assert ct is str\n    # align a column with left alignment\n    aligned = _align_column([\"a\", \"bb\"], \"left\", minwidth=4, has_invisible=False, enable_widechars=False, is_multiline=False, preserve_whitespace=False)\n    assert aligned == [\"a   \", \"bb  \"]\n\n\ndef test__CustomTextWrap___init____basic():\n    # Create an instance with a non\u2011default width to verify that the parent\n    # TextWrapper.__init__ is called and its attributes are set.\n    wrapper = _CustomTextWrap(width=42, replace_whitespace=False)\n\n    # Verify that the custom attributes introduced by _CustomTextWrap are set.\n    assert hasattr(wrapper, \"_active_codes\")\n    assert wrapper._active_codes == []  # line 2744\n    assert hasattr(wrapper, \"max_lines\")\n    assert wrapper.max_lines is None      # line 2745\n\n    # Verify that the base class initializer ran: width should be the value we passed.\n    assert wrapper.width == 42\n    # Also check that a base\u2011class attribute we did not override retains its default.\n    # The default for replace_whitespace in TextWrapper is True; we set it to False.\n    assert wrapper.replace_whitespace is False\n\n\ndef test_tabulate__cover_is_separating_line():\n    \"\"\"Exercise _is_separating_line and its helper.\"\"\"\n    # direct helper\n    assert _is_separating_line_value(SEPARATING_LINE) is True\n    # string row\n    assert _is_separating_line(SEPARATING_LINE) is True\n    # list row containing the separating line\n    assert _is_separating_line([SEPARATING_LINE]) is True\n    # non\u2011separating row\n    assert _is_separating_line([\"not a line\"]) is False\n\n\ndef test_JupyterHTMLStr_str__basic():\n    # Create a JupyterHTMLStr instance\n    html_str = JupyterHTMLStr(\"<table><tr><td>Data</td></tr></table>\")\n\n    # Access the .str property\n    result = html_str.str\n\n    # Assert that the result is the same as the original string\n    assert result == \"<table><tr><td>Data</td></tr></table>\"\n\n\ndef test_tabulate__cover_rst_escape():\n    \"\"\"Trigger _rst_escape_first_column via the 'rst' format.\"\"\"\n    data = [[\"\", \"value\"], [\"nonempty\", \"\"]]\n    # first column empty strings should become \"..\" in rst output\n    result = tabulate(data, tablefmt=\"rst\")\n    # the escaped placeholder appears somewhere in the output\n    assert \"..\" in result\n\n    lines = result.splitlines()\n    # In rst format without headers, the first line is the top border,\n    # then data rows, then the bottom border.\n    # First data row should have the escaped placeholder in the first column.\n    assert lines[1].startswith(\"..\")\n    # Second data row first column is not empty, should stay as is.\n    assert lines[2].startswith(\"nonempty\")\n\n\ndef test_tabulate__cover_afterpoint_and_padding():\n    \"\"\"Exercise numeric after\u2011point detection and padding helpers.\"\"\"\n    # afterpoint on integer returns -1\n    assert _afterpoint(\"42\") == -1\n    # afterpoint on float returns number of digits after decimal\n    assert _afterpoint(\"3.1415\") == 4\n    # afterpoint on scientific notation\n    assert _afterpoint(\"1e-3\") == 2\n    # padding helpers\n    assert _padleft(5, \"a\") == \"    a\"\n    assert _padright(5, \"a\") == \"a    \"\n    assert _padboth(5, \"a\") == \"  a  \"\n\n\ndef test_tabulate__cover_format_and_header_alignment():\n    \"\"\"Directly test the low\u2011level formatting of values and headers.\"\"\"\n    # formatting of None uses missingval\n    assert _format(None, str, \"\", \"\", \"MISSING\", False) == \"MISSING\"\n    # empty string becomes empty string\n    assert _format(\"\", str, \"\", \"\", \"MISSING\", False) == \"\"\n    # integer formatting\n    assert _format(42, int, \"\", \"\", \"MISSING\", False) == \"42\"\n    # float formatting with custom fmt\n    assert _format(3.1415, float, \".2f\", \"\", \"MISSING\", False) == \"3.14\"\n    # header alignment (centered within width 6)\n    header = _align_header(\"col\", \"center\", 6, 3, False, lambda s: len(s))\n    assert header == \" col  \"\n\n\ndef test_tabulate__cover_align_functions():\n    \"\"\"Exercise column alignment helper logic.\"\"\"\n    # pad function chooser\n    strings, padfn = _align_column_choose_padfn([\"xyz\"], alignment=\"right\", has_invisible=False, preserve_whitespace=False)\n    assert padfn is _padleft\n    # width function chooser\n    widthfn = _align_column_choose_width_fn(has_invisible=False, enable_widechars=False, is_multiline=False)\n    assert widthfn(\"xyz\") == 3\n    # multiline width helper\n    multiline = \"ab\\ncde\"\n    assert _align_column_multiline_width(multiline, len) == [2, 3]\n\n\ndef test_tabulate__cover_number_parsing():\n    \"\"\"Force number\u2011parsing paths, including thousands separators.\"\"\"\n    # _isnumber_with_thousands_separator should recognise commas\n    assert _isnumber_with_thousands_separator(\"1,234\") is True\n    # _isconvertible should succeed for int conversion\n    assert _isconvertible(int, \"42\") is True\n    # tabulate with a string containing commas \u2013 it should be treated as a number\n    data = [[\"1,234\", \"5,678\"]]\n    result = tabulate(data, floatfmt=\".2f\")\n    # commas are preserved and formatted\n    assert \"1,234\" in result\n    assert \"5,678\" in result\n    # also test that a plain non\u2011numeric string stays unchanged\n    data2 = [[\"abc,def\"]]\n    result2 = tabulate(data2)\n    assert \"abc,def\" in result2\n\n\n# Helper to split plain format output into lines\ndef _plain_lines(*, data, headers=None, colalign=None, headersalign=None):\n    txt = tabulate(\n        data,\n        headers=headers,\n        tablefmt=\"plain\",\n        colalign=colalign,\n        headersalign=headersalign,\n    )\n    return txt.splitlines()\n\n\ndef test_tabulate__left_header_alignment():\n    \"\"\"\n    Verify that a header forced to ``left`` alignment is rendered unchanged.\n    The header line must be exactly the header string without extra padding.\n    \"\"\"\n    lines = _plain_lines(\n        data=[[\"value\"]],\n        headers=[\"Header\"],\n        headersalign=(\"left\",),  # explicit left alignment\n    )\n    assert lines[0] == \"Header\"\n\n\ndef test_tabulate__center_alignment():\n    \"\"\"\n    Verify that a column with ``colalign=\"center\"`` is padded on the left side.\n    The second line (first data row) must contain leading spaces before the value.\n    \"\"\"\n    lines = _plain_lines(data=[[\"a\"]], headers=[\"col\"], colalign=(\"center\",))\n    # line 0: header, line 1: data row\n    assert lines[1] == \"  a\"\n\n\ndef test_tabulate__firstrow_headers():\n    \"\"\"\n    When ``headers=\"firstrow\"``, the first row of the data should become the header line.\n    \"\"\"\n    data = [[\"H1\", \"H2\"], [\"a\", \"b\"], [\"c\", \"d\"]]\n    lines = _plain_lines(data=data, headers=\"firstrow\")\n    # The first line must be the original first row, not the data rows.\n    assert lines[0].split() == [\"H1\", \"H2\"]\n    # Subsequent lines are the remaining rows.\n    assert lines[1].split() == [\"a\", \"b\"]\n    assert lines[2].split() == [\"c\", \"d\"]\n\n\ndef test_simple_separated_format__basic():\n    \"\"\"Happy path: a typical separator should produce a TableFormat with the\n    expected structure.\"\"\"\n    sep = \"|\"\n    fmt = simple_separated_format(sep)\n\n    # The returned object must be a TableFormat instance.\n    assert isinstance(fmt, TableFormat)\n\n    # The first four line specifications are intentionally None.\n    assert fmt.lineabove is None\n    assert fmt.linebelowheader is None\n    assert fmt.linebetweenrows is None\n    assert fmt.linebelow is None\n\n    # Header and data rows are DataRow objects (tuple\u2011like) with empty left/right\n    # columns and the separator in the middle.\n    expected_row = (\"\", sep, \"\")\n    assert tuple(fmt.headerrow) == expected_row\n    assert tuple(fmt.datarow) == expected_row\n\n    # Padding is zero and with_header_hide is left as None.\n    assert fmt.padding == 0\n    assert fmt.with_header_hide is None\n\n\ndef normalize(s: str) -> str:\n    \"\"\"Normalize line endings and strip trailing spaces for comparison.\"\"\"\n    return \"\\n\".join(line.rstrip() for line in s.strip().splitlines())\n\ndef test_tabulate__2473_headers_only_no_columns():\n    \"\"\"\n    When there are no data rows but headers are supplied, the code path\n    `aligns_headers = aligns or [stralign] * len(headers)` is executed.\n    The function should return a correctly formatted table without raising.\n    \"\"\"\n    result = tabulate([], headers=[\"A\", \"B\"], tablefmt=\"simple\")\n    # Expected simple format with headers only: no leading spaces before the separator line.\n    expected = normalize(\"A    B\\n---  ---\")\n    assert normalize(result) == expected\n\n\n# Helper to count occurrences of a substring in the output\ndef count_substring(s, sub):\n    return s.count(sub)\n\n\ndef test_tabulate__missingval_and_thousands():\n    # Missing value handling and thousands separator parsing (lines 1371\u20111385)\n    data = [[\"spam\", None, \"1,234\"], [\"eggs\", 42, \"5,678\"]]\n    out = tabulate(data, headers=[\"A\", \"B\", \"C\"], missingval=\"?\", tablefmt=\"simple\")\n    # Missing value should be replaced by \"?\"\n    assert \"?\" in out\n    # Numbers with commas should be displayed unchanged (since they are not parsed as numbers)\n    assert \"1,234\" in out and \"5,678\" in out\n\n\ndef test_tabulate__prepend_row_index_error():\n    # Provide a showindex iterable of wrong length to trigger ValueError (line 1436)\n    data = [[\"x\"], [\"y\"]]\n    with pytest.raises(ValueError):\n        tabulate(data, showindex=[0, 1, 2], tablefmt=\"simple\")\n\n\ndef test_tabulate__header_multiline_align():\n    # Header with newline triggers align_header multiline path (lines 1393\u20111408)\n    out = tabulate([[1, 2]], headers=[\"Col\\nOne\", \"ColTwo\"], tablefmt=\"simple\")\n    # The header line should contain both parts separated by a newline in the output\n    assert \"Col\" in out and \"One\" in out\n    # Ensure that alignment does not raise and the table renders\n    assert \"1\" in out and \"2\" in out\n\n\ndef test_tabulate__ansi_and_color_and_strip():\n    # ANSI colored number should appear (the library does not strip ANSI codes by default)\n    red_number = \"\\x1b[31m123\\x1b[0m\"\n    out = tabulate([[red_number]], tablefmt=\"simple\")\n    # The output should contain the plain number and the ANSI escape sequences\n    assert \"123\" in out\n    assert \"\\x1b[31m\" in out\n    # In simple format there is a separator line of dashes; ensure it appears at least twice\n    assert count_substring(out, \"---\") >= 2\n\n\ndef test_tabulate__rst_escape_first_column():\n    # Empty first header should be escaped for RST format (line 353)\n    out = tabulate([[1, 2]], headers=[\"\", \"B\"], tablefmt=\"rst\")\n    # In RST the escaped empty header appears as \"..\"\n    assert \"..\" in out\n    # Ensure the rest of the table is formatted correctly\n    assert \"1\" in out and \"2\" in out\n\n\ndef test_tabulate__multiline_and_choose_width_fn():\n    # Multiline cell triggers multiline detection and width calculations\n    multiline = \"line1\\nline2\"\n    out = tabulate(\n        [[multiline, \"short\"]],\n        headers=[\"Header\\nLine\", \"H2\"],\n        tablefmt=\"grid\",\n    )\n    # Both header and cell contain newlines, so multiline handling is exercised\n    # The header \"Header\" and \"Line\" each appear once (split across two lines)\n    assert count_substring(out, \"Header\") == 1\n    assert count_substring(out, \"Line\") == 1\n    assert \"line1\" in out\n    assert \"line2\" in out\n    assert \"short\" in out\n    assert \"H2\" in out\n    # Ensure that the grid lines are present (indicates multiline width function used)\n    assert \"+\" in out and \"|\" in out\n\n\ndef _first_line(s: str) -> str:\n    \"\"\"Helper to get the first line of a multi\u2011line string.\"\"\"\n    return s.splitlines()[0]\n\n\ndef test_tabulate__showindex_false_bug():\n    \"\"\"\n    When ``showindex=False`` (or ``showindex='never'``) the output must not\n    contain an extra index column. The first line should start with the first\n    header name, not with a numeric index such as ``0``.\n    \"\"\"\n    data = [[1, 2], [3, 4]]\n    headers = [\"x\", \"y\"]\n    result = tabulate(data, headers=headers, showindex=False, tablefmt=\"simple\")\n    first_line = _first_line(result).strip()\n    # The line should start with the first header, not with an index.\n    assert first_line.startswith(\"x\"), \"Header line does not start with first header\"\n    # Ensure there is no leading index column (e.g., '0')\n    assert not re.match(r\"^\\s*0\\s\", first_line), \"Index column was incorrectly added\"\n\n\ndef test_wrap_text_to_colwidths():\n    # lines 1674-1718\n    data = [[\"ThisIsAVeryLongWord\"]]\n    # limit width to 5 characters, no number parsing\n    wrapped = t._wrap_text_to_colwidths(data, [5], numparses=[False], missingval=\"?\", break_long_words=True, break_on_hyphens=True)\n    # word should be broken with hyphens (default behaviour)\n    assert wrapped == [[\"ThisI\\nsAVer\\nyLong\\nWord\"]]\n\n\ndef test_normalize_tabular_data_dict_keys():\n    # lines 1495-1510, 1534-1535\n    data = {\"a\": [1, 2], \"b\": [3, 4]}\n    list_of_lists, headers, _ = t._normalize_tabular_data(data, headers=\"keys\", showindex=\"default\")\n    # headers should be stringified keys in order\n    assert headers == [\"a\", \"b\"]\n    # rows should be column\u2011wise values\n    assert list_of_lists == [[1, 3], [2, 4]]\n\n\ndef test_remove_and_reinsert_separating_lines():\n    # lines 1417-1428\n    rows = [[\"a\"], t.SEPARATING_LINE, [\"b\"]]\n    cleaned, sep = t._remove_separating_lines(rows)\n    assert cleaned == [[\"a\"], [\"b\"]]\n    assert sep == [1]\n    # re\u2011insert\n    t._reinsert_separating_lines(cleaned, sep)\n    assert cleaned == [[\"a\"], t.SEPARATING_LINE, [\"b\"]]\n\n\ndef test__type_bool():\n    # line 1017\n    assert t._type(True) is bool\n    assert t._type(False) is bool\n\n\ndef test_prepend_row_index():\n    # line 1434\n    rows = [[\"x\"], [\"y\"]]\n    index = [10, 20]\n    result = t._prepend_row_index(rows, index)\n    assert result == [[10, \"x\"], [20, \"y\"]]\n\n\ndef test_tabulate_colon_grid_alignment():\n    # lines 2359-2360 (colon_grid forces left alignment)\n    out = t.tabulate([[\"right\", \"left\"]], headers=[\"H1\", \"H2\"], tablefmt=\"colon_grid\", colalign=[\"right\", \"left\"])\n    # In colon_grid the data columns are left\u2011aligned regardless of colalign\n    # The header line contains the column names left\u2011aligned as well\n    assert \"+-------+------+\" in out\n    # ensure the data line has no leading spaces before 'right'\n    assert re.search(r\"\\| right\\s+\\| left\\s+\\|\", out)\n\n\ndef test_normalize_tabular_data_list_of_dicts_firstrow():\n    rows = [\n        {\"id\": 1, \"val\": \"x\"},\n        {\"id\": 2, \"extra\": \"y\"},\n        {\"id\": 3, \"val\": \"z\"},\n    ]\n    list_of_lists, headers, _ = t._normalize_tabular_data(\n        rows, headers=\"firstrow\", showindex=\"default\"\n    )\n    # When headers=\"firstrow\" with a list of dicts, the first dict's values become\n    # the header row, and any additional keys discovered across the data are appended.\n    assert headers == [\"1\", \"x\", \"extra\"]\n    # The first dict is consumed as the header row, so the remaining dicts are turned\n    # into rows aligned to those headers (missing values become None).\n    assert list_of_lists == [\n        [2, None, \"y\"],\n        [3, \"z\", None],\n    ]\n\n\ndef test_tabulate__normalize_tabular_data_empty():\n    # Empty data should not raise an error (the bug would cause an IndexError).\n    # We call the public API to ensure the whole pipeline works.\n    result = tabulate([], headers=[])\n    # With no data and no headers the output is an empty string.\n    assert result == \"\"\n\n\ndef test_tabulate__is_multiline():\n    # Multiline detection works on bytes that contain a newline.\n    multiline_bytes = b\"first line\\nsecond line\"\n    assert _is_multiline(multiline_bytes) is True\n    # A single\u2011line string should return False.\n    assert _is_multiline(b\"single line\") is False\n\n\ndef test_tabulate__choose_width_fn_widechars():\n    \"\"\"\n    Verify the behaviour of _choose_width_fn when wide\u2011character support is\n    requested.\n\n    The optional `wcwidth` dependency may be unavailable. In that case\n    `_choose_width_fn` will raise an AttributeError because it tries to\n    access `wcwidth.wcswidth`. The test adapts to both situations.\n    \"\"\"\n    if t.wcwidth is None:\n        # When the optional wcwidth module is not present, the function cannot\n        # provide a wide\u2011character width function and raises AttributeError.\n        with pytest.raises(AttributeError):\n            _choose_width_fn(has_invisible=False, enable_widechars=True, is_multiline=False)\n    else:\n        # With wcwidth available the function should return its `wcswidth`\n        # implementation, which reports a width of 2 for East Asian wide\n        # characters such as \"\u6f22\".\n        fn = _choose_width_fn(has_invisible=False, enable_widechars=True, is_multiline=False)\n        assert fn is t.wcwidth.wcswidth\n        assert fn(\"\u6f22\") == 2  # wide character occupies two columns",
+  "duration_s": 849.4,
+  "run_id": "59a41d9d4dd8",
+  "llm_by_role": {
+    "preparer": {
+      "ollama_chat/nemotron-3-ultra": 1,
+      "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": 3
+    },
+    "generator": {
+      "mistral/codestral-2508": 2,
+      "ollama_chat/gpt-oss:120b": 10
+    },
+    "fixer": {
+      "mistral/codestral-2508": 25,
+      "ollama_chat/gpt-oss:120b": 12
+    },
+    "fixer_final": {
+      "mistral/codestral-2508": 7,
+      "ollama_chat/gpt-oss:120b": 9,
+      "gemini/gemini-3.5-flash": 2
+    }
+  },
+  "runs_per_day": 9,
   "curve": [
     [
       0.0,
@@ -132,79 +146,131 @@
       0.0
     ],
     [
-      241.8,
-      58.7,
-      33.6
+      277.1,
+      44.2,
+      27.1
     ],
     [
-      351.6,
-      60.4,
-      35.7
+      299.2,
+      46.3,
+      29.2
     ],
     [
-      384.8,
-      60.7,
+      332.9,
+      47.6,
+      30.8
+    ],
+    [
+      366.0,
+      49.9,
+      34.3
+    ],
+    [
+      390.4,
+      51.4,
       36.9
     ],
     [
-      437.3,
-      60.8,
+      399.5,
+      51.4,
+      36.9
+    ],
+    [
+      427.4,
+      51.5,
+      36.9
+    ],
+    [
+      444.0,
+      51.5,
+      36.9
+    ],
+    [
+      467.0,
+      51.6,
       37.1
     ],
     [
-      643.0,
-      61.9,
-      38.8
+      511.0,
+      52.1,
+      38.3
     ],
     [
-      779.1,
-      62.3,
-      39.7
+      536.8,
+      56.4,
+      42.5
+    ],
+    [
+      561.1,
+      56.7,
+      43.0
+    ],
+    [
+      590.7,
+      56.8,
+      43.2
+    ],
+    [
+      606.8,
+      56.8,
+      43.2
+    ],
+    [
+      641.3,
+      65.1,
+      52.6
+    ],
+    [
+      666.0,
+      66.8,
+      54.9
+    ],
+    [
+      681.6,
+      69.0,
+      57.7
+    ],
+    [
+      705.3,
+      69.0,
+      57.7
+    ],
+    [
+      731.0,
+      69.2,
+      58.2
+    ],
+    [
+      761.6,
+      69.3,
+      58.4
     ]
   ],
-  "llm_calls": 57,
-  "llm_tokens": 396974,
+  "llm_calls": 71,
+  "llm_tokens": 666477,
   "models": [
-    "groq/openai/gpt-oss-20b",
+    "gemini/gemini-3.5-flash",
     "mistral/codestral-2508",
-    "mistral/ministral-14b-2512",
-    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
     "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
-    "ollama_chat/gpt-oss:120b"
+    "ollama_chat/gpt-oss:120b",
+    "ollama_chat/nemotron-3-ultra"
   ],
-  "wall_s": 886.9,
+  "wall_s": 849.6,
+  "coverage_counting": "statements",
   "subject": "tabulate",
   "level": "hard",
   "tool": "autocover",
   "budget_min": 15.0,
-  "finished": "2026-09-24 21:08:34",
+  "finished": "2026-09-28 18:01:58",
   "mutation_rescored": {
-    "killed": 56,
+    "killed": 75,
     "total": 150,
-    "score_pct": 37.3
+    "score_pct": 50.0
   },
   "coverage_rescored": {
     "passed": true,
-    "line_pct": 58.4,
-    "branch_pct": 43.9,
-    "lines": "517/886"
-  },
-  "llm_by_role": {
-    "preparer": {
-      "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": 1
-    },
-    "generator": {
-      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 3,
-      "ollama_chat/gpt-oss:120b": 4
-    },
-    "judge": {
-      "groq/openai/gpt-oss-20b": 4,
-      "mistral/ministral-14b-2512": 8
-    },
-    "fixer": {
-      "mistral/codestral-2508": 8,
-      "ollama_chat/gpt-oss:120b": 8,
-      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 21
-    }
+    "line_pct": 69.3,
+    "branch_pct": 58.4,
+    "lines": "614/886"
   }
 }

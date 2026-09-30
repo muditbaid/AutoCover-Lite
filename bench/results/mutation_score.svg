@@ -22,48 +22,48 @@
 <line class="grid" x1="569.5" x2="569.5" y1="64" y2="386" stroke-width="1"/><text class="muted" x="569.5" y="404" font-size="11" text-anchor="middle">75%</text>
 <line class="grid" x1="696.0" x2="696.0" y1="64" y2="386" stroke-width="1"/><text class="muted" x="696.0" y="404" font-size="11" text-anchor="middle">100%</text>
 <text class="ink2" x="176" y="91.0" font-size="12" text-anchor="end">humanize_number</text>
-<line class="link" x1="550.272" x2="607.45" y1="87.0" y2="87.0" stroke-width="2"/>
+<line class="link" x1="550.272" x2="620.1" y1="87.0" y2="87.0" stroke-width="2"/>
 <circle class="base ring" cx="550.272" cy="87.0" r="6" stroke-width="2"><title>humanize_number - baseline: 71.2%</title></circle>
-<circle class="auto ring" cx="607.45" cy="87.0" r="6" stroke-width="2"><title>humanize_number - AutoCover-Lite: 82.5%</title></circle>
-<text class="ink" x="619.45" y="91.0" font-size="11" text-anchor="start">82.5%</text>
+<circle class="auto ring" cx="620.1" cy="87.0" r="6" stroke-width="2"><title>humanize_number - AutoCover-Lite: 85.0%</title></circle>
+<text class="ink" x="632.1" y="91.0" font-size="11" text-anchor="start">85%</text>
 <text class="ink2" x="176" y="125.0" font-size="12" text-anchor="end">inflection</text>
 <line class="link" x1="599.86" x2="644.894" y1="121.0" y2="121.0" stroke-width="2"/>
 <circle class="base ring" cx="599.86" cy="121.0" r="6" stroke-width="2"><title>inflection - baseline: 81.0%</title></circle>
 <circle class="auto ring" cx="644.894" cy="121.0" r="6" stroke-width="2"><title>inflection - AutoCover-Lite: 89.9%</title></circle>
 <text class="ink" x="656.894" y="125.0" font-size="11" text-anchor="start">89.9%</text>
 <text class="ink2" x="176" y="159.0" font-size="12" text-anchor="end">slugify</text>
-<line class="link" x1="404.038" x2="579.114" y1="155.0" y2="155.0" stroke-width="2"/>
+<line class="link" x1="404.038" x2="588.728" y1="155.0" y2="155.0" stroke-width="2"/>
 <circle class="base ring" cx="404.038" cy="155.0" r="6" stroke-width="2"><title>slugify - baseline: 42.3%</title></circle>
-<circle class="auto ring" cx="579.114" cy="155.0" r="6" stroke-width="2"><title>slugify - AutoCover-Lite: 76.9%</title></circle>
-<text class="ink" x="591.114" y="159.0" font-size="11" text-anchor="start">76.9%</text>
+<circle class="auto ring" cx="588.728" cy="155.0" r="6" stroke-width="2"><title>slugify - AutoCover-Lite: 78.8%</title></circle>
+<text class="ink" x="600.728" y="159.0" font-size="11" text-anchor="start">78.8%</text>
 <text class="ink2" x="176" y="193.0" font-size="12" text-anchor="end">boltons_strutils</text>
-<line class="link" x1="517.3820000000001" x2="604.9200000000001" y1="189.0" y2="189.0" stroke-width="2"/>
+<line class="link" x1="517.3820000000001" x2="578.1020000000001" y1="189.0" y2="189.0" stroke-width="2"/>
 <circle class="base ring" cx="517.3820000000001" cy="189.0" r="6" stroke-width="2"><title>boltons_strutils - baseline: 64.7%</title></circle>
-<circle class="auto ring" cx="604.9200000000001" cy="189.0" r="6" stroke-width="2"><title>boltons_strutils - AutoCover-Lite: 82.0%</title></circle>
-<text class="ink" x="616.9200000000001" y="193.0" font-size="11" text-anchor="start">82%</text>
+<circle class="auto ring" cx="578.1020000000001" cy="189.0" r="6" stroke-width="2"><title>boltons_strutils - AutoCover-Lite: 76.7%</title></circle>
+<text class="ink" x="590.1020000000001" y="193.0" font-size="11" text-anchor="start">76.7%</text>
 <text class="ink2" x="176" y="227.0" font-size="12" text-anchor="end">jmespath_lexer</text>
-<line class="link" x1="484.492" x2="665.64" y1="223.0" y2="223.0" stroke-width="2"/>
+<line class="link" x1="484.492" x2="582.656" y1="223.0" y2="223.0" stroke-width="2"/>
 <circle class="base ring" cx="484.492" cy="223.0" r="6" stroke-width="2"><title>jmespath_lexer - baseline: 58.2%</title></circle>
-<circle class="auto ring" cx="665.64" cy="223.0" r="6" stroke-width="2"><title>jmespath_lexer - AutoCover-Lite: 94.0%</title></circle>
-<text class="ink" x="677.64" y="227.0" font-size="11" text-anchor="start">94%</text>
+<circle class="auto ring" cx="582.656" cy="223.0" r="6" stroke-width="2"><title>jmespath_lexer - AutoCover-Lite: 77.6%</title></circle>
+<text class="ink" x="594.656" y="227.0" font-size="11" text-anchor="start">77.6%</text>
 <text class="ink2" x="176" y="261.0" font-size="12" text-anchor="end">semver_version</text>
-<line class="link" x1="523.96" x2="588.222" y1="257.0" y2="257.0" stroke-width="2"/>
+<line class="link" x1="523.96" x2="608.462" y1="257.0" y2="257.0" stroke-width="2"/>
 <circle class="base ring" cx="523.96" cy="257.0" r="6" stroke-width="2"><title>semver_version - baseline: 66.0%</title></circle>
-<circle class="auto ring" cx="588.222" cy="257.0" r="6" stroke-width="2"><title>semver_version - AutoCover-Lite: 78.7%</title></circle>
-<text class="ink" x="600.222" y="261.0" font-size="11" text-anchor="start">78.7%</text>
+<circle class="auto ring" cx="608.462" cy="257.0" r="6" stroke-width="2"><title>semver_version - AutoCover-Lite: 82.7%</title></circle>
+<text class="ink" x="620.462" y="261.0" font-size="11" text-anchor="start">82.7%</text>
 <text class="ink2" x="176" y="295.0" font-size="12" text-anchor="end">boltons_iterutils</text>
-<line class="link" x1="513.8399999999999" x2="517.3820000000001" y1="291.0" y2="291.0" stroke-width="2"/>
+<line class="link" x1="513.8399999999999" x2="574.56" y1="291.0" y2="291.0" stroke-width="2"/>
 <circle class="base ring" cx="513.8399999999999" cy="291.0" r="6" stroke-width="2"><title>boltons_iterutils - baseline: 64.0%</title></circle>
-<circle class="auto ring" cx="517.3820000000001" cy="291.0" r="6" stroke-width="2"><title>boltons_iterutils - AutoCover-Lite: 64.7%</title></circle>
-<text class="ink" x="529.3820000000001" y="295.0" font-size="11" text-anchor="start">64.7%</text>
+<circle class="auto ring" cx="574.56" cy="291.0" r="6" stroke-width="2"><title>boltons_iterutils - AutoCover-Lite: 76.0%</title></circle>
+<text class="ink" x="586.56" y="295.0" font-size="11" text-anchor="start">76%</text>
 <text class="ink2" x="176" y="329.0" font-size="12" text-anchor="end">dateutil_relativedelta</text>
-<line class="link" x1="405.55600000000004" x2="621.1120000000001" y1="325.0" y2="325.0" stroke-width="2"/>
+<line class="link" x1="405.55600000000004" x2="475.89" y1="325.0" y2="325.0" stroke-width="2"/>
 <circle class="base ring" cx="405.55600000000004" cy="325.0" r="6" stroke-width="2"><title>dateutil_relativedelta - baseline: 42.6%</title></circle>
-<circle class="auto ring" cx="621.1120000000001" cy="325.0" r="6" stroke-width="2"><title>dateutil_relativedelta - AutoCover-Lite: 85.2%</title></circle>
-<text class="ink" x="633.1120000000001" y="329.0" font-size="11" text-anchor="start">85.2%</text>
+<circle class="auto ring" cx="475.89" cy="325.0" r="6" stroke-width="2"><title>dateutil_relativedelta - AutoCover-Lite: 56.5%</title></circle>
+<text class="ink" x="487.89" y="329.0" font-size="11" text-anchor="start">56.5%</text>
 <text class="ink2" x="176" y="363.0" font-size="12" text-anchor="end">tabulate</text>
-<line class="link" x1="297.778" x2="378.738" y1="359.0" y2="359.0" stroke-width="2"/>
+<line class="link" x1="297.778" x2="443.0" y1="359.0" y2="359.0" stroke-width="2"/>
 <circle class="base ring" cx="297.778" cy="359.0" r="6" stroke-width="2"><title>tabulate - baseline: 21.3%</title></circle>
-<circle class="auto ring" cx="378.738" cy="359.0" r="6" stroke-width="2"><title>tabulate - AutoCover-Lite: 37.3%</title></circle>
-<text class="ink" x="390.738" y="363.0" font-size="11" text-anchor="start">37.3%</text>
+<circle class="auto ring" cx="443.0" cy="359.0" r="6" stroke-width="2"><title>tabulate - AutoCover-Lite: 50.0%</title></circle>
+<text class="ink" x="455.0" y="363.0" font-size="11" text-anchor="start">50%</text>
 </svg>

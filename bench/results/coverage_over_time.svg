@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 662" width="824" height="662" role="img" aria-label="Line coverage over time per subject">
+<style>
+  .bg { fill: #fcfcfb } .ink { fill: #0b0b0b } .ink2 { fill: #52514e } .muted { fill: #898781 }
+  .grid { stroke: #e1e0d9 } .axis { stroke: #c3c2b7 }
+  .base { fill: #86b6ef } .auto { fill: #256abf } .link { stroke: #c3c2b7 }
+  .line-auto { stroke: #256abf } .line-base { stroke: #86b6ef } .ring { stroke: #fcfcfb }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1a19 } .ink { fill: #ffffff } .ink2 { fill: #c3c2b7 }
+    .grid { stroke: #2c2c2a } .axis { stroke: #383835 }
+    .base { fill: #184f95 } .auto { fill: #6da7ec } .link { stroke: #383835 }
+    .line-auto { stroke: #6da7ec } .line-base { stroke: #184f95 } .ring { stroke: #1a1a19 }
+  }
+  text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif }
+</style>
+<rect class="bg" width="824" height="662" rx="8"/>
+<text class="ink" x="26" y="28" font-size="16" font-weight="600">Line coverage over time (AutoCover-Lite), baseline dashed</text>
+<text class="ink2" x="26" y="72" font-size="12" font-weight="600">humanize_number</text>
+<line class="grid" x1="26" x2="266" y1="230.0" y2="230.0" stroke-width="1"/><text class="muted" x="22" y="233.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="26" x2="266" y1="155.0" y2="155.0" stroke-width="1"/><text class="muted" x="22" y="158.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="26" x2="266" y1="80.0" y2="80.0" stroke-width="1"/><text class="muted" x="22" y="83.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="26" x2="266" y1="230.0" y2="230.0" stroke-width="1"/>
+<text class="muted" x="266" y="243.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="26" x2="266" y1="87.94999999999999" y2="87.94999999999999" stroke-width="2" stroke-dasharray="5 4"><title>humanize_number baseline: 94.7%</title></line>
+<path class="line-auto" d="M26.0,230.0 L107.1,115.2 L114.5,100.2 L142.3,99.3 L189.7,80.9 L207.0,80.9" fill="none" stroke-width="2" stroke-linejoin="round"><title>humanize_number: 99.4% final</title></path>
+<circle class="auto" cx="206.96" cy="80.9" r="4"/><text class="ink" x="200.96" y="72.9" font-size="10" text-anchor="end">99.4%</text>
+<text class="ink2" x="292" y="72" font-size="12" font-weight="600">inflection</text>
+<line class="grid" x1="292" x2="532" y1="230.0" y2="230.0" stroke-width="1"/><text class="muted" x="288" y="233.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="292" x2="532" y1="155.0" y2="155.0" stroke-width="1"/><text class="muted" x="288" y="158.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="292" x2="532" y1="80.0" y2="80.0" stroke-width="1"/><text class="muted" x="288" y="83.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="292" x2="532" y1="230.0" y2="230.0" stroke-width="1"/>
+<text class="muted" x="532" y="243.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="292" x2="532" y1="83.75" y2="83.75" stroke-width="2" stroke-dasharray="5 4"><title>inflection baseline: 97.5%</title></line>
+<path class="line-auto" d="M292.0,230.0 L347.4,87.3 L354.2,83.8 L360.9,83.8 L373.4,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.8,81.8 L379.9,81.8" fill="none" stroke-width="2" stroke-linejoin="round"><title>inflection: 98.8% final</title></path>
+<circle class="auto" cx="379.8666666666667" cy="81.80000000000001" r="4"/><text class="ink" x="373.8666666666667" y="73.80000000000001" font-size="10" text-anchor="end">98.8%</text>
+<text class="ink2" x="558" y="72" font-size="12" font-weight="600">slugify</text>
+<line class="grid" x1="558" x2="798" y1="230.0" y2="230.0" stroke-width="1"/><text class="muted" x="554" y="233.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="558" x2="798" y1="155.0" y2="155.0" stroke-width="1"/><text class="muted" x="554" y="158.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="558" x2="798" y1="80.0" y2="80.0" stroke-width="1"/><text class="muted" x="554" y="83.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="558" x2="798" y1="230.0" y2="230.0" stroke-width="1"/>
+<text class="muted" x="798" y="243.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="558" x2="798" y1="99.94999999999999" y2="99.94999999999999" stroke-width="2" stroke-dasharray="5 4"><title>slugify baseline: 86.7%</title></line>
+<path class="line-auto" d="M558.0,230.0 L574.7,105.8 L583.7,104.6 L615.8,104.6 L626.5,94.1 L635.8,88.2 L643.8,87.1 L656.5,84.7 L660.7,84.7 L670.0,82.4 L676.0,82.4 L680.6,82.4 L680.6,82.4 L680.6,82.4 L680.6,82.4 L680.6,82.4 L680.6,82.4" fill="none" stroke-width="2" stroke-linejoin="round"><title>slugify: 98.4% final</title></path>
+<circle class="auto" cx="680.6133333333333" cy="82.4" r="4"/><text class="ink" x="674.6133333333333" y="74.4" font-size="10" text-anchor="end">98.4%</text>
+<text class="ink2" x="26" y="266" font-size="12" font-weight="600">boltons_strutils</text>
+<line class="grid" x1="26" x2="266" y1="424.0" y2="424.0" stroke-width="1"/><text class="muted" x="22" y="427.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="26" x2="266" y1="349.0" y2="349.0" stroke-width="1"/><text class="muted" x="22" y="352.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="26" x2="266" y1="274.0" y2="274.0" stroke-width="1"/><text class="muted" x="22" y="277.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="26" x2="266" y1="424.0" y2="424.0" stroke-width="1"/>
+<text class="muted" x="266" y="437.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="26" x2="266" y1="289.9" y2="289.9" stroke-width="2" stroke-dasharray="5 4"><title>boltons_strutils baseline: 89.4%</title></line>
+<path class="line-auto" d="M26.0,424.0 L204.4,282.4 L225.3,281.6" fill="none" stroke-width="2" stroke-linejoin="round"><title>boltons_strutils: 94.9% final</title></path>
+<circle class="auto" cx="225.25333333333333" cy="281.65" r="4"/><text class="ink" x="219.25333333333333" y="273.65" font-size="10" text-anchor="end">94.9%</text>
+<text class="ink2" x="292" y="266" font-size="12" font-weight="600">jmespath_lexer</text>
+<line class="grid" x1="292" x2="532" y1="424.0" y2="424.0" stroke-width="1"/><text class="muted" x="288" y="427.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="292" x2="532" y1="349.0" y2="349.0" stroke-width="1"/><text class="muted" x="288" y="352.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="292" x2="532" y1="274.0" y2="274.0" stroke-width="1"/><text class="muted" x="288" y="277.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="292" x2="532" y1="424.0" y2="424.0" stroke-width="1"/>
+<text class="muted" x="532" y="437.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="292" x2="532" y1="307.45" y2="307.45" stroke-width="2" stroke-dasharray="5 4"><title>jmespath_lexer baseline: 77.7%</title></line>
+<path class="line-auto" d="M292.0,424.0 L337.3,403.4 L342.3,373.3 L350.4,310.8 L353.1,310.8 L363.8,295.6 L371.5,276.1 L380.6,274.0" fill="none" stroke-width="2" stroke-linejoin="round"><title>jmespath_lexer: 100.0% final</title></path>
+<circle class="auto" cx="380.56" cy="274.0" r="4"/><text class="ink" x="374.56" y="266.0" font-size="10" text-anchor="end">100%</text>
+<text class="ink2" x="558" y="266" font-size="12" font-weight="600">semver_version</text>
+<line class="grid" x1="558" x2="798" y1="424.0" y2="424.0" stroke-width="1"/><text class="muted" x="554" y="427.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="558" x2="798" y1="349.0" y2="349.0" stroke-width="1"/><text class="muted" x="554" y="352.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="558" x2="798" y1="274.0" y2="274.0" stroke-width="1"/><text class="muted" x="554" y="277.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="558" x2="798" y1="424.0" y2="424.0" stroke-width="1"/>
+<text class="muted" x="798" y="437.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="558" x2="798" y1="290.05" y2="290.05" stroke-width="2" stroke-dasharray="5 4"><title>semver_version baseline: 89.3%</title></line>
+<path class="line-auto" d="M558.0,424.0 L681.3,291.7 L729.3,284.4 L740.8,280.8" fill="none" stroke-width="2" stroke-linejoin="round"><title>semver_version: 95.5% final</title></path>
+<circle class="auto" cx="740.7733333333333" cy="280.75" r="4"/><text class="ink" x="734.7733333333333" y="272.75" font-size="10" text-anchor="end">95.5%</text>
+<text class="ink2" x="26" y="460" font-size="12" font-weight="600">boltons_iterutils</text>
+<line class="grid" x1="26" x2="266" y1="618.0" y2="618.0" stroke-width="1"/><text class="muted" x="22" y="621.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="26" x2="266" y1="543.0" y2="543.0" stroke-width="1"/><text class="muted" x="22" y="546.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="26" x2="266" y1="468.0" y2="468.0" stroke-width="1"/><text class="muted" x="22" y="471.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="26" x2="266" y1="618.0" y2="618.0" stroke-width="1"/>
+<text class="muted" x="266" y="631.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="26" x2="266" y1="489.3" y2="489.3" stroke-width="2" stroke-dasharray="5 4"><title>boltons_iterutils baseline: 85.8%</title></line>
+<path class="line-auto" d="M26.0,618.0 L188.2,480.4 L228.4,477.6" fill="none" stroke-width="2" stroke-linejoin="round"><title>boltons_iterutils: 93.6% final</title></path>
+<circle class="auto" cx="228.37333333333333" cy="477.6" r="4"/><text class="ink" x="222.37333333333333" y="469.6" font-size="10" text-anchor="end">93.6%</text>
+<text class="ink2" x="292" y="460" font-size="12" font-weight="600">dateutil_relativedelta</text>
+<line class="grid" x1="292" x2="532" y1="618.0" y2="618.0" stroke-width="1"/><text class="muted" x="288" y="621.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="292" x2="532" y1="543.0" y2="543.0" stroke-width="1"/><text class="muted" x="288" y="546.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="292" x2="532" y1="468.0" y2="468.0" stroke-width="1"/><text class="muted" x="288" y="471.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="292" x2="532" y1="618.0" y2="618.0" stroke-width="1"/>
+<text class="muted" x="532" y="631.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="292" x2="532" y1="524.7" y2="524.7" stroke-width="2" stroke-dasharray="5 4"><title>dateutil_relativedelta baseline: 62.2%</title></line>
+<path class="line-auto" d="M292.0,618.0 L388.1,529.6 L424.2,494.1 L429.4,493.5" fill="none" stroke-width="2" stroke-linejoin="round"><title>dateutil_relativedelta: 83.0% final</title></path>
+<circle class="auto" cx="429.4133333333333" cy="493.5" r="4"/><text class="ink" x="423.4133333333333" y="485.5" font-size="10" text-anchor="end">83%</text>
+<text class="ink2" x="558" y="460" font-size="12" font-weight="600">tabulate</text>
+<line class="grid" x1="558" x2="798" y1="618.0" y2="618.0" stroke-width="1"/><text class="muted" x="554" y="621.0" font-size="9" text-anchor="end">0</text>
+<line class="grid" x1="558" x2="798" y1="543.0" y2="543.0" stroke-width="1"/><text class="muted" x="554" y="546.0" font-size="9" text-anchor="end">50</text>
+<line class="grid" x1="558" x2="798" y1="468.0" y2="468.0" stroke-width="1"/><text class="muted" x="554" y="471.0" font-size="9" text-anchor="end">100</text>
+<line class="axis" x1="558" x2="798" y1="618.0" y2="618.0" stroke-width="1"/>
+<text class="muted" x="798" y="631.0" font-size="9" text-anchor="end">15 min</text>
+<line class="line-base" x1="558" x2="798" y1="550.95" y2="550.95" stroke-width="2" stroke-dasharray="5 4"><title>tabulate baseline: 44.7%</title></line>
+<path class="line-auto" d="M558.0,618.0 L631.9,551.7 L637.8,548.5 L646.8,546.6 L655.6,543.1 L662.1,540.9 L664.5,540.9 L672.0,540.8 L676.4,540.8 L682.5,540.6 L694.3,539.9 L701.1,533.4 L707.6,533.0 L715.5,532.8 L719.8,532.8 L729.0,520.4 L735.6,517.8 L739.8,514.5 L746.1,514.5 L752.9,514.2 L761.1,514.0" fill="none" stroke-width="2" stroke-linejoin="round"><title>tabulate: 69.3% final</title></path>
+<circle class="auto" cx="761.0933333333334" cy="514.05" r="4"/><text class="ink" x="755.0933333333334" y="506.04999999999995" font-size="10" text-anchor="end">69.3%</text>
+</svg>
