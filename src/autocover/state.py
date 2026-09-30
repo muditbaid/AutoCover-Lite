@@ -21,6 +21,7 @@ from autocover.tools.coverage_runner import CoverageTracker
 from autocover.tools.mutator import Mutant, build_mutant_pool
 from autocover.tools.sandbox import Sandbox
 
+MAX_SURVIVOR_SHOWS = 2  # prompts per surviving mutant
 
 class Scenario(BaseModel):
     id: str            # identifier-safe, used in test names: test_<func>__<id>
@@ -94,18 +95,20 @@ class RunContext:
     survivors: dict = field(default_factory=dict)  # candidate id -> mutants it let survive
     candidates: dict = field(default_factory=dict)  # candidate id -> Candidate (all seen)
     tested_mutants: set[str] = field(default_factory=set)  # run against some candidate
-    shown_survivors: set[str] = field(default_factory=set)  # already put in a prompt
+    shown_survivors: dict[str, int] = field(default_factory=dict)  # mutant -> prompts
 
     def open_survivors(self) -> list:
-        """Mutants some test executed but no accepted test kills, not yet shown to the
-        Generator (each is shown once, so equivalent mutants cannot loop forever)."""
+        """Mutants some test executed but no accepted test kills, shown to the Generator
+        fewer than MAX_SURVIVOR_SHOWS times (a limit, so equivalent mutants cannot loop
+        forever; more than one try, since one prompt often fails to kill a real bug)."""
         return [m for m in (self.mutant_pool or [])
                 if m.id in self.tested_mutants and m.id not in self.killed_mutants
-                and m.id not in self.shown_survivors]
+                and self.shown_survivors.get(m.id, 0) < MAX_SURVIVOR_SHOWS]
     scenarios: dict = field(default_factory=dict)  # function -> scenarios (from Preparer)
     telemetry_start: int = 0  # index of this run's first telemetry event
     round_started: float = 0.0  # monotonic time the current generation round began
     last_round_s: float = 0.0   # duration of the last full round (generate..validate/fix)
+    last_round_functions: int = 0  # functions the last round generated for
     last_execute_s: float = 0.0  # duration of the last Executor step
     check_s: float = 0.0        # longest execute + mutation check of a batch so far
     fix_started: float = 0.0    # monotonic time the current fix cycle began (0 = none)

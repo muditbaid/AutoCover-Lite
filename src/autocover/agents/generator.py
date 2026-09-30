@@ -36,6 +36,7 @@ async def generate(ctx: RunContext, state: RunState) -> RunState:
         limit = (ctx.config.run.max_functions_first_round if round_no == 1
                  else ctx.config.run.max_functions_per_round)
         targets = state.get("targets", [])[:limit]
+        ctx.last_round_functions = len(targets)
         batches = await asyncio.gather(
             *(_generate_for(ctx, state, fn, round_no) for fn in targets))
         pending = [c for batch in batches for c in batch]
@@ -105,13 +106,14 @@ def uncovered_source(ctx: RunContext, qualname: str) -> list[tuple[int, str]]:
 
 
 def survivors_for(ctx: RunContext, qualname: str, limit: int = 8) -> list[tuple[int, str, str]]:
-    """Surviving mutants in the function's reach, as (line, code, change); marks them
-    shown so each is put in front of the Generator only once."""
+    """Surviving mutants in the function's reach, as (line, code, change); counts each
+    showing, so a mutant is put in front of the Generator a bounded number of times."""
     if not ctx.config.mutation.enabled:
         return []
     reach = ctx.module.reach(ctx.module.function(qualname))
     picked = [m for m in ctx.open_survivors() if m.lineno in reach][:limit]
-    ctx.shown_survivors |= {m.id for m in picked}
+    for m in picked:
+        ctx.shown_survivors[m.id] = ctx.shown_survivors.get(m.id, 0) + 1
     lines = ctx.module.source.splitlines()
     return [(m.lineno, lines[m.lineno - 1].strip(), m.description) for m in picked]
 

@@ -183,11 +183,11 @@ in `config.yaml`):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
-| Preparer | Gemini 2.5 Flash | Gemini 3.5 Flash -> Nemotron 3 Ultra (Ollama Cloud) -> Nemotron 3 Ultra (NIM) -> GPT-OSS 120B (Groq) |
-| Generator | GPT-OSS 120B (Ollama Cloud) | Nemotron 3 Super (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NVIDIA NIM) |
+| Preparer | Gemini 2.5 Flash | Gemini 3.5 Flash -> Nemotron 3 Ultra (NIM) -> GPT-OSS 120B (Groq) |
+| Generator | GPT-OSS 120B (Ollama Cloud) | GPT-OSS 120B (Cloudflare) -> Codestral 2508 -> Nemotron 3 Super (NVIDIA NIM) |
 | Fixer, first attempts | GPT-OSS 120B (Ollama Cloud) | same as the Generator |
 | Fixer, last attempt (`fixer_final`) | Gemini 2.5 Flash | Gemini 3.5 Flash -> then the Generator chain |
-| Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Ollama) -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
+| Validator judge | GPT-OSS 20B (Groq) | Ministral 14B -> GPT-OSS 20B (Cloudflare) -> Gemini 3.5 Flash-Lite -> GLM-4.5-Flash |
 
 Codestral sits ahead of NIM's Nemotron because, across the 9 benchmark subjects, NIM
 averaged 30-60s per call (up to 150s) for a pass rate close to Codestral's 2-4s calls.
@@ -232,6 +232,14 @@ reached Gemini. Now:
 - **Per-run slices** (`llm.runs_per_day`): each run gets an equal slice of every daily
   cap and of every reservation, so the first run of the day cannot use up the strong
   models. The benchmark sets it to one run per subject.
+- **Capacity, not only shares.** v2 showed that splitting a small pool changes little:
+  only ~24% of generation and repair calls reached a model that passed 100% in the
+  bake-off. The strong model without a daily cap, GPT-OSS 120B, answers one call at a
+  time on Ollama Cloud, and the router skipped it whenever the queue behind it was longer
+  than 15s, which sent most of round 1's ~50 parallel calls to weaker models. So:
+  Ollama now serves only GPT-OSS 120B (the judge and the Preparer moved off it), the same
+  model on Cloudflare is a second host, and the Generator and Fixer may queue up to
+  45-60s for them (`role_queue_wait_s`; every call's deadline still applies).
 - **No retries that spend quota:** a 503 from a model with a daily cap moves on to the
   next model at once.
 - `autocover usage` shows today's requests per model and per role against caps and

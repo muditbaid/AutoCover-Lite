@@ -15,23 +15,25 @@ llm:
     # them (see `reserve` below); bulk roles use high-volume models.
     # Same model on two providers (e.g. Nemotron 3 Super on NVIDIA NIM and Ollama Cloud)
     # means two independent quotas for one quality level.
+    # Ollama Cloud runs one call at a time for the whole account, so only GPT-OSS 120B
+    # uses it: the judge and the Preparer moved off Ollama so they cannot block it.
     generator:                        # bulk: ~50 parallel calls in round 1
       - ollama_chat/gpt-oss:120b      # 100% pass, 9s (bench/results/model_bakeoff.md)
-      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b   # 75%, 11s, 25/day
+      - cloudflare/@cf/openai/gpt-oss-120b  # same model as the Ollama one, 2nd host
       # Codestral before NIM: in the 9-subject benchmark NIM's Nemotron averaged 30-60s
       # per call (up to 150s) for a pass rate close to Codestral's 2-4s calls.
       - mistral/codestral-2508        # 53%, 5s, high volume
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b # 58%, 96s, but no daily cap
     fixer:                            # first repair attempts: bulk, same order
       - ollama_chat/gpt-oss:120b
-      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
+      - cloudflare/@cf/openai/gpt-oss-120b
       - mistral/codestral-2508
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
     fixer_final:                      # the last attempt before a test is frozen
       - gemini/gemini-2.5-flash       # 100% pass; 6/day reserved for this role
       - gemini/gemini-3.5-flash       # 100% pass; 12/day reserved for this role
       - ollama_chat/gpt-oss:120b
-      - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
+      - cloudflare/@cf/openai/gpt-oss-120b
       - mistral/codestral-2508
       - nvidia_nim/nvidia/nemotron-3-super-120b-a12b
     preparer:                         # few calls per run, so reasoning quality matters most
@@ -41,13 +43,11 @@ llm:
       # Preparer bake-off is pending).
       - gemini/gemini-2.5-flash       # 12/day reserved for this role
       - gemini/gemini-3.5-flash       # 6/day reserved for this role
-      - ollama_chat/nemotron-3-ultra  # same model as NIM; answered in 10-20s when NIM took 230s
       - nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       - groq/openai/gpt-oss-120b
     judge:                            # many short calls: needs request/token headroom
       - groq/openai/gpt-oss-20b
       - mistral/ministral-14b-2512
-      - ollama_chat/gpt-oss:20b
       - cloudflare/@cf/openai/gpt-oss-20b
       - gemini/gemini-3.5-flash-lite
       - zai/glm-4.5-flash
@@ -71,9 +71,10 @@ llm:
     # NVIDIA NIM meters the whole account (see providers.nvidia_nim), not each model.
     openrouter/nvidia/nemotron-3-super-120b-a12b:free: { rpd: 45 }  # key: 50/day total
     # Cloudflare Workers AI free: 10,000 neurons/day shared by all models (00:00 UTC).
-    # At ~3K in + 0.8K out tokens per call: Nemotron 3 Super ~245 neurons/call,
-    # GPT-OSS-20B ~76. These caps split the budget ~60/30 and keep ~10% spare.
-    cloudflare/@cf/nvidia/nemotron-3-120b-a12b: { rpd: 25 }
+    # Estimated at list prices: GPT-OSS-120B ~300 neurons per generator call, GPT-OSS-20B
+    # ~76 per judge call. These caps split the budget ~65/30; a neuron 429 is treated
+    # as the daily quota running out, so an estimate that is off cannot loop.
+    cloudflare/@cf/openai/gpt-oss-120b: { rpd: 22 }  # ~300 neurons/call (3K in, 3K out)
     cloudflare/@cf/openai/gpt-oss-20b: { rpd: 40 }
     # Ollama Cloud free meters GPU time (5-hour session + weekly caps, unpublished) and
     # runs one model at a time; Z.ai free Flash models publish no numeric limits.
@@ -100,6 +101,10 @@ llm:
   #   Gemini 3.7 / 3.8 Flash and the gemini-flash-latest alias: frequent 503 "high demand"
   #   (and each 503 retry still counts against that version's 20/day quota)
   runs_per_day: null       # e.g. 9: each run gets 1/9 of every daily cap (the benchmark sets it)
+  role_queue_wait_s:        # quality over speed: wait longer for the strong first models
+    generator: 45
+    fixer: 45
+    fixer_final: 60
   max_queue_wait_s: 15   # longer expected wait -> try the next model (all longer: shortest wins)
   temperature: 0.2
   timeout_s: 120

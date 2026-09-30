@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from autocover.budget import finalize_reserve_s, llm_deadline, typical_run_s
+from autocover.budget import finalize_reserve_s, llm_deadline, next_round_s, typical_run_s
 from autocover.config import Config, MutationConfig, RunConfig, SandboxConfig, TelemetryConfig
 from autocover.graph import stop_reason
 from autocover.state import RunContext
@@ -75,3 +75,37 @@ def test_no_new_round_when_it_would_eat_the_finalize_reserve():
     assert stop_reason(ctx, state) is None
     ctx.last_round_s = 120  # one more round like the last would cut into finalize
     assert stop_reason(ctx, state) == "time budget"
+
+
+def test_next_round_estimate_scales_with_the_functions_it_covers():
+    ctx = make_ctx(budget_min=15)
+    assert next_round_s(ctx, 40) == 0.0  # nothing measured yet: round 1 always starts
+    ctx.last_round_s, ctx.last_round_functions = 400.0, 48
+    # Round 2 covers at most max_functions_per_round (12) of the 48: a quarter of round 1.
+    assert next_round_s(ctx, 40) == pytest.approx(100.0)
+    assert next_round_s(ctx, 3) == pytest.approx(100.0)  # never below a quarter
+    ctx.last_round_functions = 12
+    assert next_round_s(ctx, 12) == pytest.approx(400.0)
+
+
+def test_a_small_next_round_still_starts_after_a_long_first_one():
+    # dateutil (v2): round 1 took 333s for 17 functions; 387s were left and the old rule
+    # (next round = last round) stopped the run.
+    ctx = make_ctx(budget_min=15)
+    sandbox_run(ctx, 4.0, mutated=True)
+    ctx.last_round_s, ctx.last_round_functions = 333.0, 17
+    ctx.deadline = time.monotonic() + 387
+    assert stop_reason(ctx, {"targets": ["a", "b", "c", "d"], "round": 1}) is None
+
+
+def test_surviving_mutants_are_shown_to_the_generator_twice():
+    from autocover.state import MAX_SURVIVOR_SHOWS
+
+    ctx = make_ctx()
+    mutant = ctx.mutants()[0]
+    ctx.tested_mutants.add(mutant.id)
+    for _ in range(MAX_SURVIVOR_SHOWS):
+        assert mutant in ctx.open_survivors()
+        ctx.shown_survivors[mutant.id] = ctx.shown_survivors.get(mutant.id, 0) + 1
+    assert mutant not in ctx.open_survivors()
+    assert MAX_SURVIVOR_SHOWS == 2

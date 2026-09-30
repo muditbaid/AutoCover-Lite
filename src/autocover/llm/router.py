@@ -308,7 +308,7 @@ class LLMRouter:
                                      wait_s=round(wait, 1))
                 missed = True
                 continue
-            if wait > self.config.max_queue_wait_s:
+            if wait > self.config.role_queue_wait_s.get(role, self.config.max_queue_wait_s):
                 errors.append(f"{model}: throttled (~{wait:.0f}s wait)")
                 self.telemetry.event("llm", "skip_throttled", role=role, model=model,
                                      wait_s=round(wait, 1))

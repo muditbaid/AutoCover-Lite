@@ -49,6 +49,9 @@ class LLMConfig(BaseModel):
     # If a model's limits would make a call wait longer than this, try the next model in
     # the chain instead; if every model would, queue on the one with the shortest wait.
     max_queue_wait_s: float = 15
+    # Per-role override: roles whose output quality matters more than speed can wait
+    # longer for their preferred (strong, low-concurrency) model. Deadlines still apply.
+    role_queue_wait_s: dict[str, float] = Field(default_factory=dict)
     # Split each capped model's daily quota evenly over this many runs, so the first run
     # of the day cannot use it all up (e.g. the 9 runs of a benchmark). None = no split.
     runs_per_day: int | None = None

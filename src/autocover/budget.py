@@ -4,7 +4,8 @@ The run ends with `finalize` (whole-suite check, flaky rerun, final mutation sco
 is sandbox work whose cost grows with the mutant pool. Everything before it must leave
 that much time, so:
 
-* a generation round starts only if one more round (as long as the last) still fits;
+* a generation round starts only if one more round still fits (estimated from the last
+  round, scaled by how many functions the next one covers);
 * a fix cycle starts only if one more fix cycle (as long as the last) still fits;
 * every LLM call gets a deadline (`llm_deadline`) that the router never waits past, so a
   queue on a slow, last-resort model cannot eat the time the sandbox work needs.
@@ -54,3 +55,17 @@ def llm_deadline(ctx: RunContext, role: str) -> float:
     if role != "judge":
         deadline -= ctx.check_s or ctx.config.run.budget_min * 60 * CHECK_PRIOR_SHARE
     return deadline
+
+
+MIN_ROUND_SCALE = 0.25  # a round never costs less than a quarter of the last one
+
+
+def next_round_s(ctx: RunContext, targets: int) -> float:
+    """Expected duration of the next round: the last round's, scaled by the number of
+    functions it will cover. Round 1 covers every function and includes all its repair
+    cycles, so reusing its full duration stopped 4 of 9 benchmark runs after one round."""
+    if not ctx.last_round_s:
+        return 0.0
+    n_next = min(targets, ctx.config.run.max_functions_per_round)
+    scale = n_next / ctx.last_round_functions if ctx.last_round_functions else 1.0
+    return ctx.last_round_s * min(1.0, max(MIN_ROUND_SCALE, scale))

@@ -8,6 +8,15 @@ is read off its coverage-over-time curve, as in the paper's Figure 2.
     python bench/prepare_subjects.py
     python bench/run_bench.py --budget-min 15
     python bench/report_bench.py
+
+Repeated runs, to see run-to-run variance (free-tier models answer differently each run):
+
+    python bench/run_bench.py --tools autocover --subjects slugify dateutil_relativedelta \
+        --repeat 3 --out-dir bench/results/repeats --runs-per-day 9
+    python bench/report_repeats.py bench/results/repeats
+
+Passes are interleaved (every subject once, then again), so quota and time-of-day effects
+spread evenly over the subjects.
 """
 
 from __future__ import annotations
@@ -121,40 +130,51 @@ async def main() -> None:
     parser.add_argument("--runs-per-day", type=int, default=len(load_subjects(None)),
                         help="split daily LLM caps over this many runs (default: one per "
                              "subject); 0 = no split")
+    parser.add_argument("--repeat", type=int, default=1,
+                        help="run each (subject, tool) this many times: <subject>.<tool>.r<N>.json")
+    parser.add_argument("--out-dir", type=Path, default=RESULTS)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     args.runs_per_day = args.runs_per_day or None
     load_dotenv(ROOT / ".env")
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    for subject in load_subjects(args.subjects):
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    subjects = load_subjects(args.subjects)
+    for subject in subjects:
         if not (SUBJECTS_DIR / subject["name"] / subject["target"]).exists():
             prepare(subject)
-        for tool in args.tools:
-            out = RESULTS / f"{subject['name']}.{tool}.json"
-            if out.exists() and not args.force:
-                print(f"[bench] {subject['name']} / {tool}: cached", flush=True)
-                continue
-            print(f"[bench] {subject['name']} / {tool} ...", flush=True)
-            start = time.time()
-            try:
-                result = await (bench_autocover if tool == "autocover" else bench_baseline)(
-                    subject, args)
-            except Exception as exc:  # noqa: BLE001 - record and move on
-                if _engine_down(exc):
-                    # Infrastructure, not a result: don't record it, stop the whole run.
-                    print(f"[bench] ABORT: sandbox engine unavailable ({exc}); results so "
-                          f"far are kept, re-run to resume", flush=True)
-                    return
-                result = {"error": f"{type(exc).__name__}: {str(exc)[:500]}"}
-            result.update({"subject": subject["name"], "level": subject["level"],
-                           "tool": tool, "target": subject["target"],
-                           "budget_min": args.budget_min,
-                           "finished": time.strftime("%Y-%m-%d %H:%M:%S")})
-            out.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
-            line = result.get("line_pct", (result.get("final") or {}).get("line_pct"))
-            mut = (result.get("mutation") or {}).get("score_pct")
-            print(f"[bench]   done in {time.time() - start:.0f}s: lines {line}% mutation "
-                  f"{mut}% {result.get('error') or ''}", flush=True)
+    for rep in range(1, args.repeat + 1):
+        for subject in subjects:
+            await bench_subject(subject, args, rep)
+
+
+async def bench_subject(subject: dict, args, rep: int) -> None:
+    for tool in args.tools:
+        suffix = f".r{rep}" if args.repeat > 1 else ""
+        out = args.out_dir / f"{subject['name']}.{tool}{suffix}.json"
+        if out.exists() and not args.force:
+            print(f"[bench] {subject['name']} / {tool}: cached", flush=True)
+            continue
+        print(f"[bench] {subject['name']} / {tool} ...", flush=True)
+        start = time.time()
+        try:
+            result = await (bench_autocover if tool == "autocover" else bench_baseline)(
+                subject, args)
+        except Exception as exc:  # noqa: BLE001 - record and move on
+            if _engine_down(exc):
+                # Infrastructure, not a result: don't record it, stop the whole run.
+                print(f"[bench] ABORT: sandbox engine unavailable ({exc}); results so "
+                      f"far are kept, re-run to resume", flush=True)
+                raise SystemExit(1) from exc
+            result = {"error": f"{type(exc).__name__}: {str(exc)[:500]}"}
+        result.update({"subject": subject["name"], "level": subject["level"],
+                       "tool": tool, "target": subject["target"], "repeat": rep,
+                       "budget_min": args.budget_min,
+                       "finished": time.strftime("%Y-%m-%d %H:%M:%S")})
+        out.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+        line = result.get("line_pct", (result.get("final") or {}).get("line_pct"))
+        mut = (result.get("mutation") or {}).get("score_pct")
+        print(f"[bench]   done in {time.time() - start:.0f}s: lines {line}% mutation "
+              f"{mut}% {result.get('error') or ''}", flush=True)
 
 
 if __name__ == "__main__":

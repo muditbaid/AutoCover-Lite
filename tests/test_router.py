@@ -468,6 +468,37 @@ def test_each_run_gets_its_slice_of_every_reservation():
     assert models_used(router, "bulk", 2) == ["s/strong", "b/bulk"]
 
 
+def test_quality_roles_wait_longer_for_their_first_model():
+    # a/one runs one call at a time (~10s each). With the default 15s patience the 3rd
+    # concurrent caller spills to b/two; a role allowed 45s queues on a/one instead.
+    def router_for(patience):
+        cfg = LLMConfig(roles={"gen": ["a/one", "b/two"]}, max_queue_wait_s=15, retries=0,
+                        role_queue_wait_s=patience,
+                        providers={"a": ProviderLimits(rpm=None, max_concurrency=1),
+                                   "b": ProviderLimits(rpm=None, max_concurrency=4)})
+        gate = asyncio.Event()
+
+        async def slow(*, model, messages, **kwargs):
+            if model == "a/one":
+                await gate.wait()
+            return {"choices": [{"message": {"content": model}}], "usage": {}}
+
+        router = LLMRouter(cfg, completion_fn=slow, require_keys=False)
+        router._latency["a/one"] = 10.0
+
+        async def burst():
+            tasks = [asyncio.create_task(router.complete("gen", MESSAGES, use_cache=False))
+                     for _ in range(4)]
+            await asyncio.sleep(0)
+            gate.set()
+            return [r.model for r in await asyncio.gather(*tasks)]
+
+        return run(burst())
+
+    assert router_for({}).count("a/one") == 2
+    assert router_for({"gen": 45}).count("a/one") == 4
+
+
 def test_last_repair_attempt_escalates_to_fixer_final():
     from types import SimpleNamespace
 

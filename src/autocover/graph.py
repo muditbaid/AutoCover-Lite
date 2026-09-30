@@ -29,7 +29,7 @@ from autocover.agents.fixer import fix
 from autocover.agents.generator import generate
 from autocover.agents.preparer import plan_targets, prepare
 from autocover.agents.validator import validate
-from autocover.budget import finalize_reserve_s
+from autocover.budget import finalize_reserve_s, next_round_s
 from autocover.state import RunContext, RunState
 from autocover.tools.coverage_runner import CoverageTracker
 from autocover.tools.sandbox import RunRequest
@@ -106,10 +106,10 @@ def stop_reason(ctx: RunContext, state: RunState) -> str | None:
         return "no gaps left"
     if state.get("round", 0) >= ctx.config.run.max_rounds:
         return "max rounds"
-    # Start another round only if one more round (as long as the last one) and the final
-    # suite checks still fit: the deadline is otherwise only seen between rounds, and a
-    # round on a large module can take minutes.
-    if ctx.time_left() <= ctx.last_round_s + finalize_reserve_s(ctx):
+    # Start another round only if it and the final suite checks still fit (LLM calls
+    # inside a round also stop at their deadlines; this avoids starting hopeless rounds).
+    estimate = next_round_s(ctx, len(state["targets"]))
+    if ctx.time_left() <= estimate + finalize_reserve_s(ctx):
         return "time budget"
     if not ctx.budget_left():
         return "LLM budget"
