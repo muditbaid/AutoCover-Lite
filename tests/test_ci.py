@@ -62,5 +62,6 @@ def test_action_definition_is_valid():
     steps = [s.get("name") or s.get("uses") for s in action["runs"]["steps"]]
     assert "Generate tests" in steps and "peter-evans/create-pull-request@v6" in \
         [s.get("uses") for s in action["runs"]["steps"]]
-    workflow = yaml.safe_load((ROOT / "examples" / "workflows" / "autocover.yml").read_text())
+    template = ROOT / "src" / "autocover" / "templates" / "autocover-workflow.yml"
+    workflow = yaml.safe_load(template.read_text())
     assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}

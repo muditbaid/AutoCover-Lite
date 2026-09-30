@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from autocover.config import load_config  # noqa: E402
+from autocover.config import DEFAULT_CONFIG, load_config  # noqa: E402
 from autocover.run import run_autocover  # noqa: E402
 from autocover.runtime import build_runtime, load_dotenv  # noqa: E402
 
@@ -89,7 +89,7 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=str(ROOT / "examples" / "ticket_price"))
     parser.add_argument("--target", default="ticket_price.py")
-    parser.add_argument("--config", default=str(ROOT / "config.yaml"))
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--models", nargs="*")
     parser.add_argument("--out", default=str(ROOT / "bench" / "results" / "model_bakeoff"))
     args = parser.parse_args()

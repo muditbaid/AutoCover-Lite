@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
-from autocover.config import load_config  # noqa: E402
+from autocover.config import DEFAULT_CONFIG, load_config  # noqa: E402
 from autocover.run import run_autocover  # noqa: E402
 from autocover.runtime import build_runtime, load_dotenv  # noqa: E402
 from autocover.tools.sandbox import make_sandbox  # noqa: E402
@@ -43,7 +43,7 @@ RESULTS = ROOT / "bench" / "results" / "runs"
 
 
 def bench_config(args):
-    cfg = load_config(getattr(args, "config", None) or ROOT / "config.yaml")
+    cfg = load_config(getattr(args, "config", None) or DEFAULT_CONFIG)
     cfg.run.budget_min = args.budget_min
     cfg.run.max_rounds = args.max_rounds
     cfg.run.max_llm_calls = args.max_llm_calls
@@ -134,7 +134,7 @@ async def main() -> None:
                         help="run each (subject, tool) this many times: <subject>.<tool>.r<N>.json")
     parser.add_argument("--out-dir", type=Path, default=RESULTS)
     parser.add_argument("--config", type=Path, default=None,
-                        help="config.yaml to use (default: the repository's)")
+                        help="config file (default: the built-in defaults)")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     args.runs_per_day = args.runs_per_day or None

@@ -32,7 +32,7 @@ inputs:
     required: false
     default: "true"
   config:
-    description: "Path to a config.yaml (default: the one bundled with the action)."
+    description: "Config file (default: the repository's autocover.yaml, else the built-in defaults)."
     required: false
     default: ""
 
@@ -71,12 +71,14 @@ runs:
       if: steps.modules.outputs.modules != ''
       shell: bash
       env:
-        AUTOCOVER_CONFIG: ${{ inputs.config || format('{0}/config.yaml', github.action_path) }}
+        AUTOCOVER_CONFIG: ${{ inputs.config }}
       run: |
         mkdir -p .autocover/ci
+        config_args=()
+        [ -n "$AUTOCOVER_CONFIG" ] && config_args=(--config "$AUTOCOVER_CONFIG")
         for module in ${{ steps.modules.outputs.modules }}; do
           name=$(echo "$module" | tr '/.' '__')
-          autocover run . "$module" --config "$AUTOCOVER_CONFIG" \
+          autocover run . "$module" "${config_args[@]}" \
             --budget-min "${{ inputs.budget-min }}" \
             --max-llm-calls "${{ inputs.max-llm-calls }}" \
             --json-out ".autocover/ci/$name.json" \

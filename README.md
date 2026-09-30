@@ -11,8 +11,8 @@ tests for a module. A test is kept only if:
 - it survives the quality gates: best-practice rules, plus mutation testing to catch weak
   assertions.
 
-It runs end to end on free tiers, and everything model-specific lives in `config.yaml`,
-so stronger (paid) models plug in without code changes: see
+It runs end to end on free tiers, and everything model-specific lives in one config file
+(`autocover.yaml`), so stronger (paid) models plug in without code changes: see
 [Plugging in better models](#plugging-in-better-models).
 
 ## Status
@@ -25,6 +25,30 @@ so stronger (paid) models plug in without code changes: see
 | 4. Scale & ops | Batched sandbox runs, budgets, flaky reruns, run reports | ✅ done |
 | 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ✅ done |
 | 6. Shipping | GitHub Action that opens test PRs; architecture write-up | ✅ done ([first bot PR](https://github.com/muditbaid/AutoCover-Lite/pull/2)) |
+
+## Use it on your repository
+
+Requires Python 3.11+ and Docker (Docker Desktop on Windows and macOS). Tests are
+generated for one module at a time; the module's code is sent to the configured LLM
+providers, and free tiers may use prompts for training, so use it on code you may share.
+
+```bash
+pip install "git+https://github.com/muditbaid/AutoCover-Lite"
+cd your-repo
+autocover init                  # writes autocover.yaml and .env.example; ignores .env, .autocover/
+cp .env.example .env            # add the API keys you have: models without a key are skipped
+autocover doctor                # checks keys, Docker and the config
+autocover run . src/yourpkg/module.py      # writes tests/test_module_autocover.py
+```
+
+- **Settings**: `autocover.yaml` (model chains, limits, budgets, sandbox). Without one,
+  the built-in free-tier defaults are used. For paid models see
+  [Plugging in better models](#plugging-in-better-models).
+- **Useful options**: `--budget-min 10`, `--max-llm-calls 60`, `-f some_function` (only
+  some functions), `--dry-run` (don't write the test file).
+- **Afterwards**: `autocover report` explains the last run (time by stage, LLM calls per
+  model, the candidate funnel); `autocover usage` shows today's free-tier quota use.
+- **In CI**: `autocover init --workflow`, see [In CI: the GitHub Action](#in-ci-the-github-action).
 
 ## Benchmark
 
@@ -108,9 +132,10 @@ How to read it fairly:
 
 The pipeline is model-agnostic: each agent role (`preparer`, `generator`, `fixer`,
 `fixer_final`, `judge`) is an ordered chain of [LiteLLM](https://docs.litellm.ai/) model
-ids in `config.yaml`, so any provider LiteLLM supports works, paid or free.
+ids in the config, so any provider LiteLLM supports works, paid or free.
 [`examples/config.paid.yaml`](examples/config.paid.yaml) is a complete example: the
-repository's config with only the `llm` section replaced.
+built-in defaults with only the `llm` section replaced (copy it to `autocover.yaml` in your
+repository, or pass it with `--config`).
 
 ```bash
 export ANTHROPIC_API_KEY=...        # or the key of the provider you configure
@@ -118,7 +143,7 @@ autocover llm-ping --role generator --config examples/config.paid.yaml
 autocover run <repo> <module.py> --config examples/config.paid.yaml
 ```
 
-| Setting | Free tier (`config.yaml`) | Paid |
+| Setting | Free tier (built-in defaults) | Paid |
 |---|---|---|
 | `models.<id>.rpd`, `reserve` | ration 20-1000 requests/day per model | drop them |
 | `runs_per_day`, `role_queue_wait_s` | share scarce quota between runs; wait for the one strong model | drop them |
@@ -251,7 +276,7 @@ mutation score, 12/12 scenarios) and cached LLM replies so only the pipeline is 
 | Sandbox | `src/autocover/tools/sandbox.py` | One Docker image per target repo. Each run gets its own container with `--network none`, memory/CPU/pid limits and a hard timeout, and reports per-test outcomes plus line/branch coverage. |
 
 Models are chosen per role, pinned to exact versions, with 4-7 fallbacks each (full chains
-in `config.yaml`):
+in [`default_config.yaml`](src/autocover/default_config.yaml)):
 
 | Role | Primary | Fallbacks, in order |
 |---|---|---|
@@ -297,7 +322,7 @@ reached Gemini. Now:
 | Fixer, last attempt | few | High: the last chance before a test is frozen | Gemini Flash first (reserved share) |
 | Judge | many, short | Low | Small fast models |
 
-- **Reservations** (`models.<id>.reserve` in `config.yaml`): part of a model's daily cap
+- **Reservations** (`models.<id>.reserve` in the config): part of a model's daily cap
   held for named roles; other roles share what is left. Both Gemini Flash versions are
   split between the Preparer and the Fixer's last attempt, with nothing left to share.
   The usage ledger records every request per role.
@@ -321,7 +346,7 @@ reached Gemini. Now:
 Free tiers can use your prompts for training (Mistral's free plan requires opting in, and
 Google does outside the EU/UK), so only point this tool at code you are allowed to share.
 
-Free-tier quotas are metered **per model version**, so `config.yaml` pins versions (no
+Free-tier quotas are metered **per model version**, so the built-in config pins versions (no
 `-latest` aliases) and sets per-model `rpm` / `tpm` / `rpd` limits taken from each
 provider's rate-limit headers. The router skips a model when:
 - its daily cap is used up (tracked in `.autocover/usage.sqlite` per provider quota day;
@@ -370,10 +395,11 @@ Problems the benchmark surfaced, each found in telemetry and fixed:
 [`action.yml`](action.yml) runs the pipeline on the Python modules a pull request adds
 or changes, and opens a follow-up pull request with the generated tests and a summary
 table (coverage before -> after, mutation score, tests written), so tests arrive for
-review instead of having to be written. Copy
-[`examples/workflows/autocover.yml`](examples/workflows/autocover.yml) to
-`.github/workflows/` in the target repository and add the API keys as repository
-secrets; GitHub-hosted runners include Docker for the sandbox. Inputs cap the cost per
+review instead of having to be written. `autocover init --workflow` writes the workflow
+([template](src/autocover/templates/autocover-workflow.yml)) to `.github/workflows/`; add
+the API keys as repository secrets, and enable Settings -> Actions -> General -> "Allow
+GitHub Actions to create and approve pull requests". GitHub-hosted runners include Docker
+for the sandbox. Inputs cap the cost per
 pull request (`max-modules`, `budget-min`, `max-llm-calls`), and `config` points at a
 config with other models.
 
@@ -383,9 +409,10 @@ run, on a pull request touching `src/autocover/ci.py`, took 6 minutes and opened
 [a follow-up pull request](https://github.com/muditbaid/AutoCover-Lite/pull/2) from `github-actions[bot]` with 23 tests: coverage of
 `ci.py` 31% -> 100% of lines and branches, mutation score 66%, all passing.
 
-## Quickstart
+## Development
 
-Requires Python 3.11+ and Docker Desktop (WSL2 backend on Windows).
+To work on AutoCover-Lite itself. Requires Python 3.11+ and Docker Desktop (WSL2 backend
+on Windows).
 
 ```bash
 python -m venv .venv && .venv/Scripts/activate      # Windows; use bin/activate elsewhere

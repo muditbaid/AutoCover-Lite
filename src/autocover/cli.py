@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from autocover.config import load_config
+from autocover.config import DEFAULT_CONFIG, PROJECT_CONFIG, find_config, load_config
 from autocover.llm.router import PROVIDER_KEY_ENV, AllModelsFailed, provider_of
 from autocover.runtime import build_runtime, load_dotenv
 from autocover.tools.mutator import generate_mutants
@@ -17,7 +17,9 @@ from autocover.tools.sandbox import RunRequest, docker_available, make_sandbox
 app = typer.Typer(help="AutoCover-Lite: multi-agent Python test generation.",
                   no_args_is_help=True, add_completion=False)
 
-ConfigOpt = typer.Option(Path("config.yaml"), "--config", "-c", help="Path to config.yaml")
+ConfigOpt = typer.Option(
+    None, "--config", "-c",
+    help=f"Config file (default: ./{PROJECT_CONFIG} if present, else the built-in defaults)")
 
 
 @app.callback()
@@ -25,12 +27,64 @@ def _main() -> None:
     load_dotenv()
 
 
+TEMPLATES = Path(__file__).with_name("templates")
+GITIGNORE_LINES = (".env", ".autocover/")
+
+
+@app.command()
+def init(
+    workflow: bool = typer.Option(False, "--workflow",
+                                  help="Also write .github/workflows/autocover.yml"),
+    force: bool = typer.Option(False, "--force", help="Overwrite files that already exist"),
+) -> None:
+    """Set up AutoCover-Lite in the current repository."""
+    written = []
+
+    def write(path: Path, text: str) -> None:
+        if path.exists() and not force:
+            typer.echo(f"exists, kept: {path} (use --force to overwrite)")
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+        written.append(str(path))
+
+    header = ("# AutoCover-Lite settings for this repository (from `autocover init`).\n"
+              "# Model chains per agent role, limits, sandbox and budgets; see\n"
+              "# https://github.com/muditbaid/AutoCover-Lite#plugging-in-better-models\n\n")
+    write(Path(PROJECT_CONFIG), header + DEFAULT_CONFIG.read_text(encoding="utf-8"))
+    cfg = load_config(DEFAULT_CONFIG)
+    keys = sorted({env for chain in cfg.llm.roles.values() for model in chain
+                   if (env := (cfg.llm.limits_for(provider_of(model)).api_key_env
+                               or PROVIDER_KEY_ENV.get(provider_of(model))))})
+    if "CLOUDFLARE_API_KEY" in keys:
+        keys.insert(keys.index("CLOUDFLARE_API_KEY"), "CLOUDFLARE_ACCOUNT_ID")
+    write(Path(".env.example"),
+          "# Copy to .env and fill in the keys you have; models without a key are skipped.\n"
+          "# Never commit .env.\n" + "".join(f"{k}=\n" for k in keys))
+    if workflow:
+        write(Path(".github/workflows/autocover.yml"),
+              (TEMPLATES / "autocover-workflow.yml").read_text(encoding="utf-8"))
+    gitignore = Path(".gitignore")
+    lines = gitignore.read_text(encoding="utf-8").splitlines() if gitignore.exists() else []
+    missing = [line for line in GITIGNORE_LINES if line not in lines]
+    if missing:
+        with gitignore.open("a", encoding="utf-8", newline="\n") as fh:
+            prefix = "\n" if lines and lines[-1].strip() else ""
+            fh.write(prefix + "# AutoCover-Lite\n" + "".join(f"{m}\n" for m in missing))
+        written.append(f".gitignore (+{', '.join(missing)})")
+    for path in written:
+        typer.echo(f"wrote {path}")
+    typer.echo("\nNext: cp .env.example .env and add your API keys, start Docker, then\n"
+               "  autocover doctor\n  autocover run . path/to/module.py")
+
+
 @app.command()
 def doctor(config: Path = ConfigOpt) -> None:
     """Check config, API keys, Docker and tracing setup."""
     cfg = load_config(config)
     ok = True
-    typer.echo(f"config: {config} ({'found' if config.exists() else 'missing, using defaults'})")
+    used = find_config(config)
+    typer.echo(f"config: {used}" + (" (built-in defaults)" if used == DEFAULT_CONFIG else ""))
     typer.echo("\nLLM roles ([x] = API key present):")
     for role, chain in cfg.llm.roles.items():
         marks = []

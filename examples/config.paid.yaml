@@ -1,5 +1,5 @@
-# AutoCover-Lite with paid models: the repository's config.yaml with only the `llm`
-# section replaced. Run with `--config examples/config.paid.yaml`, and set
+# AutoCover-Lite with paid models: the built-in defaults
+# (src/autocover/default_config.yaml) with only the `llm` section replaced. Run with `--config examples/config.paid.yaml`, and set
 # ANTHROPIC_API_KEY (any LiteLLM provider works; mix providers so one outage does not
 # stop a role).
 #

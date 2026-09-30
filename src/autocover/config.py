@@ -126,9 +126,24 @@ class Config(BaseModel):
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
 
 
-def load_config(path: str | Path | None = "config.yaml") -> Config:
-    """Load config from YAML; a missing file yields all defaults."""
-    if path is None or not Path(path).exists():
-        return Config()
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+DEFAULT_CONFIG = Path(__file__).with_name("default_config.yaml")  # shipped with the package
+PROJECT_CONFIG = "autocover.yaml"  # a project's own settings (`autocover init` writes one)
+
+
+def find_config(path: str | Path | None = None) -> Path:
+    """The config file to use: `path` if given, else ./autocover.yaml, else the defaults
+    shipped with the package. A generic `config.yaml` is never picked up: in someone
+    else's repository it is usually some other tool's file."""
+    if path is not None:
+        found = Path(path)
+        if not found.is_file():
+            raise FileNotFoundError(f"config file not found: {found}")
+        return found
+    local = Path(PROJECT_CONFIG)
+    return local if local.is_file() else DEFAULT_CONFIG
+
+
+def load_config(path: str | Path | None = None) -> Config:
+    """Load the config chosen by `find_config`."""
+    data = yaml.safe_load(find_config(path).read_text(encoding="utf-8")) or {}
     return Config.model_validate(data)
