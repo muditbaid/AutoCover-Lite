@@ -60,6 +60,18 @@ models answer, and how fast, differs between runs.
 | dateutil_relativedelta | 100.0 / 85.2 | 83.0 / 56.5 |
 | tabulate | 58.4 / 37.3 | 69.3 / 50.0 |
 
+**Repeated runs** ([`bench/results/repeats/repeats.md`](bench/results/repeats/repeats.md)):
+3 subjects x 3 runs after routing more work to the strongest model (see "Capacity, not
+only shares" below). The share of generation and repair calls on models that passed 100%
+in the bake-off rose from 24% to 42%, but the scores did not move: each subject's mean
+mutation score (slugify 76.3, dateutil 71.3, iterutils 70.5) matches the average of its
+v1 and v2 runs, with 2-8 points between the best and worst of three runs. Queueing for
+the strong model made runs slower instead (slugify 763s vs 479-601s), and the large
+modules still stop after 1-2 rounds. On this budget the limit is time, not model
+strength. (These runs still had two bugs found during them and since fixed: concurrent
+calls could overrun a model's quota share, and a hanging test cost its timeout three
+times, which pushed one iterutils run to 1054s.)
+
 v2's dateutil ran a second time: its first v2 run lost 12 of 89 tests to a splicer bug
 (two import styles of `datetime` in one file, since fixed), and the repeat ran as the
 day's 10th run, after the 9 benchmark runs had used every Gemini request, so its Preparer

@@ -1,0 +1,220 @@
+{
+  "target": "slugify/slugify.py",
+  "test_path": "tests/test_slugify_autocover.py",
+  "rounds": 6,
+  "baseline": {
+    "line_pct": 21.1,
+    "branch_pct": 0.0,
+    "lines_covered": 27,
+    "lines_total": 128,
+    "branches_covered": 0,
+    "branches_total": 66
+  },
+  "final": {
+    "line_pct": 99.2,
+    "branch_pct": 92.4,
+    "lines_covered": 127,
+    "lines_total": 128,
+    "branches_covered": 61,
+    "branches_total": 66
+  },
+  "mutation": {
+    "killed": 40,
+    "total": 52,
+    "score_pct": 76.9,
+    "reused_kills": 30,
+    "survivors": [
+      "line 22 (None): '(?<=\\\\d),(?=\\\\d)' -> ''",
+      "line 25 (None): 'auto' -> ''",
+      "line 25 (None): 'text-unidecode' -> ''",
+      "line 62 (_transliterate): 'anyascii' -> ''",
+      "line 74 (_modern_truncate): - -> +",
+      "line 102 (_modern_truncate): 0 -> 1",
+      "line 178 (slugify): True -> False",
+      "line 183 (slugify): False -> True",
+      "line 34 (_numeric_reference): <= -> <",
+      "line 35 (_numeric_reference): return value -> None",
+      "line 34 (_numeric_reference): 55296 -> 55297",
+      "line 35 (_numeric_reference): 0 -> 1"
+    ]
+  },
+  "tests_in_suite": 21,
+  "candidates": 83,
+  "accepted": 21,
+  "accepted_by": {
+    "coverage": 14,
+    "mutants": 7
+  },
+  "accepted_after_fix": 12,
+  "sent_to_fixer": 35,
+  "rejected_no_signal": 23,
+  "frozen": 5,
+  "superseded": 1,
+  "weak_kept": 2,
+  "failed": 25,
+  "rule_violations": {
+    "no_autouse_fixture": 5
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 43,
+    "tokens": 185294,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 6,
+  "scenarios_covered": 6,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 1,
+      "tokens": 3305,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 37,
+      "tokens": 164277,
+      "roles": [
+        "fixer",
+        "fixer_final",
+        "generator"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 5,
+      "tokens": 17712,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import importlib\nimport unicodedata\n\nimport pytest\nfrom slugify.slugify import (\n    DEFAULT_SEPARATOR,\n    _modern_truncate,\n    _numeric_reference,\n    slugify,\n)\nfrom slugify.slugify import slugify as slugify_2\n\n# Import the module under test as a module object to avoid name clashes.\nslugify_mod = importlib.import_module(\"slugify.slugify\")\n\n# Helper to stub import_module used inside slugify._transliterate\nclass _DummyTranslitModule:\n    @staticmethod\n    def unidecode(text: str) -> str:\n        # Simple transliteration: NFKD then drop non\u2011ASCII characters.\n        return (\n            unicodedata.normalize(\"NFKD\", text)\n            .encode(\"ascii\", \"ignore\")\n            .decode()\n        )\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return _DummyTranslitModule.unidecode(text)\n\n\n@pytest.fixture\ndef stub_import_module(monkeypatch):\n    \"\"\"Replace import_module inside slugify.slugify with a stub that returns a dummy module.\"\"\"\n    original = importlib.import_module\n\n    def fake_import(name: str):\n        if name in {\"unidecode\", \"text_unidecode\", \"anyascii\"}:\n            return _DummyTranslitModule\n        return original(name)\n\n    # Patch the attribute on the actual module object, not the imported function.\n    monkeypatch.setattr(slugify_mod, \"import_module\", fake_import)\n\n\ndef test_slugify__edge_unicode_handling(stub_import_module):\n    # Unicode character with allow_unicode=True (preserve)\n    result_keep = slugify_mod.slugify(\"caf\u00e9\", allow_unicode=True, algorithm=\"modern\")\n    assert result_keep == \"caf\u00e9\"\n\n    # Same input with allow_unicode=False (transliterate to ASCII)\n    result_trans = slugify_mod.slugify(\n        \"caf\u00e9\", allow_unicode=False, backend=\"anyascii\", algorithm=\"modern\"\n    )\n    assert result_trans == \"cafe\"\n\n\n# Helper to stub import_module used inside slugify._transliterate\nclass _DummyTranslitModule_2:\n    @staticmethod\n    def unidecode(text: str) -> str:\n        # Simple transliteration: NFKD then drop non-ascii\n        return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return _DummyTranslitModule_2.unidecode(text)\n\n\n@pytest.fixture\ndef stub_import_module_2(monkeypatch):\n    \"\"\"Replace import_module inside slugify.slugify with a stub that returns a dummy module.\"\"\"\n    original = importlib.import_module\n\n    def fake_import(name: str):\n        if name in {\"unidecode\", \"text_unidecode\", \"anyascii\"}:\n            return _DummyTranslitModule_2\n        return original(name)\n\n    monkeypatch.setattr(importlib, \"import_module\", fake_import)\n\n\ndef test_slugify__error_invalid_parameter_values(stub_import_module_2):\n    # Invalid algorithm\n    with pytest.raises(ValueError) as exc:\n        slugify(\"test\", algorithm=\"invalid\")\n    assert \"algorithm must be 'legacy' or 'modern'\" in str(exc.value)\n\n    # Invalid replacement_stage (modern only)\n    with pytest.raises(ValueError) as exc:\n        slugify(\"test\", algorithm=\"modern\", replacement_stage=\"invalid\")\n    assert \"replacement_stage must be 'both', 'pre' or 'post'\" in str(exc.value)\n\n    # Invalid backend (modern only)\n    with pytest.raises(ValueError) as exc:\n        slugify(\"test\", algorithm=\"modern\", backend=\"invalid\")\n    assert \"backend must be 'auto', 'text-unidecode', 'unidecode' or 'anyascii'\" in str(exc.value)\n\n\n# Helper to stub import_module used inside slugify._transliterate\nclass _DummyTranslitModule_3:\n    @staticmethod\n    def unidecode(text: str) -> str:\n        # Simple transliteration: NFKD then drop non-ascii\n        return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()\n\n    @staticmethod\n    def anyascii(text: str) -> str:\n        return _DummyTranslitModule_3.unidecode(text)\n\n\n@pytest.fixture\ndef stub_import_module_3(monkeypatch):\n    \"\"\"Replace import_module inside slugify.slugify with a stub that returns a dummy module.\"\"\"\n    original = importlib.import_module\n\n    def fake_import(name: str):\n        if name in {\"unidecode\", \"text_unidecode\", \"anyascii\"}:\n            return _DummyTranslitModule_3\n        return original(name)\n\n    slugify_mod = importlib.import_module(\"slugify.slugify\")\n    monkeypatch.setattr(slugify_mod, \"import_module\", fake_import)\n\n\ndef test_slugify__happy_legacy_default(stub_import_module_3):\n    # Simple ASCII, default settings (legacy algorithm)\n    result = slugify(\"Hello World!\")\n    assert result == \"hello-world\"\n\n\ndef test_slugify__edge_truncation_word_boundary():\n    \"\"\"\n    With max_length and word_boundary=True, truncation stops at a word boundary.\n    save_order=True preserves the order of words that fit.\n    \"\"\"\n    txt = \"one two three four\"\n    # max_length 10 allows \"one-two\" (3+1+3 = 7 chars, next word would exceed)\n    result = slugify(\n        txt,\n        algorithm=\"modern\",\n        max_length=10,\n        word_boundary=True,\n        save_order=True,\n    )\n    assert result == \"one-two\"\n\n\ndef test_slugify__error_modern_type_validation():\n    \"\"\"Modern algorithm must raise TypeError for wrong argument types.\"\"\"\n    # max_length as bool (subclass of int) is rejected\n    with pytest.raises(TypeError):\n        slugify(\"test\", algorithm=\"modern\", max_length=True)\n\n    # separator not a str\n    with pytest.raises(TypeError):\n        slugify(\"test\", algorithm=\"modern\", separator=123)\n\n    # text not str/bytes/bytearray\n    with pytest.raises(TypeError):\n        slugify(12345, algorithm=\"modern\")\n\n\ndef test_slugify__happy_modern_basic():\n    \"\"\"Modern algorithm should produce the same slug as legacy for simple ASCII input.\"\"\"\n    text = \"Hello World!\"\n    expected = \"hello-world\"\n    # compare modern vs legacy\n    assert slugify(text, algorithm=\"modern\") == expected\n    assert slugify(text, algorithm=\"legacy\") == expected\n    # also works with bytes input\n    assert slugify(text.encode(), algorithm=\"modern\") == expected\n\n\ndef test_slugify__numeric_reference_success_and_failure():\n    \"\"\"\n    Ensure _numeric_reference correctly converts valid decimal/hex references\n    and returns the original string for invalid ones, which is then cleaned\n    by the slugify pipeline.\n    \"\"\"\n    # valid decimal reference &#65; -> 'a' after lowercasing\n    dec = \"&#65;\"\n    assert slugify(dec, algorithm=\"modern\", entities=False, decimal=True, hexadecimal=False) == \"a\"\n\n    # valid hexadecimal reference &#x41; -> 'a'\n    hex_ref = \"&#x41;\"\n    assert slugify(hex_ref, algorithm=\"modern\", entities=False, decimal=False, hexadecimal=True) == \"a\"\n\n    # invalid decimal reference (non\u2011numeric) is left as text, then cleaned,\n    # resulting in the letters that remain after stripping punctuation.\n    invalid = \"&#xyz;\"\n    assert slugify(invalid, algorithm=\"modern\", entities=False, decimal=True, hexadecimal=False) == \"xyz\"\n\n    # excessively large number is not converted to a character; the numeric part\n    # remains after entity decoding, yielding the digit string.\n    huge = \"&#9999999999999999999999;\"\n    assert slugify(huge, algorithm=\"modern\", entities=False, decimal=True, hexadecimal=False) == \"9999999999999999999999\"\n\n\n# ----------------------------------------------------------------------\n# _modern_truncate: delimiter handling and break when remaining <= 0\n# ----------------------------------------------------------------------\ndef test_modern_truncate__delimiter_and_remaining_break():\n    text = \"a-bc-def\"\n    # max_length forces truncation after \"a-bc\"\n    result = _modern_truncate(text, max_length=5, word_boundary=False, separator=\"-\", save_order=False)\n    assert result == \"a-bc\"\n\n\n# ----------------------------------------------------------------------\n# _numeric_reference: returns the original match when conversion fails\n# ----------------------------------------------------------------------\ndef test_numeric_reference__invalid_value_returns_original():\n    # Simulate a match where the numeric part is out of Unicode range\n    class DummyMatch:\n        def __init__(self, text, num):\n            self._text = text\n            self._num = num\n\n        def group(self, idx):\n            return self._text if idx == 0 else self._num\n\n    # 0x110000 is one above the Unicode max (0x10FFFF)\n    match = DummyMatch(\"&#x110000;\", \"110000\")\n    result = _numeric_reference(match, 16)\n    assert result == \"&#x110000;\"  # original string is returned unchanged\n\n\n# ----------------------------------------------------------------------\n# slugify: stopwords removal (lines 166\u2011167)\n# ----------------------------------------------------------------------\ndef test_slugify__stopwords_are_removed():\n    result = slugify(\n        \"alpha beta gamma\",\n        algorithm=\"modern\",\n        stopwords=[\"beta\"],\n        separator=\"-\",\n    )\n    # \"beta\" should be omitted\n    assert result == \"alpha-gamma\"\n\n\n# ----------------------------------------------------------------------\n# slugify: hex entity decoding uses base 16 (bug would use 17)\n# ----------------------------------------------------------------------\ndef test_slugify__hex_entity_decoding_uses_base_16():\n    # &#x41; is 'A' in Unicode; slugify lowercases by default\n    result = slugify(\"&#x41;\", algorithm=\"modern\")\n    assert result == \"a\"\n\n\n# ----------------------------------------------------------------------\n# slugify: named entity decoding works (bug would break it)\n# ----------------------------------------------------------------------\ndef test_slugify__named_entity_decoding():\n    # &amp; becomes '&' which is stripped by slugify, yielding empty string\n    result = slugify(\"&amp;\", algorithm=\"modern\")\n    assert result == \"\"\n\n\n# ----------------------------------------------------------------------\n# slugify: pre and post replacements (lines 147\u2011150, 169\u2011170)\n# ----------------------------------------------------------------------\ndef test_slugify__pre_and_post_replacements():\n    # Pre\u2011replace 'x' with 'y', then later the same rule runs again post\u2011cleanup\n    result = slugify(\n        \"xXx\",\n        algorithm=\"modern\",\n        replacements=[(\"x\", \"y\")],\n        replacement_stage=\"both\",\n        lowercase=False,\n    )\n    # Only the lowercase 'x' characters are replaced (case\u2011sensitive)\n    assert result == \"yXy\"\n\n\ndef test_modern_truncate__long_word_truncated():\n    # Simple long word without internal separators.\n    result = _modern_truncate(\n        \"longword\", max_length=4, word_boundary=False, separator=\"-\", save_order=False\n    )\n    assert result == \"long\"\n    assert len(result) == 4\n\n    # Word containing the internal default separator and a longer output separator.\n    # This exercises the output_length calculation and the remaining\u2011length logic.\n    text_with_sep = f\"a{DEFAULT_SEPARATOR}b\"\n    result2 = _modern_truncate(\n        text_with_sep, max_length=3, word_boundary=False, separator=\"--\", save_order=False\n    )\n    # Expected: only the first token fits, yielding \"a\".\n    assert result2 == \"a\"\n    # The longer separator should not appear in the result.\n    assert \"--\" not in result2\n\n\ndef test_modern_truncate__skip_empty_tokens():\n    # Two consecutive default separators create an empty token\n    text = f\"a{DEFAULT_SEPARATOR}{DEFAULT_SEPARATOR}b\"\n    # Set max_length large enough to keep the whole string unchanged\n    result = _modern_truncate(\n        text,\n        max_length=100,\n        word_boundary=False,\n        separator=DEFAULT_SEPARATOR,\n        save_order=False,\n    )\n    # The function does not collapse empty tokens; the result should match the input.\n    assert result == text\n\n\ndef test_modern_truncate__skip_empty_tokens_2():\n    # Input contains an empty token (two consecutive default separators)\n    text = f\"a{DEFAULT_SEPARATOR}{DEFAULT_SEPARATOR}b\"\n    # Use a separator longer than the default to make the length calculation matter\n    separator = DEFAULT_SEPARATOR * 2\n    # Choose max_length that is larger than the original text length but smaller than\n    # the length after a simple replacement (which would be 7 characters).\n    max_length = len(text) + 1  # original length is 4, so max_length = 5\n\n    result = _modern_truncate(\n        text,\n        max_length=max_length,\n        word_boundary=False,\n        separator=separator,\n        save_order=False,\n    )\n\n    # The function should truncate to fit the max_length, not just replace separators.\n    # With the given parameters the only possible truncated output is \"a\".\n    assert result == \"a\"\n\n\ndef test_modern_truncate__word_boundary_save_order():\n    # ------------------------------------------------------------------\n    # Scenario 1: basic word_boundary with save_order, default separator.\n    # ------------------------------------------------------------------\n    text = \"a-bc-def\"\n    result = _modern_truncate(\n        text,\n        max_length=5,\n        word_boundary=True,\n        separator=\"-\",\n        save_order=True,\n    )\n    assert result == \"a-bc\"\n    assert len(result) == 4\n    assert result.count(\"-\") == 1\n\n    # ------------------------------------------------------------------\n    # Scenario 2: separator longer than one character.\n    # The early\u2011return optimisation must not trigger; the result should\n    # contain the custom separator only between the kept words.\n    # ------------------------------------------------------------------\n    long_sep = \"--\"\n    result_long = _modern_truncate(\n        text,\n        max_length=6,\n        word_boundary=True,\n        separator=long_sep,\n        save_order=True,\n    )\n    # Expected: keep \"a\" and \"bc\", joined by the long separator.\n    assert result_long == f\"a{long_sep}bc\"\n    # Ensure the early\u2011return path (which would replace every dash) is not taken.\n    assert result_long != text.replace(DEFAULT_SEPARATOR, long_sep)\n\n    # ------------------------------------------------------------------\n    # Scenario 3: verify the inclusive length check (<=) is used.\n    # With max_length exactly equal to the length after adding the second word,\n    # the second word must be kept. If the implementation used a strict '<',\n    # the second word would be omitted.\n    # ------------------------------------------------------------------\n    text_eq = \"ab-cd-ef\"\n    result_eq = _modern_truncate(\n        text_eq,\n        max_length=5,\n        word_boundary=True,\n        separator=\"-\",\n        save_order=True,\n    )\n    assert result_eq == \"ab-cd\"\n    assert len(result_eq) == 5\n    assert result_eq.count(\"-\") == 1\n\n\ndef test_slugify__surrogate_not_converted():\n    # Surrogate code point (0xD800 = 55296) should not be converted to a character.\n    # The resulting slug must not contain the actual surrogate character.\n    result = slugify(\"&#55296;\", algorithm=\"modern\", decimal=True)\n    surrogate_char = chr(0xD800)\n    assert surrogate_char not in result\n\n\ndef test_slugify__algorithm_validation():\n    # Unknown algorithm must raise ValueError.\n    with pytest.raises(ValueError):\n        slugify(\"test\", algorithm=\"unknown\")\n\n    # The modern algorithm validates the type of max_length.\n    # Passing a bool should raise TypeError only when the modern path is used.\n    with pytest.raises(TypeError) as excinfo:\n        slugify(\"test\", max_length=True, algorithm=\"modern\")\n    assert \"max_length must be an int\" in str(excinfo.value)\n\n    # The legacy algorithm accepts a bool for max_length (treated as 1) and does not raise.\n    # It should return a slugified string (the default separator is a dash).\n    result = slugify(\"test\", max_length=True, algorithm=\"legacy\")\n    # With max_length=True (i.e., 1) the output is truncated to length 1 after processing.\n    # The default behavior for a single\u2011character input \"t\" is just that character.\n    # Since the input is longer, the legacy implementation will truncate to \"t\".\n    assert result == \"t\"\n\n# Import the module under test\nslug_mod = importlib.import_module(\"slugify.slugify\")\nslugify = slug_mod.slugify\n\n\ndef test_slugify__raise_transliterate_unexpected_error(monkeypatch):\n    \"\"\"\n    Ensure that a ModuleNotFoundError raised for a module other than 'unidecode'\n    propagates (line 57 raise in _transliterate).\n    \"\"\"\n    original_import = slug_mod.import_module\n\n    def fake_import(name):\n        if name == \"unidecode\":\n            # Simulate a missing unrelated module error\n            err = ModuleNotFoundError(\"no such module\")\n            err.name = \"some_other_module\"\n            raise err\n        return original_import(name)\n\n    monkeypatch.setattr(slug_mod, \"import_module\", fake_import)\n\n    with pytest.raises(ModuleNotFoundError) as exc:\n        slugify(\"test\", algorithm=\"modern\", backend=\"auto\")\n    # The raised error should be the one we injected, not the generic fallback.\n    assert getattr(exc.value, \"name\", None) == \"some_other_module\"\n\n\ndef test_slugify__replacement_stage_post_no_pre():\n    \"\"\"\n    Ensure that with replacement_stage='post' the pre\u2011replacement stage is NOT executed.\n    In the current implementation, post\u2011replacements occur after disallowed\u2011character\n    removal, so an '&' character is stripped before the post\u2011replacement can act.\n    Therefore the result should be an empty string.\n    \"\"\"\n    replacements = [(\"&\", \"and\")]\n\n    result = slugify_2(\n        \"&amp;\",\n        algorithm=\"modern\",\n        replacements=replacements,\n        replacement_stage=\"post\",\n        entities=True,\n        decimal=False,\n        hexadecimal=False,\n        lowercase=False,\n        allow_unicode=False,\n    )\n    assert result == \"\"",
+  "duration_s": 811.5,
+  "run_id": "83e279b51369",
+  "llm_by_role": {
+    "preparer": {
+      "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": 1
+    },
+    "generator": {
+      "ollama_chat/gpt-oss:120b": 6
+    },
+    "fixer": {
+      "mistral/codestral-2508": 5,
+      "ollama_chat/gpt-oss:120b": 19
+    },
+    "fixer_final": {
+      "ollama_chat/gpt-oss:120b": 12
+    }
+  },
+  "runs_per_day": 9,
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      152.2,
+      21.1,
+      0.0
+    ],
+    [
+      190.6,
+      21.1,
+      0.0
+    ],
+    [
+      285.3,
+      54.7,
+      33.3
+    ],
+    [
+      313.0,
+      75.0,
+      57.6
+    ],
+    [
+      337.1,
+      75.0,
+      57.6
+    ],
+    [
+      354.9,
+      79.7,
+      63.6
+    ],
+    [
+      423.3,
+      93.0,
+      75.8
+    ],
+    [
+      475.2,
+      96.9,
+      87.9
+    ],
+    [
+      527.1,
+      97.7,
+      89.4
+    ],
+    [
+      568.5,
+      98.4,
+      90.9
+    ],
+    [
+      586.7,
+      98.4,
+      90.9
+    ],
+    [
+      627.6,
+      98.4,
+      90.9
+    ],
+    [
+      678.6,
+      98.4,
+      90.9
+    ],
+    [
+      690.0,
+      98.4,
+      90.9
+    ],
+    [
+      717.6,
+      98.4,
+      90.9
+    ],
+    [
+      761.6,
+      99.2,
+      92.4
+    ],
+    [
+      781.7,
+      99.2,
+      92.4
+    ]
+  ],
+  "llm_calls": 43,
+  "llm_tokens": 185294,
+  "models": [
+    "mistral/codestral-2508",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b"
+  ],
+  "wall_s": 811.6,
+  "coverage_counting": "statements",
+  "subject": "slugify",
+  "level": "basic",
+  "tool": "autocover",
+  "repeat": 3,
+  "budget_min": 15,
+  "finished": "2026-09-30 12:23:19"
+}

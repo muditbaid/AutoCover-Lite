@@ -1,0 +1,227 @@
+{
+  "target": "dateutil/relativedelta.py",
+  "test_path": "tests/test_relativedelta_autocover.py",
+  "rounds": 1,
+  "baseline": {
+    "line_pct": 14.5,
+    "branch_pct": 0.0,
+    "lines_covered": 35,
+    "lines_total": 241,
+    "branches_covered": 0,
+    "branches_total": 92
+  },
+  "final": {
+    "line_pct": 86.7,
+    "branch_pct": 78.3,
+    "lines_covered": 209,
+    "lines_total": 241,
+    "branches_covered": 72,
+    "branches_total": 92
+  },
+  "mutation": {
+    "killed": 72,
+    "total": 108,
+    "score_pct": 66.7,
+    "reused_kills": 44,
+    "survivors": [
+      "line 15 (None): 'relativedelta' -> ''",
+      "line 15 (None): 'MO' -> ''",
+      "line 15 (None): 'TU' -> ''",
+      "line 15 (None): 'WE' -> ''",
+      "line 15 (None): 'TH' -> ''",
+      "line 15 (None): 'FR' -> ''",
+      "line 15 (None): 'SA' -> ''",
+      "line 296 (relativedelta.normalized): + -> -",
+      "line 299 (relativedelta.normalized): + -> -",
+      "line 299 (relativedelta.normalized): 10 -> 11",
+      "line 296 (relativedelta.normalized): * -> /",
+      "line 299 (relativedelta.normalized): * -> /",
+      "line 305 (relativedelta.normalized): * -> /",
+      "line 299 (relativedelta.normalized): 60 -> 61",
+      "line 302 (relativedelta.normalized): - -> +",
+      "line 374 (relativedelta.__add__): < -> <=",
+      "line 323 (relativedelta.__add__): + -> -",
+      "line 400 (relativedelta.__add__): 1 -> 2",
+      "line 427 (relativedelta.__sub__): is not -> is",
+      "line 499 (relativedelta.__mul__): return value -> None"
+    ]
+  },
+  "tests_in_suite": 63,
+  "candidates": 109,
+  "accepted": 63,
+  "accepted_by": {
+    "coverage": 23,
+    "scenario": 37,
+    "mutants": 3
+  },
+  "accepted_after_fix": 9,
+  "sent_to_fixer": 20,
+  "rejected_no_signal": 5,
+  "frozen": 12,
+  "superseded": 0,
+  "weak_kept": 3,
+  "failed": 12,
+  "rule_violations": {
+    "literal_oracle": 31,
+    "has_assertion": 6
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 92,
+    "tokens": 198239,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 89,
+  "scenarios_covered": 63,
+  "llm": {
+    "gemini/gemini-2.5-flash": {
+      "calls": 2,
+      "tokens": 16220,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "gemini/gemini-3.5-flash": {
+      "calls": 1,
+      "tokens": 8840,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 19,
+      "tokens": 34699,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-120b": {
+      "calls": 10,
+      "tokens": 35519,
+      "roles": [
+        "generator"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 8,
+      "tokens": 31597,
+      "roles": [
+        "fixer",
+        "generator"
+      ]
+    },
+    "cloudflare/@cf/openai/gpt-oss-20b": {
+      "calls": 8,
+      "tokens": 5386,
+      "roles": [
+        "judge"
+      ]
+    },
+    "groq/openai/gpt-oss-20b": {
+      "calls": 13,
+      "tokens": 11072,
+      "roles": [
+        "judge"
+      ]
+    },
+    "mistral/ministral-14b-2512": {
+      "calls": 8,
+      "tokens": 3820,
+      "roles": [
+        "judge"
+      ]
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "calls": 6,
+      "tokens": 2967,
+      "roles": [
+        "judge"
+      ]
+    },
+    "zai/glm-4.5-flash": {
+      "calls": 4,
+      "tokens": 3886,
+      "roles": [
+        "judge"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 13,
+      "tokens": 44233,
+      "roles": [
+        "fixer"
+      ]
+    }
+  },
+  "suite": "import datetime\n\nimport pytest\nfrom dateutil.relativedelta import MO, relativedelta\n\n\ndef test_relativedelta___init____init_diff_two_dates_positive():\n    # dt1 > dt2, both are date objects\n    dt1 = datetime.date(2022, 5, 15)\n    dt2 = datetime.date(2020, 3, 10)\n\n    rd = relativedelta(dt1, dt2)\n\n    # Expected: 2 years, 2 months, 5 days\n    assert rd.years == 2\n    assert rd.months == 2\n    assert rd.days == 5\n    assert rd.hours == 0\n    assert rd.minutes == 0\n    assert rd.seconds == 0\n    assert rd.microseconds == 0\n    # No time component => _has_time should be 0\n    assert getattr(rd, \"_has_time\") == 0\n\n\ndef test_relativedelta___repr____repr_absolute_attributes():\n    rd = relativedelta(\n        year=2020,\n        month=5,\n        day=15,\n        hour=12,\n        minute=30,\n        second=45,\n        microsecond=123456,\n    )\n    # Absolute attributes are shown without sign and use repr(value).\n    expected = (\n        \"relativedelta(year=2020, month=5, day=15, hour=12, minute=30, \"\n        \"second=45, microsecond=123456)\"\n    )\n    assert repr(rd) == expected\n\n\ndef test_relativedelta___init____init_with_yearday():\n    # yearday 60 corresponds to March 1 in a non\u2011leap year\n    rd = relativedelta(yearday=60)\n\n    assert rd.month == 3\n    assert rd.day == 1\n    # yearday > 59 triggers leapdays = -1\n    assert rd.leapdays == -1\n    # No other components set\n    assert rd.year is None\n    assert rd.hours == 0\n    assert getattr(rd, \"_has_time\") == 0\n\n\ndef test_relativedelta___init____init_with_relative_args():\n    # Provide a mix of relative arguments that need normalization\n    rd = relativedelta(\n        years=1,\n        months=14,          # 1 year 2 months overflow\n        days=3,\n        weeks=2,           # adds 14 days\n        hours=25,          # 1 day 1 hour overflow\n        minutes=61,        # 1 hour 1 minute overflow\n        seconds=120,       # 2 minutes 0 seconds overflow\n        microseconds=2_000_000,  # 2 seconds overflow\n    )\n\n    # After normalization:\n    # years: 1 + 1 (from months) = 2\n    # months: 2\n    # days: 3 + 14 (weeks) + 1 (from hours) = 18\n    # hours: 1 (25 -> 1 day + 1 hour) + 1 (from minutes) = 2\n    # minutes: 1 (61 -> 1 hour + 1 minute)\n    # seconds: 2 (from microseconds) + 2 (from seconds) = 4 -> then normalized to 2 seconds + 2 minutes (handled in _fix)\n    # final seconds after full cascade = 2\n    # microseconds: 0\n    assert rd.years == 2\n    assert rd.months == 2\n    assert rd.days == 18\n    assert rd.hours == 2\n    assert rd.minutes == 3\n    assert rd.seconds == 2\n    assert rd.microseconds == 0\n    assert getattr(rd, \"_has_time\") == 1\n\n\ndef test_relativedelta___div____divide_by_numeric():\n    # original relativedelta with several components\n    rd = relativedelta(years=2, months=4, days=6, hours=8, minutes=10, seconds=12)\n\n    # divide by an integer\n    result_int = rd.__div__(2)\n    assert result_int.years == 1\n    assert result_int.months == 2\n    assert result_int.days == 3\n    assert result_int.hours == 4\n    assert result_int.minutes == 5\n    assert result_int.seconds == 6\n\n    # divide by a float\n    result_float = rd.__div__(0.5)  # reciprocal = 2.0, so values should double\n    assert result_float.years == 4\n    assert result_float.months == 8\n    assert result_float.days == 12\n    assert result_float.hours == 16\n    assert result_float.minutes == 20\n    assert result_float.seconds == 24\n\n\ndef test_relativedelta___radd____radd_date_with_relativedelta_weekday_adj():\n    \"\"\"date + relativedelta with a weekday adjustment should move to the next matching weekday.\"\"\"\n    start = datetime.date(2021, 9, 1)  # Wednesday\n    delta = relativedelta(weekday=MO)  # next Monday\n    result = start + delta  # triggers relativedelta.__radd__\n    assert result == datetime.date(2021, 9, 6)  # Monday after Sep 1, 2021\n\n\ndef test_relativedelta_weeks_setter__weeks_setter_from_zero_days():\n    rd = relativedelta(days=0)\n    rd.weeks = 3\n    assert rd.days == 21\n    assert rd.weeks == 3\n\n\ndef test_relativedelta___add____add_relativedelta_to_date_month_overflow():\n    # Positive overflow: month goes beyond December\n    start = datetime.date(2020, 10, 31)\n    rd = relativedelta(months=5)  # 10 + 5 = 15 \u2192 year+1, month=3\n    result = rd + start\n    expected = datetime.date(2021, 3, 31)  # March has 31 days\n    assert result == expected\n\n    # Negative overflow: month goes before January\n    start_neg = datetime.date(2020, 1, 15)\n    rd_neg = relativedelta(months=-11)  # 1 - 11 = -10 \u2192 year-1, month=2\n    result_neg = rd_neg + start_neg\n    # February 2019 has 28 days, day min(28,15)=15\n    expected_neg = datetime.date(2019, 2, 15)\n    assert result_neg == expected_neg\n\n\ndef test_relativedelta___ne____equal_objects_false():\n    # Create two identical relativedelta instances\n    delta1 = relativedelta(years=1, months=2, days=3)\n    delta2 = relativedelta(years=1, months=2, days=3)\n\n    # Assert that __ne__ returns False for identical instances\n    assert not (delta1 != delta2)\n\n\ndef test_relativedelta___rsub____rsub_unsupported_type():\n    \"\"\"relativedelta.__rsub__(unsupported) should return NotImplemented.\"\"\"\n    delta = relativedelta(days=1)\n    result = delta.__rsub__(5)  # int is not a supported left operand\n    assert result is NotImplemented\n\n\ndef test_relativedelta___sub____sub_two_positive_deltas():\n    delta1 = relativedelta(years=2, months=3, days=4, hours=5, minutes=6, seconds=7, microseconds=8)\n    delta2 = relativedelta(years=1, months=2, days=3, hours=4, minutes=5, seconds=6, microseconds=7)\n    result = delta1 - delta2\n    assert result.years == 1\n    assert result.months == 1\n    assert result.days == 1\n    assert result.hours == 1\n    assert result.minutes == 1\n    assert result.seconds == 1\n    assert result.microseconds == 1\n\n\ndef test_relativedelta___div____divide_by_invalid_type_type_error():\n    rd = relativedelta(months=3)\n    # float([1, 2]) raises TypeError, which should be caught and result in NotImplemented\n    result = rd.__div__([1, 2])\n    assert result is NotImplemented\n\n\ndef test_relativedelta_weeks_setter__weeks_setter_to_zero_weeks():\n    rd = relativedelta(weeks=3)  # initializes days to 21\n    rd.weeks = 0\n    # days should lose the 3 weeks component: 21 - 3*7 = 0\n    assert rd.days == 0\n    assert rd.weeks == 0\n\n\ndef test_relativedelta___bool____bool_empty_delta_false():\n    \"\"\"An empty relativedelta (all components zero/None) should be falsy.\"\"\"\n    rd = relativedelta()\n    assert bool(rd) is False\n\n\ndef test_relativedelta___repr____repr_relative_positive_and_negative():\n    rd = relativedelta(years=1, months=2, days=-3)\n    # Only relative attributes with non\u2011zero values appear, with signs.\n    assert repr(rd) == \"relativedelta(years=+1, months=+2, days=-3)\"\n\n\ndef _assert_attrs_equal(obj1, obj2, attrs):\n    \"\"\"Helper to assert that a list of attributes are equal on two objects.\"\"\"\n    for a in attrs:\n        assert getattr(obj1, a) == getattr(obj2, a), f\"Attribute {a} differs\"\n\n\ndef _assert_attrs_positive(obj, attrs):\n    \"\"\"Helper to assert that a list of numeric attributes are non\u2011negative.\"\"\"\n    for a in attrs:\n        val = getattr(obj, a)\n        assert isinstance(val, (int, float)), f\"{a} is not numeric\"\n        assert val >= 0, f\"{a} is negative: {val}\"\n\n\ndef test_relativedelta___abs____abs_mixed_components():\n    \"\"\"relativedelta with mixed positive and negative components -> all components made positive.\"\"\"\n    rd = relativedelta(\n        years=5,\n        months=-3,\n        days=0,\n        hours=-2,\n        minutes=0,\n        seconds=9,\n        microseconds=-1,\n    )\n    rd_abs = abs(rd)\n\n    assert rd_abs.years == 5\n    assert rd_abs.months == 3\n    assert rd_abs.days == 0\n    assert rd_abs.hours == 2\n    assert rd_abs.minutes == 0\n    assert rd_abs.seconds == 9\n    assert rd_abs.microseconds == 1\n\n    # other attributes unchanged (defaults)\n    assert rd_abs.leapdays == 0\n    assert rd_abs.year is None\n    assert rd_abs.month is None\n    assert rd_abs.day is None\n    assert rd_abs.weekday is None\n    assert rd_abs.hour is None\n    assert rd_abs.minute is None\n    assert rd_abs.second is None\n    assert rd_abs.microsecond is None\n\n\ndef test_relativedelta___init____init_with_absolute_args():\n    # Provide absolute arguments, including an integer weekday\n    rd = relativedelta(\n        year=2025,\n        month=12,\n        day=31,\n        hour=23,\n        minute=59,\n        second=58,\n        microsecond=999999,\n        weekday=2,  # integer weekday should be converted via internal mapping\n    )\n\n    assert rd.year == 2025\n    assert rd.month == 12\n    assert rd.day == 31\n    assert rd.hour == 23\n    assert rd.minute == 59\n    assert rd.second == 58\n    assert rd.microsecond == 999999\n    # weekday should be set (exact type depends on internal mapping, we only check truthiness)\n    assert rd.weekday is not None\n    # Presence of time components => _has_time should be 1\n    assert getattr(rd, \"_has_time\") == 1\n\n\ndef test_relativedelta___init____error_diff_non_date_types():\n    dt1 = \"2020-01-01\"\n    dt2 = datetime.date(2020, 1, 2)\n\n    with pytest.raises(TypeError, match=\"relativedelta only diffs datetime/date\"):\n        relativedelta(dt1, dt2)\n\n\ndef test_relativedelta___add____add_timedelta_to_relativedelta():\n    rd = relativedelta(days=2, seconds=30, microseconds=1000)\n    td = datetime.timedelta(days=5, seconds=10, microseconds=2000)\n\n    result = rd + td\n\n    assert result.days == 7          # 2 + 5\n    assert result.seconds == 40     # 30 + 10\n    assert result.microseconds == 3000  # 1000 + 2000\n\n    # other fields stay unchanged (default zero / None)\n    assert result.years == 0\n    assert result.months == 0\n    assert result.hours == 0\n    assert result.minutes == 0\n\n\ndef test_relativedelta___add____add_relativedelta_to_datetime_negative_w():\n    base_dt = datetime.datetime(2005, 5, 20, 1, 2, 3, 4000)\n    rd = relativedelta(\n        years=-2,\n        months=-3,\n        days=-5,\n        hour=8,\n        minute=30,\n        second=15,\n        microsecond=123456,\n        year=1999,\n        month=12,\n        day=31,\n    )\n\n    result = rd + base_dt\n\n    # Compute expected step by step:\n    # year = 1999 + (-2) = 1997\n    # month = 12 + (-3) = 9\n    # day = min(days_in_sep_1997=30, self.day=31) = 30\n    # replace \u2192 1997-09-30 08:30:15.123456\n    # add days=-5 \u2192 1997-09-25 08:30:15.123456\n    expected = datetime.datetime(1997, 9, 25, 8, 30, 15, 123456)\n    assert result == expected\n\n\ndef test_relativedelta___eq____not_isinstance():\n    rd = relativedelta()\n    # Directly call __eq__ to inspect the return value\n    result = rd.__eq__(42)  # 42 is not a relativedelta\n    assert result is NotImplemented\n\n\ndef test_relativedelta___bool____bool_non_zero_time_component_true():\n    \"\"\"A relativedelta with any non\u2011zero time component should be truthy.\"\"\"\n    rd = relativedelta(seconds=10)\n    assert bool(rd) is True\n\n\ndef test_relativedelta___add____add_relativedelta_to_date_positive():\n    base_date = datetime.date(2020, 1, 15)\n    rd = relativedelta(years=1, months=2, days=10)\n\n    result = rd + base_date\n\n    # Expected: 2020-01-15 \u2192 year+1 = 2021, month+2 = 3, day stays 15, then +10 days\n    expected = datetime.date(2021, 3, 25)\n    assert result == expected\n\n\ndef test_relativedelta___add____add_relativedelta_to_date_with_weekday():\n    # Starting on a Wednesday, ask for the first Monday on/after the date\n    start = datetime.date(2021, 9, 1)  # Wednesday\n    rd = relativedelta(weekday=MO(1))  # first Monday (nth=1)\n    result = rd + start\n    expected = datetime.date(2021, 9, 6)  # Monday\n    assert result == expected\n\n\ndef test_relativedelta___repr____repr_empty():\n    rd = relativedelta()\n    assert repr(rd) == \"relativedelta()\"\n\n\ndef test_relativedelta___repr____repr_with_weekday():\n    rd = relativedelta(weekday=MO)\n    # Weekday is an absolute attribute; its repr() is used.\n    assert repr(rd) == \"relativedelta(weekday=MO)\"\n\n\ndef test_relativedelta___repr____repr_zero_values():\n    # Relative zero values are omitted; absolute zero values are included.\n    rd = relativedelta(days=0, months=0, microsecond=0, year=0)\n    # days and months omitted, microsecond and year kept (year is absolute).\n    expected = \"relativedelta(year=0, microsecond=0)\"\n    assert repr(rd) == expected\n\n\ndef test_relativedelta___sub____sub_two_negative_deltas():\n    delta1 = relativedelta(years=-2, months=-3, days=-4, hours=-5, minutes=-6, seconds=-7, microseconds=-8)\n    delta2 = relativedelta(years=-1, months=-2, days=-3, hours=-4, minutes=-5, seconds=-6, microseconds=-7)\n    result = delta1 - delta2\n    assert result.years == -1\n    assert result.months == -1\n    assert result.days == -1\n    assert result.hours == -1\n    assert result.minutes == -1\n    assert result.seconds == -1\n    assert result.microseconds == -1\n\n\ndef test_relativedelta___sub____sub_mixed_deltas():\n    delta1 = relativedelta(years=2, months=-3, days=4, hours=-5, minutes=6, seconds=-7, microseconds=8)\n    delta2 = relativedelta(years=-1, months=2, days=-3, hours=4, minutes=-5, seconds=6, microseconds=-7)\n    result = delta1 - delta2\n    assert result.years == 3\n    assert result.months == -5\n    assert result.days == 7\n    assert result.hours == -9\n    assert result.minutes == 11\n    assert result.seconds == -13\n    assert result.microseconds == 15\n\n\ndef test_relativedelta___sub____sub_to_zero_delta():\n    delta1 = relativedelta(years=2, months=3, days=4, hours=5, minutes=6, seconds=7, microseconds=8)\n    delta2 = relativedelta(years=2, months=3, days=4, hours=5, minutes=6, seconds=7, microseconds=8)\n    result = delta1 - delta2\n    assert result.years == 0\n    assert result.months == 0\n    assert result.days == 0\n    assert result.hours == 0\n    assert result.minutes == 0\n    assert result.seconds == 0\n    assert result.microseconds == 0\n\n\ndef test_relativedelta___sub____sub_with_explicit_components():\n    delta1 = relativedelta(year=2023, month=12, day=31, hour=23, minute=59, second=59, microsecond=999999)\n    delta2 = relativedelta(year=2022, month=11, day=30, hour=22, minute=58, second=58, microsecond=999998)\n    result = delta1 - delta2\n    assert result.year == 2023\n    assert result.month == 12\n    assert result.day == 31\n    assert result.hour == 23\n    assert result.minute == 59\n    assert result.second == 59\n    assert result.microsecond == 999999\n\n\ndef test_relativedelta_weeks__weeks_getter_positive_multiple_of_7():\n    \"\"\"days is a positive multiple of 7 \u2192 weeks should be exact integer.\"\"\"\n    rd = relativedelta(days=14)  # 14 / 7 = 2.0\n    assert rd.weeks == 2\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks__weeks_getter_positive_not_multiple_of_7():\n    \"\"\"days is positive but not a multiple of 7 \u2192 result is truncated toward zero.\"\"\"\n    rd = relativedelta(days=10)  # 10 / 7 \u2248 1.428 \u2192 int() \u2192 1\n    assert rd.weeks == 1\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks__weeks_getter_zero_days():\n    \"\"\"Zero days should give zero weeks.\"\"\"\n    rd = relativedelta(days=0)\n    assert rd.weeks == 0\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks__weeks_getter_negative_multiple_of_7():\n    \"\"\"Negative multiple of 7 should yield the negative integer weeks.\"\"\"\n    rd = relativedelta(days=-21)  # -21 / 7 = -3.0\n    assert rd.weeks == -3\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks__weeks_getter_negative_not_multiple_of_7():\n    \"\"\"Negative days not a multiple of 7 \u2192 truncates toward zero (int).\"\"\"\n    rd = relativedelta(days=-10)  # -10 / 7 \u2248 -1.428 \u2192 int() \u2192 -1\n    assert rd.weeks == -1\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks__weeks_getter_float_days():\n    \"\"\"Float days are allowed; weeks uses the same formula and truncates.\"\"\"\n    rd = relativedelta(days=13.5)  # 13.5 / 7 \u2248 1.928 \u2192 int() \u2192 1\n    assert rd.weeks == 1\n    assert isinstance(rd.weeks, int)\n\n\ndef test_relativedelta_weeks_setter__weeks_setter_from_non_multiple_of_7():\n    rd = relativedelta(days=5)  # not a multiple of 7\n    rd.weeks = 1\n    # old weeks is 0, days become 5 + 1*7 = 12\n    assert rd.days == 12\n    assert rd.weeks == 1\n\n\ndef test_relativedelta_weeks_setter__weeks_setter_with_negative_value():\n    rd = relativedelta(days=0)\n    rd.weeks = -2\n    # days become -2 * 7 = -14\n    assert rd.days == -14\n    assert rd.weeks == -2\n\n\ndef test_relativedelta___radd____radd_date_with_relativedelta_positive():\n    \"\"\"date + relativedelta with positive offset should yield a future date.\"\"\"\n    start = datetime.date(2021, 1, 1)\n    delta = relativedelta(days=10)\n    result = start + delta  # triggers relativedelta.__radd__\n    assert result == datetime.date(2021, 1, 11)\n\n\ndef test_relativedelta___radd____radd_datetime_with_relativedelta_negativ():\n    \"\"\"datetime + relativedelta with absolute overrides should produce a past datetime.\"\"\"\n    start = datetime.datetime(2022, 3, 15, 10, 30, 45)\n    # Absolute overrides: set year, month, day explicitly (ignoring relative components)\n    delta = relativedelta(year=2020, month=1, day=1)\n    result = start + delta  # triggers relativedelta.__radd__\n    expected = datetime.datetime(2020, 1, 1, 10, 30, 45)\n    assert result == expected\n\n\ndef test_relativedelta___radd____radd_date_with_relativedelta_month_overf():\n    \"\"\"date + relativedelta where months overflow into the next year.\"\"\"\n    start = datetime.date(2020, 12, 31)\n    delta = relativedelta(months=2)  # should become 2021\u201102\u201128 (Feb has 28 days in 2021)\n    result = start + delta  # triggers relativedelta.__radd__\n    assert result == datetime.date(2021, 2, 28)\n\n\ndef test_relativedelta___radd____radd_unsupported_type_returns_notimpleme():\n    \"\"\"Calling __radd__ with an unsupported left operand should return NotImplemented.\"\"\"\n    delta = relativedelta(days=1)\n    # Directly invoke __radd__ to inspect the return value\n    result = delta.__radd__(5)  # 5 is an int, which relativedelta does not support\n    assert result is NotImplemented\n\n\ndef test_relativedelta___abs____abs_zero_components():\n    \"\"\"relativedelta with all zero components -> same relativedelta.\"\"\"\n    rd = relativedelta()\n    rd_abs = abs(rd)\n\n    # All numeric components should be zero\n    for attr in (\"years\", \"months\", \"days\", \"hours\", \"minutes\", \"seconds\", \"microseconds\"):\n        assert getattr(rd_abs, attr) == 0\n\n    # All explicit components remain at default None / 0\n    assert rd_abs.leapdays == 0\n    assert rd_abs.year is None\n    assert rd_abs.month is None\n    assert rd_abs.day is None\n    assert rd_abs.weekday is None\n    assert rd_abs.hour is None\n    assert rd_abs.minute is None\n    assert rd_abs.second is None\n    assert rd_abs.microsecond is None\n\n\ndef test_relativedelta___abs____abs_with_explicit_components():\n    \"\"\"relativedelta with explicit components -> explicit components remain unchanged.\"\"\"\n    rd = relativedelta(\n        year=2022,\n        month=12,\n        day=31,\n        hour=23,\n        minute=59,\n        second=58,\n        microsecond=123456,\n        leapdays=3,\n        years=-4,\n        months=-5,\n        days=-6,\n        hours=-7,\n        minutes=-8,\n        seconds=-9,\n        microseconds=-10,\n    )\n    rd_abs = abs(rd)\n\n    # Explicit components unchanged\n    assert rd_abs.year == 2022\n    assert rd_abs.month == 12\n    assert rd_abs.day == 31\n    assert rd_abs.hour == 23\n    assert rd_abs.minute == 59\n    assert rd_abs.second == 58\n    assert rd_abs.microsecond == 123456\n    assert rd_abs.leapdays == 3\n\n    # Numeric components become positive\n    assert rd_abs.years == 4\n    assert rd_abs.months == 5\n    assert rd_abs.days == 6\n    assert rd_abs.hours == 7\n    assert rd_abs.minutes == 8\n    assert rd_abs.seconds == 9\n    assert rd_abs.microseconds == 10\n\n\ndef _extract_attrs(rd):\n    \"\"\"Return a dict of the public attributes relevant for testing __neg__.\"\"\"\n    return {\n        \"years\": rd.years,\n        \"months\": rd.months,\n        \"days\": rd.days,\n        \"hours\": rd.hours,\n        \"minutes\": rd.minutes,\n        \"seconds\": rd.seconds,\n        \"microseconds\": rd.microseconds,\n        \"leapdays\": rd.leapdays,\n        \"year\": rd.year,\n        \"month\": rd.month,\n        \"day\": rd.day,\n        \"weekday\": rd.weekday,\n        \"hour\": rd.hour,\n        \"minute\": rd.minute,\n        \"second\": rd.second,\n        \"microsecond\": rd.microsecond,\n    }\n\n\ndef test_relativedelta___neg____neg_positive_components():\n    rd = relativedelta(\n        years=1,\n        months=2,\n        days=3,\n        hours=4,\n        minutes=5,\n        seconds=6,\n        microseconds=7,\n        leapdays=1,\n    )\n    neg = -rd\n    assert isinstance(neg, relativedelta)\n    expected = {\n        \"years\": -1,\n        \"months\": -2,\n        \"days\": -3,\n        \"hours\": -4,\n        \"minutes\": -5,\n        \"seconds\": -6,\n        \"microseconds\": -7,\n        \"leapdays\": 1,  # unchanged\n        \"year\": None,\n        \"month\": None,\n        \"day\": None,\n        \"weekday\": None,\n        \"hour\": None,\n        \"minute\": None,\n        \"second\": None,\n        \"microsecond\": None,\n    }\n    assert _extract_attrs(neg) == expected\n\n\ndef test_relativedelta___neg____neg_negative_components():\n    rd = relativedelta(\n        years=-1,\n        months=-2,\n        days=-3,\n        hours=-4,\n        minutes=-5,\n        seconds=-6,\n        microseconds=-7,\n        leapdays=-1,\n    )\n    neg = -rd\n    assert isinstance(neg, relativedelta)\n    expected = {\n        \"years\": 1,\n        \"months\": 2,\n        \"days\": 3,\n        \"hours\": 4,\n        \"minutes\": 5,\n        \"seconds\": 6,\n        \"microseconds\": 7,\n        \"leapdays\": -1,  # unchanged\n        \"year\": None,\n        \"month\": None,\n        \"day\": None,\n        \"weekday\": None,\n        \"hour\": None,\n        \"minute\": None,\n        \"second\": None,\n        \"microsecond\": None,\n    }\n    assert _extract_attrs(neg) == expected\n\n\ndef test_relativedelta___neg____neg_mixed_components():\n    rd = relativedelta(\n        years=5,\n        months=-3,\n        days=0,\n        hours=-2,\n        minutes=4,\n        seconds=-6,\n        microseconds=0,\n        leapdays=2,\n    )\n    neg = -rd\n    assert isinstance(neg, relativedelta)\n    expected = {\n        \"years\": -5,\n        \"months\": 3,\n        \"days\": 0,\n        \"hours\": 2,\n        \"minutes\": -4,\n        \"seconds\": 6,\n        \"microseconds\": 0,\n        \"leapdays\": 2,  # unchanged\n        \"year\": None,\n        \"month\": None,\n        \"day\": None,\n        \"weekday\": None,\n        \"hour\": None,\n        \"minute\": None,\n        \"second\": None,\n        \"microsecond\": None,\n    }\n    assert _extract_attrs(neg) == expected\n\n\ndef test_relativedelta___neg____neg_zero_components():\n    rd = relativedelta(\n        years=0,\n        months=0,\n        days=0,\n        hours=0,\n        minutes=0,\n        seconds=0,\n        microseconds=0,\n        leapdays=0,\n    )\n    neg = -rd\n    assert isinstance(neg, relativedelta)\n    expected = {\n        \"years\": 0,\n        \"months\": 0,\n        \"days\": 0,\n        \"hours\": 0,\n        \"minutes\": 0,\n        \"seconds\": 0,\n        \"microseconds\": 0,\n        \"leapdays\": 0,\n        \"year\": None,\n        \"month\": None,\n        \"day\": None,\n        \"weekday\": None,\n        \"hour\": None,\n        \"minute\": None,\n        \"second\": None,\n        \"microsecond\": None,\n    }\n    assert _extract_attrs(neg) == expected\n\n\ndef test_relativedelta___neg____neg_with_explicit_components():\n    rd = relativedelta(\n        years=1,\n        months=2,\n        days=3,\n        hours=4,\n        minutes=5,\n        seconds=6,\n        microseconds=7,\n        leapdays=1,\n        year=2021,\n        month=12,\n        day=31,\n        hour=23,\n        minute=59,\n        second=58,\n        microsecond=999999,\n    )\n    neg = -rd\n    assert isinstance(neg, relativedelta)\n    expected = {\n        \"years\": -1,\n        \"months\": -2,\n        \"days\": -3,\n        \"hours\": -4,\n        \"minutes\": -5,\n        \"seconds\": -6,\n        \"microseconds\": -7,\n        \"leapdays\": 1,  # unchanged\n        \"year\": 2021,\n        \"month\": 12,\n        \"day\": 31,\n        \"weekday\": None,\n        \"hour\": 23,\n        \"minute\": 59,\n        \"second\": 58,\n        \"microsecond\": 999999,\n    }\n    assert _extract_attrs(neg) == expected\n\n\ndef test_relativedelta___bool____bool_non_none_explicit_component_true():\n    \"\"\"A relativedelta with any explicit non\u2011None component (e.g., year) should be truthy.\"\"\"\n    rd = relativedelta(year=2022)\n    assert bool(rd) is True\n\n\ndef test_relativedelta___bool____bool_only_leapdays_true():\n    \"\"\"A relativedelta with only leapdays non\u2011zero should be truthy.\"\"\"\n    rd = relativedelta(leapdays=1)\n    assert bool(rd) is True\n\n\ndef test_relativedelta___bool____bool_mixed_components_true():\n    \"\"\"A relativedelta with a mix of zero/None and non\u2011zero/non\u2011None components should be truthy.\"\"\"\n    rd = relativedelta(months=0, days=5, minutes=0, year=None)\n    assert bool(rd) is True\n\n\ndef test_relativedelta___ne____non_relativedelta_operand():\n    # Create a relativedelta instance\n    delta = relativedelta(years=1, months=2, days=3)\n\n    # Create a non-relativedelta operand\n    operand = \"not a relativedelta\"\n\n    # Assert that __ne__ returns False for a non-relativedelta operand\n    assert not (delta != operand)\n\n\ndef test_relativedelta___init____init_diff_mixed_types_negative_coercion():\n    # dt1 is datetime earlier than dt2 which is a date\n    dt1 = datetime.datetime(2020, 1, 1, 12, 0, 0)\n    dt2 = datetime.date(2020, 1, 2)\n\n    rd = relativedelta(dt1, dt2)\n\n    # Expected: -12 hours expressed via normalized fields\n    assert rd.years == 0\n    assert rd.months == 0\n    assert rd.days == 0\n    assert rd.hours == -12\n    assert rd.minutes == 0\n    assert rd.seconds == 0\n    assert rd.microseconds == 0\n    # Time component present => _has_time should be 1\n    assert getattr(rd, \"_has_time\") == 1\n\n\ndef test_relativedelta___hash____equal_objects_same_hash():\n    rd1 = relativedelta(years=2, months=3, days=5, hours=7, minutes=11, seconds=13, microseconds=17)\n    rd2 = relativedelta(years=2, months=3, days=5, hours=7, minutes=11, seconds=13, microseconds=17)\n    expected = hash((None, 2, 3, 5, 7, 11, 13, 17, 0, None, None, None, None, None, None, None))\n    assert hash(rd1) == expected\n    assert hash(rd2) == expected\n\n\ndef test_relativedelta___rsub____rsub_relativedelta_relativedelta():\n    \"\"\"relativedelta.__rsub__(other) where other is also a relativedelta.\"\"\"\n    r1 = relativedelta(years=1, months=2)\n    r2 = relativedelta(days=10, hours=5)\n    result = r2.__rsub__(r1)\n    assert isinstance(result, relativedelta)\n    assert result.years == 1\n    assert result.months == 2\n    assert result.days == -10\n    assert result.hours == -5\n    assert result.minutes == 0\n    assert result.seconds == 0\n    assert result.microseconds == 0\n\n\ndef test_relativedelta___ne____unequal_objects_true():\n    delta1 = relativedelta(years=1, months=2, days=3)\n    delta2 = relativedelta(years=2, months=3, days=4)\n    # Assert that __ne__ returns True for different instances\n    assert (delta1 != delta2) is True\n\n\ndef test_relativedelta___eq____identical_simple():\n    rd1 = relativedelta(\n        years=2,\n        months=3,\n        days=4,\n        hours=5,\n        minutes=6,\n        seconds=7,\n        microseconds=8,\n        leapdays=1,\n        year=2020,\n        month=12,\n        day=31,\n        hour=23,\n        minute=59,\n        second=58,\n        microsecond=999999,\n    )\n    rd2 = relativedelta(\n        years=2,\n        months=3,\n        days=4,\n        hours=5,\n        minutes=6,\n        seconds=7,\n        microseconds=8,\n        leapdays=1,\n        year=2020,\n        month=12,\n        day=31,\n        hour=23,\n        minute=59,\n        second=58,\n        microsecond=999999,\n    )\n    # The equality operator should return the literal True for identical deltas\n    assert (rd1 == rd2) is True\n    # Symmetric case\n    assert (rd2 == rd1) is True\n\n\ndef test_relativedelta___rsub____rsub_datetime_negative_delta():\n    \"\"\"datetime - negative relativedelta should add the absolute delta.\"\"\"\n    dt = datetime.datetime(2021, 3, 14, 15, 9, 26)\n    delta = relativedelta(days=-2, hours=-1)\n    expected = datetime.datetime(2021, 3, 16, 16, 9, 26)\n    result = dt - delta\n    assert result == expected\n\n\ndef test_relativedelta___rsub____rsub_datetime_zero_delta():\n    \"\"\"datetime - zero relativedelta should return the original datetime.\"\"\"\n    dt = datetime.datetime(2021, 3, 14, 15, 9, 26)\n    delta = relativedelta()  # all components zero\n    result = dt - delta\n    assert result == dt\n\n\n@pytest.mark.parametrize(\n    \"init_kwargs\",\n    [\n        {\"years\": -1, \"months\": -2, \"days\": -3, \"hours\": -4, \"minutes\": -5, \"seconds\": -6, \"microseconds\": -7},\n    ],\n)\ndef test_relativedelta___abs____abs_negative_components(init_kwargs):\n    \"\"\"relativedelta with all negative components -> relativedelta with all positive components.\"\"\"\n    rd = relativedelta(**init_kwargs)\n    rd_abs = abs(rd)\n\n    # numeric components must be positive\n    numeric_attrs = (\"years\", \"months\", \"days\", \"hours\", \"minutes\", \"seconds\", \"microseconds\")\n    _assert_attrs_positive(rd_abs, numeric_attrs)\n\n    # explicit (non\u2011numeric) attributes should stay at their defaults (None or 0)\n    assert rd_abs.leapdays == 0\n    assert rd_abs.year is None\n    assert rd_abs.month is None\n    assert rd_abs.day is None\n    assert rd_abs.weekday is None\n    assert rd_abs.hour is None\n    assert rd_abs.minute is None\n    assert rd_abs.second is None\n    assert rd_abs.microsecond is None\n\n\ndef test_relativedelta___hash____different_objects_different_hash():\n    rd1 = relativedelta(years=1, months=0, days=0)\n    rd2 = relativedelta(years=2, months=0, days=0)\n    # Expected hash values derived from the tuple of attributes used by __hash__\n    expected1 = hash((None, 1, 0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None))\n    expected2 = hash((None, 2, 0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None))\n    assert hash(rd1) == expected1\n    assert hash(rd2) == expected2",
+  "duration_s": 764.0,
+  "run_id": "36770337e12b",
+  "llm_by_role": {
+    "preparer": {
+      "gemini/gemini-2.5-flash": 2,
+      "gemini/gemini-3.5-flash": 1
+    },
+    "generator": {
+      "mistral/codestral-2508": 2,
+      "cloudflare/@cf/openai/gpt-oss-120b": 10,
+      "ollama_chat/gpt-oss:120b": 5
+    },
+    "judge": {
+      "cloudflare/@cf/openai/gpt-oss-20b": 8,
+      "groq/openai/gpt-oss-20b": 13,
+      "mistral/ministral-14b-2512": 8,
+      "gemini/gemini-3.5-flash-lite": 6,
+      "zai/glm-4.5-flash": 4
+    },
+    "fixer": {
+      "mistral/codestral-2508": 17,
+      "ollama_chat/gpt-oss:120b": 3,
+      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 13
+    }
+  },
+  "runs_per_day": 9,
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      477.7,
+      83.4,
+      71.7
+    ],
+    [
+      677.3,
+      86.7,
+      78.3
+    ]
+  ],
+  "llm_calls": 92,
+  "llm_tokens": 198239,
+  "models": [
+    "cloudflare/@cf/openai/gpt-oss-120b",
+    "cloudflare/@cf/openai/gpt-oss-20b",
+    "gemini/gemini-2.5-flash",
+    "gemini/gemini-3.5-flash",
+    "gemini/gemini-3.5-flash-lite",
+    "groq/openai/gpt-oss-20b",
+    "mistral/codestral-2508",
+    "mistral/ministral-14b-2512",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "ollama_chat/gpt-oss:120b",
+    "zai/glm-4.5-flash"
+  ],
+  "wall_s": 764.2,
+  "coverage_counting": "statements",
+  "subject": "dateutil_relativedelta",
+  "level": "hard",
+  "tool": "autocover",
+  "repeat": 1,
+  "budget_min": 15,
+  "finished": "2026-09-30 11:16:16"
+}

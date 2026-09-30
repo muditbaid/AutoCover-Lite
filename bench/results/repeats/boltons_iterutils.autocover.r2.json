@@ -1,0 +1,167 @@
+{
+  "target": "boltons/iterutils.py",
+  "test_path": "tests/test_iterutils_autocover.py",
+  "rounds": 1,
+  "baseline": {
+    "line_pct": 15.0,
+    "branch_pct": 0.3,
+    "lines_covered": 85,
+    "lines_total": 565,
+    "branches_covered": 1,
+    "branches_total": 308
+  },
+  "final": {
+    "line_pct": 90.4,
+    "branch_pct": 86.0,
+    "lines_covered": 511,
+    "lines_total": 565,
+    "branches_covered": 265,
+    "branches_total": 308
+  },
+  "mutation": {
+    "killed": 103,
+    "total": 150,
+    "score_pct": 68.7,
+    "reused_kills": 95,
+    "survivors": [
+      "line 746 (bucketize): 'expected key to be callable or a string or a list' -> ''",
+      "line 801 (partition): return value -> None",
+      "line 964 (one): 2 -> 3",
+      "line 1094 (default_exit): % -> //",
+      "line 1094 (default_exit): 'unexpected iterable type: %r' -> ''",
+      "line 1103 (remap): True -> False",
+      "line 1240 (remap): '-' -> ''",
+      "line 1241 (remap): '-' -> ''",
+      "line 1293 (remap): ' .. remap visit result:' -> ''",
+      "line 1300 (remap): % -> //",
+      "line 1375 (get_path): % -> //",
+      "line 1385 (research): False -> True",
+      "line 1430 (research): 'query expected callable, not: %r' -> ''",
+      "line 1582 (soft_sorted): or -> and",
+      "line 1639 (None): '\\nMay actually be faster to do an isinstance check for a str path\\n\\n$ python -m timeit -s \"x = [1]\" \"x[0]\"\\n10000000 loops, best of 3: 0.0207 usec per loop\\n$ python -m timeit -s \"x = [1]\" \"try: x[0] \\nexcept: pass\"\\n10000000 loops, best of 3: 0.029 usec per loop\\n$ python -m timeit -s \"x = [1]\" \"try: x[1] \\nexcept: pass\"\\n1000000 loops, best of 3: 0.315 usec per loop\\n# setting up try/except is fast, only around 0.01us\\n# actually triggering the exception takes almost 10x as long\\n\\n$ python -m timeit -s \"x = [1]\" \"isinstance(x, basestring)\"\\n10000000 loops, best of 3: 0.141 usec per loop\\n$ python -m timeit -s \"x = [1]\" \"isinstance(x, str)\"\\n10000000 loops, best of 3: 0.131 usec per loop\\n$ python -m timeit -s \"x = [1]\" \"try: x.split(\\'.\\')\\n except: pass\"\\n1000000 loops, best of 3: 0.443 usec per loop\\n$ python -m timeit -s \"x = [1]\" \"try: x.split(\\'.\\') \\nexcept AttributeError: pass\"\\n1000000 loops, best of 3: 0.544 usec per loop\\n' -> ''",
+      "line 54 (None): '_UNSET' -> ''",
+      "line 55 (None): '_REMAP_EXIT' -> ''",
+      "line 331 (chunked_iter): 'expected an iterable' -> ''",
+      "line 361 (chunk_ranges): 0 -> 1",
+      "line 391 (chunk_ranges): 'chunk_size' -> ''"
+    ]
+  },
+  "tests_in_suite": 75,
+  "candidates": 253,
+  "accepted": 75,
+  "accepted_by": {
+    "coverage": 74,
+    "mutants": 1
+  },
+  "accepted_after_fix": 0,
+  "sent_to_fixer": 0,
+  "rejected_no_signal": 113,
+  "frozen": 0,
+  "superseded": 0,
+  "weak_kept": 11,
+  "failed": 56,
+  "rule_violations": {
+    "literal_oracle": 3
+  },
+  "removed_in_suite_check": [],
+  "removed_flaky": [],
+  "stopped_by": "time budget",
+  "llm_budget": {
+    "calls": 65,
+    "tokens": 145166,
+    "max_calls": 200,
+    "max_tokens": null
+  },
+  "scenarios_total": 108,
+  "scenarios_covered": 31,
+  "llm": {
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": {
+      "calls": 8,
+      "tokens": 23344,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "groq/openai/gpt-oss-120b": {
+      "calls": 7,
+      "tokens": 13807,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "gemini/gemini-2.5-flash": {
+      "calls": 1,
+      "tokens": 7918,
+      "roles": [
+        "preparer"
+      ]
+    },
+    "mistral/codestral-2508": {
+      "calls": 16,
+      "tokens": 27415,
+      "roles": [
+        "generator"
+      ]
+    },
+    "ollama_chat/gpt-oss:120b": {
+      "calls": 8,
+      "tokens": 24640,
+      "roles": [
+        "generator"
+      ]
+    },
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": {
+      "calls": 25,
+      "tokens": 48042,
+      "roles": [
+        "generator"
+      ]
+    }
+  },
+  "suite": "import random\n\nimport pytest\nfrom boltons.iterutils import (\n    GUIDerator,\n    PathAccessError,\n    backoff,\n    backoff_iter,\n    bucketize,\n    chunk_ranges,\n    chunked,\n    chunked_iter,\n    default_enter,\n    default_exit,\n    default_visit,\n    first,\n    flatten,\n    frange,\n    get_path,\n    is_collection,\n    lstrip,\n    one,\n    pairwise,\n    pairwise_iter,\n    partition,\n    redundant,\n    remap,\n    research,\n    rstrip,\n    rstrip_iter,\n    same,\n    split,\n    split_iter,\n    strip,\n    unique,\n    unique_iter,\n    untyped_sorted,\n    windowed_iter,\n)\n\n\ndef test_research__basic():\n    root = {'a': {'b': 1, 'c': (2, 'd', 3)}, 'e': None}\n    res = research(root, query=lambda p, k, v: isinstance(v, int))\n    assert sorted(res) == [(('a', 'b'), 1), (('a', 'c', 0), 2), (('a', 'c', 2), 3)]\n\n\ndef test_chunked__basic():\n    src = range(10)\n    size = 3\n    # Default case: count is None\n    assert chunked(src, size) == [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]\n    # Case where count is provided\n    assert chunked(src, size, count=2) == [[0, 1, 2], [3, 4, 5]]\n\n\ndef test_backoff__basic():\n    # Typical valid input (happy path)\n    assert backoff(1, 10) == [1.0, 2.0, 4.0, 8.0, 10.0]\n    # Ensure the 'repeat' branch is exercised and raises the expected error\n    with pytest.raises(ValueError) as excinfo:\n        backoff(1, 10, count='repeat')\n    assert str(excinfo.value) == \"'repeat' supported in backoff_iter, not backoff\"\n\n\ndef test_split_iter__cover_maxsplit_limit():\n    \"\"\"When maxsplit is reached, further separators are ignored.\"\"\"\n    src = [1, None, 2, None, 3, None, 4]\n    # sep=None groups separators; limit to 2 splits\n    result = list(split_iter(src, maxsplit=2))\n    # After two splits, remaining None is treated as a normal element\n    assert result == [[1], [2], [3, None, 4]]\n\n\n# 734\u2011737 and 752\u2011754: key as list, matching length, value_transform applied to values\ndef test_bucketize__cover_key_list_and_value_transform():\n    src = [1, 2, 3, 4]\n    keys = [0, 1, 0, 1]\n    # value_transform doubles the original value (second element of the zipped pair)\n    result = bucketize(src, key=keys, value_transform=lambda x: x * 2)\n    assert result == {0: [2, 6], 1: [4, 8]}\n\n\ndef test_redundant__cover_2():\n    # Test with callable key to cover lines 906-907\n    src = ['hi', 'Hi', 'HI', 'hello']\n    key = str.lower\n    expected = ['Hi']\n    assert redundant(src, key=key) == expected\n\n\ndef test_strip__basic():\n    assert strip(['Fu', 'Foo', 'Bar', 'Bam', 'Fu'], 'Fu') == ['Foo', 'Bar', 'Bam']\n\n\ndef test_get_path__cover_7():\n    root = {'a': {'b': {'c': [[1], [2], [3]]}}}\n    assert get_path(root, ('a', 'b', 'c', 2, 'x'), default='default') == 'default'\n\n\ndef test_partition__basic():\n    # Test with a typical valid input and expected return value\n    src = ['', '', 'hi', '', 'bye']\n    nonempty, empty = partition(src)\n    assert nonempty == ['hi', 'bye']\n    assert empty == ['', '', '']\n\n\ndef test_chunk_ranges__cover_5():\n    result = list(chunk_ranges(input_size=10, chunk_size=4, overlap_size=1, align=True))\n    assert result == [(0, 4), (3, 7), (6, 10)]\n\n\ndef test_untyped_sorted__heterogeneous_unorderable_types():\n    result = untyped_sorted([3, 'apple', 2, 'banana'])\n    assert result == [2, 3, 'apple', 'banana']\n\n\ndef test_unique__basic():\n    # Test with a typical valid input\n    input_str = '11010110001010010101010'\n    expected_output = ['1', '0']\n    assert unique(input_str) == expected_output\n\n\ndef test_frange__cover_1():\n    assert frange(6, step=1.25) == [0.0, 1.25, 2.5, 3.75, 5.0]\n\n\ndef test_pairwise__normal_sequence():\n    assert list(pairwise(range(4))) == [(0, 1), (1, 2), (2, 3)]\n\n\ndef test_remap__reraise_false():\n    \"\"\"When reraise_visit=False, exceptions from visit are ignored and the item is kept.\"\"\"\n    def bad_visit(path, k, v):\n        if k == \"bad\":\n            raise ValueError(\"boom\")\n        return (k, v)\n\n    data = {\"good\": 1, \"bad\": 2}\n    result = remap(data, visit=bad_visit, reraise_visit=False)\n    # The 'bad' entry should be unchanged because the exception is suppressed.\n    assert result == {\"good\": 1, \"bad\": 2}\n\n\ndef test_soft_sorted__basic():\n    from boltons.iterutils import soft_sorted\n\n    # Typical valid input with non\u2011empty first and last, and key=None (default)\n    result = soft_sorted(['c', 'b', 'a'], first=['a'], last=['c'])\n    assert result == ['a', 'b', 'c']\n\n\ndef test_pairwise_iter__with_end_sentinel_iter():\n    assert list(pairwise_iter([5, 6], end='x')) == [(5, 6), (6, 'x')]\n\n\ndef test_flatten__basic():\n    nested = [[1, 2], [[3], [4, 5]]]\n    assert flatten(nested) == [1, 2, 3, 4, 5]\n\n\ndef test_backoff_iter__cover_jitter_positive(monkeypatch):\n    \"\"\"Positive jitter should reduce the yielded value.\"\"\"\n    # Force random.random() to return 0.5 for deterministic output\n    monkeypatch.setattr(random, \"random\", lambda: 0.5)\n    result = list(backoff_iter(2, 10, jitter=1.0, count=3))\n    # cur values would be 2, 4, 8 (capped at 10). With jitter=1 and rand=0.5,\n    # each yielded value is cur - cur*1*0.5 = cur*0.5\n    assert result == [1.0, 2.0, 4.0]\n\n\ndef test_same__basic():\n    # Typical valid input where all items are equal -> True\n    assert same([1, 1, 1]) is True\n\n\ndef test_remap__trace_str(capsys):\n    # Only 'enter' events should be printed.\n    remap([1, 2], trace=\"enter\")\n    captured = capsys.readouterr().out\n    assert \"enter\" in captured\n    # No 'visit' or 'exit' markers.\n    assert \"visit\" not in captured\n    assert \"exit\" not in captured\n\n\n# 739\u2011740: key as string attribute\ndef test_bucketize__cover_key_string():\n    # complex numbers have a .real attribute\n    src = [1 + 1j, 2 + 2j, 1, 2]\n    result = bucketize(src, key='real')\n    expected = {\n        1.0: [(1 + 1j), 1],\n        2.0: [(2 + 2j), 2],\n    }\n    assert result == expected\n\n\ndef test_rstrip_iter__cover_2():\n    input_iterable = ['Foo', 'Bar', 'Bam', 'Baz']\n    strip_value = 'Bam'\n    expected_output = ['Foo', 'Bar', 'Bam', 'Baz']\n    assert list(rstrip_iter(input_iterable, strip_value)) == expected_output\n\n\ndef test_chunked_iter__bytes_chunks():\n    src = b\"abcdef\"\n    result = list(chunked_iter(src, 2))\n    assert result == [b\"ab\", b\"cd\", b\"ef\"]\n\n\ndef test_unique_iter__cover_3():\n    class TestObject:\n        def __init__(self, value):\n            self.value = value\n    objects = [TestObject(1), TestObject(2), TestObject(3)]\n    assert list(unique_iter(objects, key='value')) == objects\n\n\ndef test_get_path__cover_1():\n    root = {'a': {'b': {'c': [[1], [2], [3]]}}}\n    assert get_path(root, 'a.b.c.2.0') == 3\n\n\ndef test_default_exit__cover_3():\n    # Test with a set as new_parent\n    path = ['a', 'b']\n    key = 'c'\n    old_parent = {1, 2}\n    new_parent = {1, 2}\n    new_items = [(2, 3), (3, 4)]\n    result = default_exit(path, key, old_parent, new_parent, new_items)\n    assert result == {1, 2, 3, 4}\n\n\ndef test_one__basic():\n    # Typical valid input: exactly one truthy element -> returns that element\n    assert one([True, False, False]) is True\n\n\ndef test_redundant__cover_5():\n    # Test with groups=True to cover lines 921-922\n    src = [1, 2, 3, 2, 3, 3, 4]\n    expected = [[2, 2], [3, 3, 3]]\n    assert redundant(src, groups=True) == expected\n\n\ndef test_split__split_default_none_sep():\n    src = ['hi', 'hello', None, None, 'sup', None, 'soap', None]\n    expected = [['hi', 'hello'], ['sup'], ['soap']]\n    assert split(src) == expected\n\n\ndef test_GUIDerator___init____cover_1():\n    \"\"\"Invalid sizes should raise the expected ValueError.\"\"\"\n    for bad_size in (19, 37, -5, 0):\n        with pytest.raises(ValueError) as excinfo:\n            GUIDerator(size=bad_size)\n        assert str(excinfo.value) == 'expected 20 <= size <= 36'\n\n\ndef test_backoff_iter__cover_factor_one_start_not_stop():\n    \"\"\"When count is None, factor == 1.0 and start != stop raises.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 2, factor=1.0))\n    assert \"expected factor > 1.0 when count is None\" in str(exc.value)\n\n\ndef test_redundant__cover_4():\n    # Test with invalid key type to cover line 911\n    src = [1, 2, 3, 2, 3, 3, 4]\n    key = 123\n    try:\n        redundant(src, key=key)\n    except TypeError as e:\n        assert str(e) == '\"key\" expected a string or callable, not 123'\n\n\ndef test_frange__cover_3():\n    assert frange(5, 0) == []\n\n\ndef test_split_iter__split_iter_iterable_sep():\n    \"\"\"Iterable separator (multiple values) splits on any of them.\"\"\"\n    src = [1, 0, 3, 2, 4, 5, 0, 6]\n    result = list(split_iter(src, sep=[0, 2]))\n    assert result == [[1], [3], [4, 5], [6]]\n\n\ndef test_remap__basic():\n    \"\"\"Happy path \u2013 remove all None values from a nested mapping.\"\"\"\n    data = {\n        \"Star Trek\": {\"TNG\": 10, \"DS9\": 8.5, \"ENT\": None},\n        \"Babylon 5\": 6,\n        \"Dr. Who\": None,\n    }\n    result = remap(data, lambda path, k, v: v is not None)\n    expected = {\"Star Trek\": {\"TNG\": 10, \"DS9\": 8.5}, \"Babylon 5\": 6}\n    assert result == expected\n\n\n# 750\u2011751: non\u2011callable value_transform raises TypeError\ndef test_bucketize__cover_invalid_value_transform():\n    with pytest.raises(TypeError) as exc:\n        bucketize([1, 2, 3], value_transform=42)  # not callable\n    assert \"expected callable value transform function\" in str(exc.value)\n\n\ndef test_windowed_iter__fill_unset_short_iter():\n    result = list(windowed_iter(range(1), 3))\n    assert result == []\n\n\ndef test_PathAccessError___repr____basic():\n    exc = KeyError('missing')\n    seg = 'foo'\n    path = ('bar', 'baz')\n    err = PathAccessError(exc, seg, path)\n    expected = f\"PathAccessError({exc!r}, {seg!r}, {path!r})\"\n    assert repr(err) == expected\n\n\ndef test_is_collection__non_collection_int():\n    assert is_collection(42) is False\n\n\ndef test_PathAccessError___str____basic():\n    exc = KeyError('missing')\n    seg = 'foo'\n    path = ('bar', 'baz')\n    err = PathAccessError(exc, seg, path)\n    expected = (\"could not access %r from path %r, got error: %r\" % (seg, path, exc))\n    assert str(err) == expected\n\n\ndef test_backoff_iter__cover_start_negative():\n    \"\"\"start < 0 should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(-0.1, 5))\n    assert \"expected start >= 0\" in str(exc.value)\n\n\ndef test_chunked_iter__uneven_last_chunk_with_fill():\n    src = list(range(5))\n    result = list(chunked_iter(src, 3, fill=None))\n    assert result == [[0, 1, 2], [3, 4, None]]\n\n\ndef test_chunked_iter__invalid_size_zero():\n    with pytest.raises(ValueError) as exc:\n        list(chunked_iter([1, 2, 3], 0))\n    assert \"expected a positive integer chunk size\" in str(exc.value)\n\n\ndef test_chunked_iter__unexpected_kw():\n    with pytest.raises(ValueError) as exc:\n        list(chunked_iter([1, 2, 3], 2, unexpected=123))\n    assert \"got unexpected keyword arguments\" in str(exc.value)\n\n\ndef test_split_iter__error_non_iterable_src():\n    \"\"\"Non\u2011iterable source should raise TypeError.\"\"\"\n    with pytest.raises(TypeError) as exc:\n        list(split_iter(123))  # int is not iterable\n    assert \"expected an iterable\" in str(exc.value)\n\n\ndef test_split_iter__split_iter_maxsplit_zero():\n    \"\"\"maxsplit=0 yields the whole source as a single list.\"\"\"\n    src = [1, 2, 3, None, 4]\n    result = list(split_iter(src, maxsplit=0))\n    assert result == [list(src)]\n\n\ndef test_untyped_sorted__non_callable_key():\n    try:\n        untyped_sorted([1, 2, 3], key=42)\n    except TypeError as e:\n        assert str(e) == \"expected function or callable object for key, not: 42\"\n\n\ndef test_default_enter__cover_4():\n    \"\"\"Set branch -> returns empty set and enumerate iterator.\"\"\"\n    path = None\n    key = \"k\"\n    value = {1, 2, 3}\n    result = default_enter(path, key, value)\n    assert result[0] == value.__class__()  # empty set\n    assert isinstance(result[1], enumerate)\n    assert list(result[1]) == list(enumerate(value))\n\n\ndef test_lstrip__lstrip_all_matching_values():\n    # every element matches strip_value; result should be empty list\n    src = ['X', 'X', 'X']\n    result = lstrip(src, 'X')\n    assert isinstance(result, list)\n    assert result == []\n\n\ndef test_rstrip__cover_2():\n    # Test with iterable containing only the strip_value\n    input_list = ['Bam', 'Bam']\n    strip_value = 'Bam'\n    expected_output = []\n    assert rstrip(input_list, strip_value) == expected_output\n\n\ndef test_remap__enter_return_not_tuple():\n    \"\"\"Enter returning a non\u2011tuple should raise a TypeError.\"\"\"\n    def bad_enter(path, k, v):\n        return 5  # not a (parent, iterator) tuple\n\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], enter=bad_enter)\n    assert \"enter should return a tuple of (new_parent,\" in str(exc.value)\n\n\ndef test_default_visit__basic():\n    # Test with typical valid input\n    path = ['a', 'b']\n    key = 'c'\n    value = 42\n    assert default_visit(path, key, value) == ('c', 42)\n\n\ndef test_remap__noncallable_visit():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], visit=42)\n    assert \"visit expected callable\" in str(exc.value)\n\n\ndef test_remap__noncallable_enter():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], enter=object())\n    assert \"enter expected callable\" in str(exc.value)\n\n\ndef test_remap__noncallable_exit():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], exit=123)\n    assert \"exit expected callable\" in str(exc.value)\n\n\ndef test_remap__unexpected_kwargs():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], foo=\"bar\")\n    assert \"unexpected keyword arguments\" in str(exc.value)\n\n\ndef test_remap__trace_invalid_type():\n    with pytest.raises(TypeError) as exc:\n        remap([1, 2, 3], trace=123)\n    assert \"trace expected tuple of event names\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_factor_too_small():\n    \"\"\"factor < 1.0 should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, factor=0.9))\n    assert \"expected factor >= 1.0\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_stop_zero():\n    \"\"\"stop == 0.0 should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(0, 0))\n    assert \"expected stop >= 0\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_stop_less_than_start():\n    \"\"\"stop < start should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(5, 1))\n    assert \"expected stop >= start\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_negative_count():\n    \"\"\"Negative count (non\u2011repeat) should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, count=-3))\n    assert \"count must be positive or \\\"repeat\\\"\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_jitter_out_of_bounds():\n    \"\"\"jitter outside [-1, 1] should raise ValueError.\"\"\"\n    with pytest.raises(ValueError) as exc:\n        list(backoff_iter(1, 5, jitter=2))\n    assert \"expected jitter -1 <= j <= 1\" in str(exc.value)\n\n\ndef test_backoff_iter__cover_start_zero():\n    \"\"\"When start == 0, the generator should emit 0 then switch to 1.\"\"\"\n    result = list(backoff_iter(0, 5, factor=2, count=4))\n    # Expected: 0 (first), then cur becomes 1, then 1, 2, 4 (capped at stop 5)\n    assert result == [0.0, 1.0, 2.0, 4.0]\n\n\ndef test_split_iter__split_iter_callable_sep():\n    \"\"\"Callable separator splits when the callable returns True.\"\"\"\n    # split on falsy values (None, '', 0, False)\n    src = ['hi', None, 'hello', '', 'sup', False, 'end']\n    falsy_sep = lambda x: not x\n    result = list(split_iter(src, sep=falsy_sep))\n    assert result == [['hi'], ['hello'], ['sup'], ['end']]\n\n\n# 732\u2011733: non\u2011iterable source raises TypeError\ndef test_bucketize__cover_not_iterable():\n    with pytest.raises(TypeError) as exc:\n        bucketize(123)  # int is not iterable\n    assert \"expected an iterable\" in str(exc.value)\n\n\n# 734\u2011736: key list length mismatch raises ValueError\ndef test_bucketize__cover_key_list_length_mismatch():\n    src = [1, 2, 3]\n    keys = [0, 1]  # shorter than src\n    with pytest.raises(ValueError) as exc:\n        bucketize(src, key=keys)\n    assert \"key and src have to be the same length\" in str(exc.value)\n\n\ndef test_unique_iter__cover_2():\n    assert list(unique_iter([1, 2, 3], key=lambda x: x)) == [1, 2, 3]\n\n\ndef test_frange__cover_5():\n    try:\n        frange(5, step=0)\n    except ValueError as e:\n        assert str(e) == 'step must be non-zero'\n\n\ndef test_chunked_iter__string_chunks():\n    src = \"abcdef\"\n    result = list(chunked_iter(src, 2))\n    assert result == [\"ab\", \"cd\", \"ef\"]\n\n\ndef test_get_path__cover_6():\n    root = {'a': {'b': {'c': [[1], [2], [3]]}}}\n    assert get_path(root, ('a', 'b', 'c', 2, 1), default='default') == 'default'\n\n\ndef test_chunk_ranges__cover_1():\n    result = list(chunk_ranges(input_size=0, chunk_size=4))\n    assert result == []\n\n\ndef test_split__split_maxsplit_reached():\n    src = ['a', 'b', 'c', 'b', 'd']\n    sep = 'b'\n    expected = [['a'], ['c', 'b', 'd']]\n    assert split(src, sep=sep, maxsplit=1) == expected\n\n\ndef test_first__basic():\n    # Typical valid input: returns the first truthy element.\n    assert first([0, False, None, [], (), 42]) == 42\n\n\n# 759\u2011760: key_filter excludes certain buckets\ndef test_bucketize__cover_key_filter():\n    src = range(6)\n    result = bucketize(src, key=lambda x: x % 3, key_filter=lambda k: k != 1)\n    # bucket 1 should be omitted\n    assert result == {0: [0, 3], 2: [2, 5]}",
+  "duration_s": 1053.5,
+  "run_id": "f1d6cdf38bfd",
+  "llm_by_role": {
+    "preparer": {
+      "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b": 8,
+      "groq/openai/gpt-oss-120b": 7,
+      "gemini/gemini-2.5-flash": 1
+    },
+    "generator": {
+      "mistral/codestral-2508": 16,
+      "ollama_chat/gpt-oss:120b": 8,
+      "nvidia_nim/nvidia/nemotron-3-super-120b-a12b": 25
+    }
+  },
+  "runs_per_day": 9,
+  "curve": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      1005.8,
+      90.4,
+      86.0
+    ]
+  ],
+  "llm_calls": 65,
+  "llm_tokens": 145166,
+  "models": [
+    "gemini/gemini-2.5-flash",
+    "groq/openai/gpt-oss-120b",
+    "mistral/codestral-2508",
+    "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
+    "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+    "ollama_chat/gpt-oss:120b"
+  ],
+  "wall_s": 1053.6,
+  "coverage_counting": "statements",
+  "subject": "boltons_iterutils",
+  "level": "hard",
+  "tool": "autocover",
+  "repeat": 2,
+  "budget_min": 15,
+  "finished": "2026-09-30 12:09:47"
+}
