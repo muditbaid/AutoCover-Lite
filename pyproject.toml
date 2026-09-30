@@ -47,5 +47,10 @@ extend-exclude = ["examples"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# Tests written by AutoCover-Lite compare against literal expected values, which can be
+# long strings; wrapping them would make the expected output harder to read.
+"tests/*_autocover.py" = ["E501"]
+
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["typer.Argument", "typer.Option"]
