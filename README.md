@@ -24,7 +24,7 @@ so stronger (paid) models plug in without code changes: see
 | 3. Quality loop | Validator (rules, mutation, scenario judge) + Fixer with rollback | ✅ done |
 | 4. Scale & ops | Batched sandbox runs, budgets, flaky reruns, run reports | ✅ done |
 | 5. Benchmark | 9 subjects vs a single-prompt baseline; `results.md` | ✅ done |
-| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | write-up ✅; Action built (`action.yml`), not yet run on a real PR |
+| 6. Shipping | GitHub Action that opens test PRs; architecture write-up | ✅ done ([first bot PR](https://github.com/muditbaid/AutoCover-Lite/pull/2)) |
 
 ## Benchmark
 
@@ -158,8 +158,6 @@ Known open items:
   function per call would cut calls roughly in half.
 - **Not yet benchmarked**: the last two fixes (quota race on concurrent calls, a
   hanging test costing its timeout three times), both covered by tests.
-- **GitHub Action** (`action.yml`): built, its helpers unit-tested, not yet run on a real
-  pull request; it needs a repository with the API keys as secrets.
 - **Scope**: Python, one module per run, pytest; mutants capped at 150 per module.
 
 ## How a run works
@@ -377,7 +375,13 @@ review instead of having to be written. Copy
 `.github/workflows/` in the target repository and add the API keys as repository
 secrets; GitHub-hosted runners include Docker for the sandbox. Inputs cap the cost per
 pull request (`max-modules`, `budget-min`, `max-llm-calls`), and `config` points at a
-config with other models. Status: built, not yet run on a real pull request.
+config with other models.
+
+This repository runs it on itself ([`.github/workflows/autocover.yml`](.github/workflows/autocover.yml)),
+on demand: label a pull request `autocover`, or start it from the Actions tab. The first
+run, on a pull request touching `src/autocover/ci.py`, took 6 minutes and opened
+[a follow-up pull request](https://github.com/muditbaid/AutoCover-Lite/pull/2) from `github-actions[bot]` with 23 tests: coverage of
+`ci.py` 31% -> 100% of lines and branches, mutation score 66%, all passing.
 
 ## Quickstart
 
