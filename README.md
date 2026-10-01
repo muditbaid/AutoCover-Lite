@@ -33,7 +33,7 @@ generated for one module at a time; the module's code is sent to the configured 
 providers, and free tiers may use prompts for training, so use it on code you may share.
 
 ```bash
-pip install "git+https://github.com/muditbaid/AutoCover-Lite"
+pipx install autocover-lite       # or: pip install autocover-lite
 cd your-repo
 autocover init                  # writes autocover.yaml and .env.example; ignores .env, .autocover/
 cp .env.example .env            # add the API keys you have: models without a key are skipped
@@ -41,6 +41,8 @@ autocover doctor                # checks keys, Docker and the config
 autocover run . src/yourpkg/module.py      # writes tests/test_module_autocover.py
 ```
 
+- **Latest code** instead of a release:
+  `pip install "git+https://github.com/muditbaid/AutoCover-Lite"`.
 - **Settings**: `autocover.yaml` (model chains, limits, budgets, sandbox). Without one,
   the built-in free-tier defaults are used. For paid models see
   [Plugging in better models](#plugging-in-better-models).
@@ -436,6 +438,16 @@ docker compose up -d jaeger
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # ...run a command, then open http://localhost:16686 (service: autocover-lite)
 ```
+
+### Releasing
+
+1. Bump `__version__` in `src/autocover/__init__.py` (the package version comes from it)
+   and add the release to `CHANGELOG.md`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. [`.github/workflows/release.yml`](.github/workflows/release.yml) runs the tests,
+   checks that the tag matches the version, builds the package and publishes it to PyPI
+   through trusted publishing (no token stored). `autocover init --workflow` pins the
+   GitHub Action to the same tag.
 
 ## Tests
 

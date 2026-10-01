@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 
+from autocover import __version__
 from autocover.config import DEFAULT_CONFIG, PROJECT_CONFIG, find_config, load_config
 from autocover.llm.router import PROVIDER_KEY_ENV, AllModelsFailed, provider_of
 from autocover.runtime import build_runtime, load_dotenv
@@ -22,8 +23,17 @@ ConfigOpt = typer.Option(
     help=f"Config file (default: ./{PROJECT_CONFIG} if present, else the built-in defaults)")
 
 
+def _show_version(value: bool) -> None:
+    if value:
+        typer.echo(f"autocover-lite {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
-def _main() -> None:
+def _main(
+    version: bool = typer.Option(False, "--version", callback=_show_version, is_eager=True,
+                                 help="Show the version and exit."),
+) -> None:
     load_dotenv()
 
 
@@ -61,9 +71,10 @@ def init(
     write(Path(".env.example"),
           "# Copy to .env and fill in the keys you have; models without a key are skipped.\n"
           "# Never commit .env.\n" + "".join(f"{k}=\n" for k in keys))
-    if workflow:
+    if workflow:  # CI runs the same release of the action as this CLI
+        template = (TEMPLATES / "autocover-workflow.yml").read_text(encoding="utf-8")
         write(Path(".github/workflows/autocover.yml"),
-              (TEMPLATES / "autocover-workflow.yml").read_text(encoding="utf-8"))
+              template.replace("{{AUTOCOVER_VERSION}}", f"v{__version__}"))
     gitignore = Path(".gitignore")
     lines = gitignore.read_text(encoding="utf-8").splitlines() if gitignore.exists() else []
     missing = [line for line in GITIGNORE_LINES if line not in lines]

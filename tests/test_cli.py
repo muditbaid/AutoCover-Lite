@@ -54,8 +54,11 @@ def test_init_sets_up_a_repository(tmp_path, monkeypatch):
     env = (tmp_path / ".env.example").read_text(encoding="utf-8").splitlines()
     assert "OLLAMA_API_KEY=" in env and "CLOUDFLARE_ACCOUNT_ID=" in env
     assert all(line.endswith("=") for line in env if not line.startswith("#"))  # no values
-    assert "uses: muditbaid/AutoCover-Lite@" in (
-        tmp_path / ".github" / "workflows" / "autocover.yml").read_text(encoding="utf-8")
+    from autocover import __version__
+
+    workflow = (tmp_path / ".github" / "workflows" / "autocover.yml").read_text(encoding="utf-8")
+    assert f"uses: muditbaid/AutoCover-Lite@v{__version__}" in workflow  # CI = CLI version
+    assert "AUTOCOVER_VERSION" not in workflow
     ignore = (tmp_path / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ignore.count(".env") == 1 and ".autocover/" in ignore
 
@@ -63,3 +66,10 @@ def test_init_sets_up_a_repository(tmp_path, monkeypatch):
     again = runner.invoke(app, ["init"])
     assert "exists, kept: autocover.yaml" in again.output  # never overwrites without --force
     assert load_config().run.budget_min == 3
+
+
+def test_version_flag():
+    from autocover import __version__
+
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0 and result.output.strip() == f"autocover-lite {__version__}"

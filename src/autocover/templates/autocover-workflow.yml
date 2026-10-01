@@ -21,7 +21,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}   # the branch itself, not the merge commit
           fetch-depth: 0
-      - uses: muditbaid/AutoCover-Lite@main
+      - uses: muditbaid/AutoCover-Lite@{{AUTOCOVER_VERSION}}   # `autocover init` fills in its own version
         with:
           budget-min: "10"
           max-modules: "3"

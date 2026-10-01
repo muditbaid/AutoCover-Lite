@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autocover-lite"
-version = "0.1.0"
+dynamic = ["version"]  # from src/autocover/__init__.py
 description = "Multi-agent Python test generator with coverage, scenario and mutation quality gates"
-readme = "README.md"
+readme = "docs/pypi.md"  # the PyPI page; README.md uses repository-relative links
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Mudit Baid" }]
@@ -50,8 +50,17 @@ dev = []
 [project.scripts]
 autocover = "autocover.cli:app"
 
+[tool.hatch.version]
+path = "src/autocover/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/autocover"]
+
+[tool.hatch.build.targets.sdist]
+# Source and tests only: benchmark subjects and results stay in the repository.
+include = ["src", "tests", "examples/ticket_price", "examples/config.paid.yaml",
+           "README.md", "CHANGELOG.md", "LICENSE", "action.yml", "pyproject.toml",
+           "docs/pypi.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

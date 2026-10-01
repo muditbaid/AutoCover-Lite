@@ -1,0 +1,56 @@
+# Publish to PyPI when a version tag is pushed: bump __version__ in
+# src/autocover/__init__.py, update CHANGELOG.md, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+# Publishing uses PyPI trusted publishing (pypi.org -> Publishing): no API token is stored.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest   # includes Docker, so the sandbox tests run too
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: pytest -q
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The tag must match the package version
+        run: |
+          version=$(python -c "import sys; sys.path.insert(0, 'src'); import autocover; print(autocover.__version__)")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match __version__ $version"; exit 1
+          fi
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi        # must match the trusted publisher configured on pypi.org
+    permissions:
+      id-token: write        # lets PyPI verify this workflow; no token is stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
